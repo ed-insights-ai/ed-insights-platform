@@ -79,7 +79,7 @@ async def player_leaderboard(
     school: str | None = Query(None, description="School abbreviation"),
     season: int | None = Query(None, description="Season year"),
     sort: str = Query("goals", description="Sort by: goals, assists, shots, minutes"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):

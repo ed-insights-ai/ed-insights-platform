@@ -73,6 +73,21 @@ def _ensure_school(
     return cur.fetchone()[0]
 
 
+def _date_or_none(val) -> str | None:
+    """Return val if it looks like a date string, else None."""
+    if val is None:
+        return None
+    try:
+        if pd.isna(val):
+            return None
+    except (TypeError, ValueError):
+        pass
+    s = str(val).strip()
+    if not s or s.lower() in ("unknown", "nan", "none", "nat"):
+        return None
+    return s
+
+
 def _load_games(
     cur: psycopg2.extensions.cursor,
     df: pd.DataFrame,
@@ -107,7 +122,7 @@ def _load_games(
                 school_id,
                 int(row["season_year"]),
                 row.get("source_url"),
-                row.get("date"),
+                _date_or_none(row.get("date")),
                 row.get("venue"),
                 _int_or_none(row.get("attendance")),
                 row.get("home_team"),

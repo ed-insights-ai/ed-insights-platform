@@ -15,7 +15,7 @@ async def list_games(
     school: str | None = Query(None, description="School abbreviation (e.g. HU)"),
     school_id: int | None = Query(None, description="School ID (alternative to abbreviation)"),
     season: int | None = Query(None, description="Season year (e.g. 2024)"),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):

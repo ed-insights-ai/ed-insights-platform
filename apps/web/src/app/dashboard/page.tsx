@@ -93,7 +93,7 @@ export default function DashboardPage() {
     try {
       const [gamesRes, statsRes, playersRes, topPerformersRes] =
         await Promise.all([
-          getGames(abbr, yr, 200, 0),
+          getGames(abbr, yr, 100, 0),
           getTeamStats(abbr, yr),
           getPlayerLeaderboard(abbr, yr, "goals", 5, 0),
           getPlayerLeaderboard(abbr, yr, "goals", 3, 0),

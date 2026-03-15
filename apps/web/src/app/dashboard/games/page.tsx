@@ -71,7 +71,7 @@ export default function GamesPage() {
           getGames(abbr, yr, PAGE_SIZE, pg * PAGE_SIZE),
         ];
         if (refreshAll) {
-          requests.push(getGames(abbr, yr, 200, 0));
+          requests.push(getGames(abbr, yr, 100, 0));
         }
         const [pageResult, allResult] = await Promise.all(requests);
         setData(pageResult);
