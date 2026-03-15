@@ -69,6 +69,11 @@ class TeamGameStats(Base):
     game = relationship("Game", back_populates="team_stats")
     school = relationship("School")
 
+    __table_args__ = (
+        Index("idx_team_game_stats_school", "school_id"),
+        Index("idx_team_game_stats_game", "game_id"),
+    )
+
 
 class PlayerGameStats(Base):
     __tablename__ = "player_game_stats"
@@ -90,6 +95,11 @@ class PlayerGameStats(Base):
     game = relationship("Game", back_populates="player_stats")
     school = relationship("School")
 
+    __table_args__ = (
+        Index("idx_player_game_stats_school", "school_id"),
+        Index("idx_player_game_stats_game", "game_id"),
+    )
+
 
 class GameEvent(Base):
     __tablename__ = "game_events"
@@ -107,3 +117,8 @@ class GameEvent(Base):
 
     game = relationship("Game", back_populates="events")
     school = relationship("School")
+
+    __table_args__ = (
+        Index("idx_game_events_school", "school_id"),
+        Index("idx_game_events_game", "game_id"),
+    )
