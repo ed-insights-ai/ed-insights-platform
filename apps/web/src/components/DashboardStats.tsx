@@ -44,7 +44,7 @@ interface DashboardStatsProps {
 
 export function DashboardStats({
   school: controlledSchool,
-  season: _controlledSeason,
+  season: _season, // eslint-disable-line @typescript-eslint/no-unused-vars
   loading: controlledLoading,
   error: controlledError,
   topPlayers: controlledTopPlayers,

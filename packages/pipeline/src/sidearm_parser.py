@@ -27,7 +27,6 @@ from bs4 import BeautifulSoup
 from src.models import (
     Game,
     GameEvent,
-    ParsedGame,
     PlayerGameStats,
     TeamGameStats,
 )

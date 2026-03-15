@@ -132,6 +132,7 @@ export default function PlayersPage() {
   );
 
   const handleSelectionChange = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (abbr: string, yr: number, _schoolName: string) => {
       setSchool(abbr);
       setSeason(yr);
