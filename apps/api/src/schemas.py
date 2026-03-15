@@ -1,4 +1,7 @@
-from datetime import date
+from __future__ import annotations
+
+import datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -7,8 +10,8 @@ class SchoolResponse(BaseModel):
     id: int
     name: str
     abbreviation: str
-    conference: str | None = None
-    mascot: str | None = None
+    conference: Optional[str] = None
+    mascot: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -17,12 +20,12 @@ class GameSummary(BaseModel):
     game_id: int
     school_id: int
     season_year: int
-    date: date | None = None
-    venue: str | None = None
-    home_team: str | None = None
-    away_team: str | None = None
-    home_score: int | None = None
-    away_score: int | None = None
+    date: Optional[datetime.date] = None
+    venue: Optional[str] = None
+    home_team: Optional[str] = None
+    away_team: Optional[str] = None
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -31,13 +34,13 @@ class TeamGameStatsResponse(BaseModel):
     id: int
     game_id: int
     school_id: int
-    team: str | None = None
-    is_home: bool | None = None
-    shots: int | None = None
-    shots_on_goal: int | None = None
-    goals: int | None = None
-    corners: int | None = None
-    saves: int | None = None
+    team: Optional[str] = None
+    is_home: Optional[bool] = None
+    shots: Optional[int] = None
+    shots_on_goal: Optional[int] = None
+    goals: Optional[int] = None
+    corners: Optional[int] = None
+    saves: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -46,16 +49,16 @@ class PlayerGameStatsResponse(BaseModel):
     id: int
     game_id: int
     school_id: int
-    team: str | None = None
-    jersey_number: str | None = None
-    player_name: str | None = None
-    position: str | None = None
-    is_starter: bool | None = None
-    minutes: int | None = None
-    shots: int | None = None
-    shots_on_goal: int | None = None
-    goals: int | None = None
-    assists: int | None = None
+    team: Optional[str] = None
+    jersey_number: Optional[str] = None
+    player_name: Optional[str] = None
+    position: Optional[str] = None
+    is_starter: Optional[bool] = None
+    minutes: Optional[int] = None
+    shots: Optional[int] = None
+    shots_on_goal: Optional[int] = None
+    goals: Optional[int] = None
+    assists: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -64,13 +67,13 @@ class GameEventResponse(BaseModel):
     id: int
     game_id: int
     school_id: int
-    event_type: str | None = None
-    clock: str | None = None
-    team: str | None = None
-    player: str | None = None
-    assist1: str | None = None
-    assist2: str | None = None
-    description: str | None = None
+    event_type: Optional[str] = None
+    clock: Optional[str] = None
+    team: Optional[str] = None
+    player: Optional[str] = None
+    assist1: Optional[str] = None
+    assist2: Optional[str] = None
+    description: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -79,14 +82,14 @@ class GameDetail(BaseModel):
     game_id: int
     school_id: int
     season_year: int
-    source_url: str | None = None
-    date: date | None = None
-    venue: str | None = None
-    attendance: int | None = None
-    home_team: str | None = None
-    away_team: str | None = None
-    home_score: int | None = None
-    away_score: int | None = None
+    source_url: Optional[str] = None
+    date: Optional[datetime.date] = None
+    venue: Optional[str] = None
+    attendance: Optional[int] = None
+    home_team: Optional[str] = None
+    away_team: Optional[str] = None
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
     team_stats: list[TeamGameStatsResponse] = []
     player_stats: list[PlayerGameStatsResponse] = []
     events: list[GameEventResponse] = []

@@ -40,6 +40,21 @@ jobs:
       - run: uv run ruff check src/
       - run: uv run ruff format --check src/
 
+  api-test:
+    name: API – Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --group dev
+      - run: uv run pytest tests/ -v
+
   pipeline-lint:
     name: Pipeline – Lint & Test
     runs-on: ubuntu-latest
