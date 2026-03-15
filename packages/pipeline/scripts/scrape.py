@@ -12,6 +12,8 @@ from src.config import SchoolConfig, load_schools
 from src.discovery import discover_season_games
 from src.fetcher import GameFetcher
 from src.parser import log_parse_error, parse_game
+from src.sidearm_discovery import discover_sidearm_season
+from src.sidearm_parser import parse_sidearm_game
 from src.storage import merge_all_schools, merge_all_seasons, save_season
 
 console = Console()
@@ -27,7 +29,11 @@ def _scrape_season(
     progress: Progress,
 ) -> list[dict]:
     """Scrape a single season for a school, returning a list of parsed-game dicts."""
-    urls = discover_season_games(year, base_url_template=school.base_url, prefix=school.prefix)
+    if school.scraper == "sidearm":
+        urls = discover_sidearm_season(year, base_url=school.base_url)
+    else:
+        urls = discover_season_games(year, base_url_template=school.base_url, prefix=school.prefix)
+
     task = progress.add_task(f"[cyan]{school.abbreviation} {year}", total=len(urls))
     parsed: list[dict] = []
 
@@ -36,7 +42,10 @@ def _scrape_season(
         html: str | None = None
         try:
             html = fetcher.fetch(gu.url, year, gu.game_num, use_cache=use_cache)
-            result = parse_game(html, game_id, gu.url, year)
+            if school.scraper == "sidearm":
+                result = parse_sidearm_game(html, game_id, gu.url, year)
+            else:
+                result = parse_game(html, game_id, gu.url, year)
             parsed.append(result)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Error parsing game %s: %s", game_id, exc)
