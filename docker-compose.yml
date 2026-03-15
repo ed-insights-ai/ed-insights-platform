@@ -3,14 +3,12 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_API_URL: http://api:8000
     ports:
       - "3000:3000"
-    volumes:
-      - ./apps/web/src:/app/src
-    environment:
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      - NEXT_PUBLIC_API_URL=http://api:8000
     depends_on:
       - api
 
@@ -20,14 +18,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    volumes:
-      - ./apps/api/src:/app/src
     environment:
       - SUPABASE_URL=${SUPABASE_URL:-${NEXT_PUBLIC_SUPABASE_URL}}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres}
     depends_on:
-      - db
+      db:
+        condition: service_started
 
   db:
     image: postgres:15
