@@ -7,7 +7,7 @@ import type { School } from "@/lib/api";
 const SEASONS = Array.from({ length: 10 }, (_, i) => 2025 - i);
 
 interface SchoolSeasonSelectorProps {
-  onSelectionChange: (school: string, season: number) => void;
+  onSelectionChange: (school: string, season: number, schoolName: string) => void;
 }
 
 export function SchoolSeasonSelector({
@@ -23,7 +23,7 @@ export function SchoolSeasonSelector({
       setSchools(data);
       if (data.length > 0) {
         setSelectedSchool(data[0].abbreviation);
-        onSelectionChange(data[0].abbreviation, selectedSeason);
+        onSelectionChange(data[0].abbreviation, selectedSeason, data[0].name);
       }
       setLoading(false);
     });
@@ -32,12 +32,14 @@ export function SchoolSeasonSelector({
 
   const handleSchoolChange = (abbr: string) => {
     setSelectedSchool(abbr);
-    onSelectionChange(abbr, selectedSeason);
+    const schoolName = schools.find((s) => s.abbreviation === abbr)?.name ?? abbr;
+    onSelectionChange(abbr, selectedSeason, schoolName);
   };
 
   const handleSeasonChange = (season: number) => {
     setSelectedSeason(season);
-    onSelectionChange(selectedSchool, season);
+    const schoolName = schools.find((s) => s.abbreviation === selectedSchool)?.name ?? selectedSchool;
+    onSelectionChange(selectedSchool, season, schoolName);
   };
 
   if (loading) {

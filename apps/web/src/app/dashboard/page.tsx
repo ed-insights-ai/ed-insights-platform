@@ -31,11 +31,11 @@ interface PerGameData {
 
 function getResult(
   game: GameSummary,
-  schoolAbbr: string
+  schoolName: string
 ): { label: string; color: string } | null {
   if (game.home_score == null || game.away_score == null) return null;
   const isHome =
-    game.home_team?.toLowerCase().includes(schoolAbbr.toLowerCase()) ?? false;
+    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
   const schoolScore = isHome ? game.home_score : game.away_score;
   const opponentScore = isHome ? game.away_score : game.home_score;
   if (schoolScore > opponentScore)
@@ -45,9 +45,9 @@ function getResult(
   return { label: "D", color: "bg-yellow-100 text-yellow-800" };
 }
 
-function getOpponent(game: GameSummary, schoolAbbr: string): string {
+function getOpponent(game: GameSummary, schoolName: string): string {
   const isHome =
-    game.home_team?.toLowerCase().includes(schoolAbbr.toLowerCase()) ?? false;
+    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
   const opponent = isHome ? game.away_team : game.home_team;
   const prefix = isHome ? "vs" : "@";
   return `${prefix} ${opponent ?? "Unknown"}`;
@@ -69,6 +69,7 @@ function formatDate(dateStr: string | null): string {
 
 export default function DashboardPage() {
   const [school, setSchool] = useState("");
+  const [schoolName, setSchoolName] = useState("");
   const [season, setSeason] = useState(2025);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +87,7 @@ export default function DashboardPage() {
     PerGameData[]
   >([]);
 
-  const fetchData = useCallback(async (abbr: string, yr: number) => {
+  const fetchData = useCallback(async (abbr: string, yr: number, name: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -126,7 +127,7 @@ export default function DashboardPage() {
         .slice(0, 20)
         .map((g, i) => {
           const isHome =
-            g.home_team?.toLowerCase().includes(abbr.toLowerCase()) ?? false;
+            g.home_team?.toLowerCase().includes(name.toLowerCase()) ?? false;
           return {
             label: g.date
               ? new Date(g.date).toLocaleDateString("en-US", {
@@ -147,10 +148,11 @@ export default function DashboardPage() {
   }, []);
 
   const handleSelectionChange = useCallback(
-    (abbr: string, yr: number) => {
+    (abbr: string, yr: number, name: string) => {
       setSchool(abbr);
+      setSchoolName(name);
       setSeason(yr);
-      fetchData(abbr, yr);
+      fetchData(abbr, yr, name);
     },
     [fetchData]
   );
@@ -158,7 +160,7 @@ export default function DashboardPage() {
   // Compute W-L-D record
   const record = { w: 0, l: 0, d: 0 };
   for (const game of allGames) {
-    const r = getResult(game, school);
+    const r = getResult(game, schoolName);
     if (r?.label === "W") record.w++;
     else if (r?.label === "L") record.l++;
     else if (r?.label === "D") record.d++;
@@ -259,7 +261,7 @@ export default function DashboardPage() {
               {recentGames.length > 0 ? (
                 <div className="space-y-3">
                   {recentGames.map((game) => {
-                    const result = getResult(game, school);
+                    const result = getResult(game, schoolName);
                     return (
                       <Link
                         key={game.game_id}
@@ -276,7 +278,7 @@ export default function DashboardPage() {
                           )}
                           <div>
                             <p className="text-sm font-semibold text-primary-900 dark:text-white">
-                              {getOpponent(game, school)}
+                              {getOpponent(game, schoolName)}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {formatDate(game.date)}

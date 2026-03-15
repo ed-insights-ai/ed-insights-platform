@@ -37,6 +37,7 @@ interface ScorerData {
 
 export default function AnalyticsPage() {
   const [school, setSchool] = useState("");
+  const [schoolName, setSchoolName] = useState("");
   const [season, setSeason] = useState(2025);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export default function AnalyticsPage() {
   const [funnelData, setFunnelData] = useState<FunnelPoint[]>([]);
   const [scorerData, setScorerData] = useState<ScorerData[]>([]);
 
-  const fetchData = useCallback(async (abbr: string, yr: number) => {
+  const fetchData = useCallback(async (abbr: string, yr: number, name: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -63,7 +64,7 @@ export default function AnalyticsPage() {
         );
 
       const trend: TrendPoint[] = games.map((g: GameSummary, i: number) => {
-        const isHome = g.home_team?.toUpperCase().includes(abbr.toUpperCase());
+        const isHome = g.home_team?.toLowerCase().includes(name.toLowerCase());
         return {
           label: `G${i + 1}`,
           goals_for: isHome ? (g.home_score ?? 0) : (g.away_score ?? 0),
@@ -98,16 +99,17 @@ export default function AnalyticsPage() {
   }, []);
 
   const handleSelectionChange = useCallback(
-    (abbr: string, yr: number) => {
+    (abbr: string, yr: number, name: string) => {
       setSchool(abbr);
+      setSchoolName(name);
       setSeason(yr);
-      fetchData(abbr, yr);
+      fetchData(abbr, yr, name);
     },
     [fetchData]
   );
 
   useEffect(() => {
-    if (school) fetchData(school, season);
+    if (school && schoolName) fetchData(school, season, schoolName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

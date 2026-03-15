@@ -64,7 +64,7 @@ export default function TeamsPage() {
   }, []);
 
   const handleSelectionChange = useCallback(
-    (abbr: string, yr: number) => {
+    (abbr: string, yr: number, _name: string) => {
       setSchool(abbr);
       setSeason(yr);
       fetchData(abbr, yr);

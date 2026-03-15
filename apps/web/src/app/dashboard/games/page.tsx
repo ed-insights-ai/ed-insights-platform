@@ -12,12 +12,12 @@ const PAGE_SIZE = 20;
 
 function getResult(
   game: GameSummary,
-  schoolAbbr: string
+  schoolName: string
 ): { label: string; color: string } | null {
   if (game.home_score == null || game.away_score == null) return null;
 
   const isHome =
-    game.home_team?.toLowerCase().includes(schoolAbbr.toLowerCase()) ?? false;
+    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
   const schoolScore = isHome ? game.home_score : game.away_score;
   const opponentScore = isHome ? game.away_score : game.home_score;
 
@@ -28,9 +28,9 @@ function getResult(
   return { label: "D", color: "bg-yellow-100 text-yellow-800" };
 }
 
-function getOpponent(game: GameSummary, schoolAbbr: string): string {
+function getOpponent(game: GameSummary, schoolName: string): string {
   const isHome =
-    game.home_team?.toLowerCase().includes(schoolAbbr.toLowerCase()) ?? false;
+    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
   const opponent = isHome ? game.away_team : game.home_team;
   const prefix = isHome ? "vs" : "@";
   return `${prefix} ${opponent ?? "Unknown"}`;
@@ -58,6 +58,7 @@ export default function GamesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [school, setSchool] = useState("");
+  const [schoolName, setSchoolName] = useState("");
   const [season, setSeason] = useState(0);
   const [page, setPage] = useState(0);
 
@@ -85,8 +86,9 @@ export default function GamesPage() {
   );
 
   const handleSelectionChange = useCallback(
-    (abbr: string, yr: number) => {
+    (abbr: string, yr: number, name: string) => {
       setSchool(abbr);
+      setSchoolName(name);
       setSeason(yr);
       setPage(0);
       fetchGames(abbr, yr, 0, true);
@@ -107,7 +109,7 @@ export default function GamesPage() {
   // Compute full season record from all games
   const record = { w: 0, l: 0, d: 0 };
   for (const game of allGames) {
-    const r = getResult(game, school);
+    const r = getResult(game, schoolName);
     if (r?.label === "W") record.w++;
     else if (r?.label === "L") record.l++;
     else if (r?.label === "D") record.d++;
@@ -175,7 +177,7 @@ export default function GamesPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {data.items.map((game) => {
-                const result = getResult(game, school);
+                const result = getResult(game, schoolName);
                 return (
                   <Link
                     key={game.game_id}
@@ -197,7 +199,7 @@ export default function GamesPage() {
                     </div>
 
                     <p className="mt-2 text-base font-semibold text-primary-900 group-hover:text-primary-700">
-                      {getOpponent(game, school)}
+                      {getOpponent(game, schoolName)}
                     </p>
 
                     <p className="mt-1 text-xl font-bold text-primary-900">

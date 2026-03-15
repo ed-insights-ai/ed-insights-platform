@@ -54,6 +54,7 @@ export function DashboardStats({
   const isControlled = controlledSchool !== undefined;
 
   const [ownSchool, setOwnSchool] = useState("");
+  const [ownSchoolName, setOwnSchoolName] = useState("");
   const [ownSeason, setOwnSeason] = useState(2025);
   const [ownLoading, setOwnLoading] = useState(true);
   const [ownError, setOwnError] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function DashboardStats({
   const gamePerformance = isControlled ? (controlledGamePerformance ?? []) : ownGamePerformance;
   const teamStats = isControlled ? (controlledTeamStats ?? null) : ownTeamStats;
 
-  const fetchData = useCallback(async (abbr: string, yr: number) => {
+  const fetchData = useCallback(async (abbr: string, yr: number, name: string) => {
     setOwnLoading(true);
     setOwnError(null);
     try {
@@ -94,7 +95,7 @@ export function DashboardStats({
         .slice(0, 20)
         .map((g: GameSummary, i: number) => {
           const isHome =
-            g.home_team?.toLowerCase().includes("harding") ?? false;
+            g.home_team?.toLowerCase().includes(name.toLowerCase()) ?? false;
           return {
             label: g.date
               ? new Date(g.date).toLocaleDateString("en-US", {
@@ -117,16 +118,17 @@ export function DashboardStats({
   }, []);
 
   const handleSelectionChange = useCallback(
-    (abbr: string, yr: number) => {
+    (abbr: string, yr: number, name: string) => {
       setOwnSchool(abbr);
+      setOwnSchoolName(name);
       setOwnSeason(yr);
-      fetchData(abbr, yr);
+      fetchData(abbr, yr, name);
     },
     [fetchData]
   );
 
   useEffect(() => {
-    if (!isControlled && ownSchool) fetchData(ownSchool, ownSeason);
+    if (!isControlled && ownSchool && ownSchoolName) fetchData(ownSchool, ownSeason, ownSchoolName);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
