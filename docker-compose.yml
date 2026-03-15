@@ -19,7 +19,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/postgres}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://postgres:postgres@db:5432/postgres}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://web:3000}
     depends_on:
       db:
