@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import desc, func, literal_column
+from sqlalchemy import case, desc, func, literal_column
 from sqlalchemy.orm import Session
 
 from src.database import get_db
@@ -15,10 +15,15 @@ def team_stats(
     season: int | None = Query(None, description="Season year"),
     db: Session = Depends(get_db),
 ):
+    # Join Game to access season_year and to filter own-team stats.
+    # Each game produces TWO team_game_stats rows (home + away); we must
+    # only include the row that matches the school's own team by comparing
+    # TeamGameStats.team to Game.home_team (when is_home) or away_team.
     query = (
         db.query(
             TeamGameStats.school_id,
             School.name.label("school_name"),
+            Game.season_year,
             func.count(func.distinct(TeamGameStats.game_id)).label("games_played"),
             func.coalesce(func.sum(TeamGameStats.goals), 0).label("total_goals"),
             func.coalesce(func.sum(TeamGameStats.shots), 0).label("total_shots"),
@@ -27,6 +32,16 @@ def team_stats(
             func.coalesce(func.sum(TeamGameStats.saves), 0).label("total_saves"),
         )
         .join(School, TeamGameStats.school_id == School.id)
+        .join(Game, TeamGameStats.game_id == Game.game_id)
+        .filter(
+            # Only include the school's own team row, not the opponent's.
+            # The school's team is home_team when is_home=True, away_team otherwise.
+            TeamGameStats.team
+            == case(
+                (TeamGameStats.is_home == True, Game.home_team),  # noqa: E712
+                else_=Game.away_team,
+            )
+        )
     )
 
     if school:
@@ -36,11 +51,9 @@ def team_stats(
         query = query.filter(TeamGameStats.school_id == school_row.id)
 
     if season:
-        query = query.join(Game, TeamGameStats.game_id == Game.game_id).filter(
-            Game.season_year == season
-        )
+        query = query.filter(Game.season_year == season)
 
-    query = query.group_by(TeamGameStats.school_id, School.name)
+    query = query.group_by(TeamGameStats.school_id, School.name, Game.season_year)
 
     rows = query.all()
 
@@ -48,7 +61,7 @@ def team_stats(
         TeamStatsAggregation(
             school_id=r.school_id,
             school_name=r.school_name,
-            season_year=season or 0,
+            season_year=r.season_year,
             games_played=r.games_played,
             total_goals=r.total_goals,
             total_shots=r.total_shots,
