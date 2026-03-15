@@ -13,6 +13,7 @@ from src.sidearm_parser import (
 )
 
 FIXTURE = Path("tests/fixtures/sidearm_boxscore_6126.html")
+FIXTURE_2016 = Path("tests/fixtures/sidearm_boxscore_2439_2016.html")
 
 
 @pytest.fixture
@@ -146,3 +147,50 @@ class TestParseGame:
             return int(parts[0]) * 60 + int(parts[1])
         secs = [to_sec(t) for t in times]
         assert secs == sorted(secs)
+
+
+class TestParseGame2016:
+    """Test parsing a 2016 SideArm box score with different table layout."""
+
+    @pytest.fixture
+    def parsed_game_2016(self):
+        html = FIXTURE_2016.read_text(encoding="utf-8")
+        return parse_sidearm_game(html, game_id=320160, source_url="http://test/2439", season_year=2016)
+
+    def test_game_metadata(self, parsed_game_2016):
+        game = parsed_game_2016["game"]
+        assert game.game_id == 320160
+        assert game.season_year == 2016
+        assert game.date == "9/6/2016"
+        assert game.home_score == 0
+        assert game.away_score == 2
+
+    def test_teams_identified(self, parsed_game_2016):
+        game = parsed_game_2016["game"]
+        # In 2016 fixture, Dallas Baptist is listed first (away), Ouachita second (home)
+        assert "Dallas Baptist" in game.home_team or "Dallas Baptist" in game.away_team
+        assert "Ouachita" in game.home_team or "Ouachita" in game.away_team
+
+    def test_player_stats_found(self, parsed_game_2016):
+        players = parsed_game_2016["player_stats"]
+        assert len(players) >= 20  # Both teams should have players
+
+    def test_player_names_normalized(self, parsed_game_2016):
+        players = parsed_game_2016["player_stats"]
+        names = [p.player_name for p in players]
+        # 2016 fixture has "Tyler Hoffman" (already First Last in the raw data)
+        assert "Tyler Hoffman" in names
+
+    def test_goal_events(self, parsed_game_2016):
+        goals = [e for e in parsed_game_2016["events"] if e.event_type == "goal"]
+        assert len(goals) == 2
+
+    def test_no_cautions_graceful(self, parsed_game_2016):
+        """2016 fixture has no cautions table — parser should handle gracefully."""
+        # Should not crash; cards list may be empty
+        cards = [e for e in parsed_game_2016["events"] if "card" in e.event_type]
+        assert isinstance(cards, list)
+
+    def test_team_stats(self, parsed_game_2016):
+        team_stats = parsed_game_2016["team_stats"]
+        assert len(team_stats) == 2

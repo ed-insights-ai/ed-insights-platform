@@ -1,6 +1,6 @@
 """SideArm Sports box score parser — static HTML tables.
 
-SideArm box scores contain 10 tables:
+Modern SideArm box scores (2020+) typically contain 10 tables:
   0: Score by period (Team | 1 | 2 | Total)
   1: Scoring summary (Time | Team | Description)
   2: Cautions/ejections (Time | Team | Type | Player)
@@ -10,6 +10,9 @@ SideArm box scores contain 10 tables:
   6: Away player stats
   7: Away goalie stats
   8-9: Play-by-play (not used for structured data)
+
+Older layouts (pre-2020) may omit the cautions table or reorder tables.
+Tables are identified by column signatures rather than hardcoded indexes.
 """
 
 from __future__ import annotations
@@ -31,6 +34,49 @@ from src.models import (
 from src.parser import safe_int
 
 logger = logging.getLogger(__name__)
+
+# Column signatures for table identification
+_PLAYER_COLS = {"Pos", "#", "Player", "SH", "SOG", "G", "A", "MIN"}
+_GOALIE_COLS = {"Position", "#", "Goalie", "Minutes", "GA", "Saves"}
+_SCORING_COLS = {"Time", "Team", "Description"}
+
+
+def _classify_tables(tables: list[pd.DataFrame]) -> dict:
+    """Identify SideArm tables by column headers instead of hardcoded indexes.
+
+    Returns a dict with keys: score, scoring_summary, cautions, team_stats,
+    player_stats (list of 2), goalie_stats (list of 2).
+    """
+    result: dict = {
+        "score": None,
+        "scoring_summary": None,
+        "cautions": None,
+        "team_stats": None,
+        "player_stats": [],
+        "goalie_stats": [],
+    }
+
+    for i, df in enumerate(tables):
+        cols = set(str(c) for c in df.columns)
+
+        if cols >= _PLAYER_COLS and len(result["player_stats"]) < 2:
+            result["player_stats"].append(df)
+        elif cols >= _GOALIE_COLS and len(result["goalie_stats"]) < 2:
+            result["goalie_stats"].append(df)
+        elif cols >= _SCORING_COLS and result["scoring_summary"] is None:
+            result["scoring_summary"] = df
+        elif "Statistic" in cols and result["team_stats"] is None:
+            result["team_stats"] = df
+        elif "Team" in cols and result["score"] is None and i == 0:
+            result["score"] = df
+        elif (
+            result["cautions"] is None
+            and df.shape[1] == 4
+            and "Type" in cols
+        ):
+            result["cautions"] = df
+
+    return result
 
 
 def _normalize_name(name: str) -> str:
@@ -171,7 +217,7 @@ def _parse_player_table(
             continue
 
         # Skip totals row
-        if player_raw.lower() == "totals" or pos_raw.lower() == "nan":
+        if player_raw.lower() == "totals":
             continue
 
         jersey = safe_int(row.iloc[1])
@@ -334,8 +380,10 @@ def parse_sidearm_game(
     if len(tables) < 7:
         raise ValueError(f"Expected ≥7 tables in SideArm box score, found {len(tables)}")
 
-    # Table 0: score by period → team names and final score
-    score_info = _parse_score_table(tables[0])
+    classified = _classify_tables(tables)
+
+    # Score table (always table 0) → team names and final score
+    score_info = _parse_score_table(classified["score"] if classified["score"] is not None else tables[0])
     home_team = score_info["home_team"] or "Unknown"
     away_team = score_info["away_team"] or "Unknown"
     home_abbrev = score_info["home_abbrev"] or ""
@@ -351,19 +399,30 @@ def parse_sidearm_game(
     # Header metadata (date, venue, attendance)
     metadata = _parse_header_metadata(html)
 
-    # Table 3: team stats
-    team_stats_raw = _parse_team_stats_table(tables[3])
+    # Team stats — identified by 'Statistic' column
+    team_stats_raw: dict[str, dict] = {}
+    if classified["team_stats"] is not None:
+        team_stats_raw = _parse_team_stats_table(classified["team_stats"])
 
-    # Table 4: home player stats, Table 6: away player stats
-    home_players = _parse_player_table(tables[4], home_team, game_id, season_year)
-    away_players = _parse_player_table(tables[6], away_team, game_id, season_year)
-    player_stats = home_players + away_players
+    # Player stats — identified by column signature
+    player_stats: list[PlayerGameStats] = []
+    if len(classified["player_stats"]) >= 2:
+        home_players = _parse_player_table(classified["player_stats"][0], home_team, game_id, season_year)
+        away_players = _parse_player_table(classified["player_stats"][1], away_team, game_id, season_year)
+        player_stats = home_players + away_players
+    elif len(classified["player_stats"]) == 1:
+        logger.warning("Only found 1 player stats table for game %s", game_id)
+        player_stats = _parse_player_table(classified["player_stats"][0], home_team, game_id, season_year)
 
-    # Table 1: scoring summary → goal events
-    goal_events = _parse_scoring_summary(tables[1], game_id, season_year, abbrev_to_name)
+    # Scoring summary → goal events
+    goal_events: list[GameEvent] = []
+    if classified["scoring_summary"] is not None:
+        goal_events = _parse_scoring_summary(classified["scoring_summary"], game_id, season_year, abbrev_to_name)
 
-    # Table 2: cautions → card events
-    card_events = _parse_cautions_table(tables[2], game_id, season_year, abbrev_to_name)
+    # Cautions → card events (may be absent in older layouts)
+    card_events: list[GameEvent] = []
+    if classified["cautions"] is not None:
+        card_events = _parse_cautions_table(classified["cautions"], game_id, season_year, abbrev_to_name)
 
     events = goal_events + card_events
 
