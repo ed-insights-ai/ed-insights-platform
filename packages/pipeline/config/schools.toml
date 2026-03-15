@@ -31,7 +31,7 @@ conference    = "GAC"
 mascot        = "Tigers"
 prefix        = "obu"
 base_url      = "https://obutigers.com/sports/mens-soccer"
-years         = [2024, 2025]
+years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
 enabled       = true
 scraper       = "sidearm"
 
@@ -42,10 +42,9 @@ conference    = "GAC"
 mascot        = "Tigers"
 prefix        = "obu"
 base_url      = "https://obutigers.com/sports/womens-soccer"
-years         = [2024, 2025]
-enabled       = false
+years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+enabled       = true
 scraper       = "sidearm"
-notes         = "Enable after men's confirmed working."
 
 [[schools]]
 name          = "Fort Hays State"
