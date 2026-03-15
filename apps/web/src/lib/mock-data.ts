@@ -1,4 +1,5 @@
-// Mock NCAA D2 soccer data for platform preview
+// DEPRECATED: use src/lib/api.ts for real data
+// Mock NCAA D2 soccer data for platform preview (kept as fallback)
 
 export const topTeamsByGoals = [
   { team: "Thunder FC", goals: 48 },

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BarChart,
@@ -20,8 +21,25 @@ import {
   seasonPerformance,
   platformStats,
 } from "@/lib/mock-data";
+import { getSchools } from "@/lib/api";
 
 export function StatsPreview() {
+  const [schoolCount, setSchoolCount] = useState<number>(2);
+
+  useEffect(() => {
+    getSchools().then((schools) => {
+      if (schools.length > 0) {
+        setSchoolCount(schools.length);
+      }
+    });
+  }, []);
+
+  const stats = platformStats.map((stat) =>
+    stat.label === "Total Teams"
+      ? { ...stat, label: "Partner Schools", value: String(schoolCount) }
+      : stat
+  );
+
   return (
     <section className="py-20 dark:bg-gray-900">
       <div className="container mx-auto px-4">
@@ -103,7 +121,7 @@ export function StatsPreview() {
 
         {/* Stats summary row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          {platformStats.map((stat) => (
+          {stats.map((stat) => (
             <div
               key={stat.label}
               className="rounded-xl border bg-card p-6 text-center dark:border-gray-700"
