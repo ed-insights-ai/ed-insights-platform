@@ -27,12 +27,18 @@ def _build_event_id(row: pd.Series) -> str:
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 
-def save_season(parsed_games: list[dict], year: int) -> Path:
+def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") -> Path:
     """Write ``games.parquet``, ``player_stats.parquet``, ``events.parquet`` for *year*.
+
+    When *school_abbrev* is provided, output is namespaced under
+    ``data/structured/{abbrev}/{year}/`` to avoid collisions between schools.
 
     Returns the output directory path.
     """
-    out = Path("data/structured") / str(year)
+    if school_abbrev:
+        out = Path("data/structured") / school_abbrev.lower() / str(year)
+    else:
+        out = Path("data/structured") / str(year)
     out.mkdir(parents=True, exist_ok=True)
 
     games = [asdict(g["game"]) for g in parsed_games]
@@ -64,15 +70,24 @@ def save_season(parsed_games: list[dict], year: int) -> Path:
     return out
 
 
-def merge_all_seasons(years: list[int]) -> Path:
-    """Read per-season parquets, concatenate, and write to ``data/structured/all/``."""
-    out = Path("data/structured/all")
+def merge_all_seasons(years: list[int], school_abbrev: str = "") -> Path:
+    """Read per-season parquets, concatenate, and write merged files.
+
+    When *school_abbrev* is provided, reads from ``data/structured/{abbrev}/{year}/``
+    and writes to ``data/structured/{abbrev}/all/``.
+    """
+    if school_abbrev:
+        base = Path("data/structured") / school_abbrev.lower()
+        out = base / "all"
+    else:
+        base = Path("data/structured")
+        out = base / "all"
     out.mkdir(parents=True, exist_ok=True)
 
     for kind in ("games", "player_stats", "events", "team_stats"):
         frames: list[pd.DataFrame] = []
         for year in years:
-            path = Path("data/structured") / str(year) / f"{kind}.parquet"
+            path = base / str(year) / f"{kind}.parquet"
             if path.exists():
                 frames.append(pd.read_parquet(path))
         if frames:
@@ -81,5 +96,37 @@ def merge_all_seasons(years: list[int]) -> Path:
                 merged = merged.drop_duplicates(subset=["event_id"])
             merged.to_parquet(out / f"{kind}.parquet", index=False)
             logger.info("Merged %s: %d rows across %d seasons", kind, len(merged), len(frames))
+
+    return out
+
+
+def merge_all_schools() -> Path:
+    """Merge parquets across all schools into ``data/structured/all/``."""
+    out = Path("data/structured/all")
+    out.mkdir(parents=True, exist_ok=True)
+
+    base = Path("data/structured")
+    for kind in ("games", "player_stats", "events", "team_stats"):
+        frames: list[pd.DataFrame] = []
+        # Walk school dirs (skip 'all' dir)
+        for school_dir in sorted(base.iterdir()):
+            if not school_dir.is_dir() or school_dir.name == "all":
+                continue
+            school_all = school_dir / "all" / f"{kind}.parquet"
+            if school_all.exists():
+                frames.append(pd.read_parquet(school_all))
+            else:
+                # Fallback: gather per-year files
+                for year_dir in sorted(school_dir.iterdir()):
+                    if year_dir.is_dir() and year_dir.name != "all":
+                        path = year_dir / f"{kind}.parquet"
+                        if path.exists():
+                            frames.append(pd.read_parquet(path))
+        if frames:
+            merged = pd.concat(frames, ignore_index=True)
+            if kind == "events" and "event_id" in merged.columns:
+                merged = merged.drop_duplicates(subset=["event_id"])
+            merged.to_parquet(out / f"{kind}.parquet", index=False)
+            logger.info("Merged all schools %s: %d rows", kind, len(merged))
 
     return out

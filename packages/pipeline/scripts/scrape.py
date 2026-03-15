@@ -12,7 +12,7 @@ from src.config import SchoolConfig, load_schools
 from src.discovery import discover_season_games
 from src.fetcher import GameFetcher
 from src.parser import log_parse_error, parse_game
-from src.storage import merge_all_seasons, save_season
+from src.storage import merge_all_schools, merge_all_seasons, save_season
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -83,14 +83,19 @@ def main() -> None:
                     year, school, fetcher, use_cache=not args.no_cache, progress=progress
                 )
                 if parsed:
-                    save_season(parsed, year)
+                    save_season(parsed, year, school_abbrev=school.abbreviation)
                     console.print(f"  [green]Saved {len(parsed)} games for {year}")
                 else:
                     console.print(f"  [yellow]No games found for {year}")
 
             if len(years) > 1:
-                merge_all_seasons(years)
+                merge_all_seasons(years, school_abbrev=school.abbreviation)
                 console.print(f"[bold green]Merged {school.name} seasons.")
+
+    # Final cross-school merge
+    if len(enabled) > 1:
+        merge_all_schools()
+        console.print("[bold green]Merged all schools into data/structured/all/")
 
 
 if __name__ == "__main__":
