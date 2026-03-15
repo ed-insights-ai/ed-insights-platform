@@ -170,6 +170,32 @@ export async function getGameDetail(
   }
 }
 
+export async function getGamesBySchoolId(
+  schoolId: number,
+  season?: number,
+  limit = 100,
+  offset = 0
+): Promise<PaginatedGames> {
+  try {
+    const params = new URLSearchParams({
+      school_id: String(schoolId),
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (season != null) {
+      params.set("season", String(season));
+    }
+    const res = await fetch(`${API_BASE_URL}/api/games?${params}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch games by school ID: ${res.status}`);
+    }
+    return (await res.json()) as PaginatedGames;
+  } catch (error) {
+    console.error("Error fetching games by school ID:", error);
+    return { items: [], total: 0, limit, offset };
+  }
+}
+
 export async function getTeamStats(
   school: string,
   season: number

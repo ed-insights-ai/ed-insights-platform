@@ -20,10 +20,13 @@ import {
   MapPin,
   Users,
   Clock,
+  Trophy,
+  History,
 } from "lucide-react";
-import { getGameDetail } from "@/lib/api";
+import { getGameDetail, getGamesBySchoolId } from "@/lib/api";
 import type {
   GameDetail,
+  GameSummary,
   TeamGameStatsResponse,
   PlayerGameStatsResponse,
   GameEventResponse,
@@ -237,11 +240,177 @@ function EventsTimeline({ events }: { events: GameEventResponse[] }) {
   );
 }
 
+interface SeasonRecord {
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+function computeSeasonRecord(
+  game: GameDetail,
+  seasonGames: GameSummary[]
+): SeasonRecord {
+  const record: SeasonRecord = { wins: 0, losses: 0, draws: 0 };
+  if (!game.date) return record;
+
+  const gameDate = new Date(game.date);
+  const teamName = game.home_team ?? game.away_team;
+
+  for (const g of seasonGames) {
+    if (g.game_id === game.game_id) continue;
+    if (!g.date) continue;
+    if (new Date(g.date) >= gameDate) continue;
+
+    const isHome = g.home_team === teamName;
+    const teamScore = isHome ? g.home_score : g.away_score;
+    const oppScore = isHome ? g.away_score : g.home_score;
+
+    if (teamScore == null || oppScore == null) continue;
+    if (teamScore > oppScore) record.wins++;
+    else if (teamScore < oppScore) record.losses++;
+    else record.draws++;
+  }
+
+  return record;
+}
+
+function findHeadToHead(
+  game: GameDetail,
+  allGames: GameSummary[]
+): GameSummary[] {
+  const opponent =
+    game.home_team && game.away_team
+      ? game.away_team
+      : null;
+  if (!opponent) return [];
+
+  const homeTeam = game.home_team;
+
+  return allGames
+    .filter((g) => {
+      if (g.game_id === game.game_id) return false;
+      return (
+        (g.home_team === homeTeam && g.away_team === opponent) ||
+        (g.home_team === opponent && g.away_team === homeTeam)
+      );
+    })
+    .sort((a, b) => {
+      if (!a.date || !b.date) return 0;
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+}
+
+function formatShortDate(dateStr: string | null): string {
+  if (!dateStr) return "TBD";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function SeasonRecordBadge({ record }: { record: SeasonRecord }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-3 py-1 text-xs font-medium">
+      <Trophy className="h-3 w-3" />
+      <span className="text-green-700">{record.wins}W</span>
+      <span className="text-muted-foreground">–</span>
+      <span className="text-red-700">{record.losses}L</span>
+      {record.draws > 0 && (
+        <>
+          <span className="text-muted-foreground">–</span>
+          <span className="text-amber-700">{record.draws}D</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function HeadToHeadSection({
+  matches,
+  homeTeam,
+}: {
+  matches: GameSummary[];
+  homeTeam: string | null;
+}) {
+  if (matches.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border bg-card p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <History className="h-5 w-5 text-primary-900" />
+        <h3 className="text-lg font-semibold text-primary-900">
+          Head-to-Head History
+        </h3>
+        <span className="text-xs text-muted-foreground">
+          ({matches.length} previous {matches.length === 1 ? "meeting" : "meetings"})
+        </span>
+      </div>
+      <div className="space-y-2">
+        {matches.slice(0, 10).map((m) => {
+          const isHome = m.home_team === homeTeam;
+          const teamScore = isHome ? m.home_score : m.away_score;
+          const oppScore = isHome ? m.away_score : m.home_score;
+          const result =
+            teamScore != null && oppScore != null
+              ? teamScore > oppScore
+                ? "W"
+                : teamScore < oppScore
+                ? "L"
+                : "D"
+              : "—";
+          const resultColor =
+            result === "W"
+              ? "text-green-700 bg-green-50"
+              : result === "L"
+              ? "text-red-700 bg-red-50"
+              : result === "D"
+              ? "text-amber-700 bg-amber-50"
+              : "text-muted-foreground bg-muted/30";
+
+          return (
+            <div
+              key={m.game_id}
+              className="flex items-center justify-between rounded-lg border px-4 py-2 text-sm"
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded text-xs font-bold ${resultColor}`}
+                >
+                  {result}
+                </span>
+                <span className="text-muted-foreground">
+                  {formatShortDate(m.date)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {m.home_team}
+                  {isHome ? "" : " (A)"}
+                </span>
+                <span className="font-semibold">
+                  {m.home_score ?? 0} – {m.away_score ?? 0}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {m.away_team}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function GameDetailPage() {
   const params = useParams();
   const gameId = Number(params.id);
 
   const [game, setGame] = useState<GameDetail | null>(null);
+  const [seasonGames, setSeasonGames] = useState<GameSummary[]>([]);
+  const [allSchoolGames, setAllSchoolGames] = useState<GameSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -259,9 +428,18 @@ export default function GameDetailPage() {
         if (cancelled) return;
         if (!detail) {
           setError("Game not found.");
-        } else {
-          setGame(detail);
+          return;
         }
+        setGame(detail);
+
+        // Fetch season games and all games for head-to-head in parallel
+        const [seasonResult, allResult] = await Promise.all([
+          getGamesBySchoolId(detail.school_id, detail.season_year),
+          getGamesBySchoolId(detail.school_id),
+        ]);
+        if (cancelled) return;
+        setSeasonGames(seasonResult.items);
+        setAllSchoolGames(allResult.items);
       } catch {
         if (!cancelled) setError("Failed to load game details.");
       } finally {
@@ -306,6 +484,8 @@ export default function GameDetailPage() {
     game.player_stats,
     game
   );
+  const seasonRecord = computeSeasonRecord(game, seasonGames);
+  const headToHead = findHeadToHead(game, allSchoolGames);
 
   return (
     <div className="space-y-6">
@@ -339,6 +519,13 @@ export default function GameDetailPage() {
             <p className="text-xs text-muted-foreground">Away</p>
           </div>
         </div>
+
+        {/* Season record */}
+        {(seasonRecord.wins > 0 || seasonRecord.losses > 0 || seasonRecord.draws > 0) && (
+          <div className="mt-3 flex justify-center">
+            <SeasonRecordBadge record={seasonRecord} />
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
@@ -396,6 +583,9 @@ export default function GameDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Head-to-head history */}
+      <HeadToHeadSection matches={headToHead} homeTeam={game.home_team} />
 
       {/* Player stats tables */}
       {(homePlayers.length > 0 || awayPlayers.length > 0) && (

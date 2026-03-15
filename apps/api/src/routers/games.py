@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api")
 @router.get("/games", response_model=PaginatedGames)
 def list_games(
     school: str | None = Query(None, description="School abbreviation (e.g. HU)"),
+    school_id: int | None = Query(None, description="School ID (alternative to abbreviation)"),
     season: int | None = Query(None, description="Season year (e.g. 2024)"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -25,6 +26,8 @@ def list_games(
         if not school_row:
             raise HTTPException(status_code=404, detail=f"School '{school}' not found")
         query = query.filter(Game.school_id == school_row.id)
+    elif school_id:
+        query = query.filter(Game.school_id == school_id)
 
     if season:
         query = query.filter(Game.season_year == season)
