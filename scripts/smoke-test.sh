@@ -16,10 +16,10 @@ check() {
   shift
   if "$@" >/dev/null 2>&1; then
     printf "${GREEN}PASS${RESET}  %s\n" "$name"
-    ((pass++))
+    (( pass++ )) || true
   else
     printf "${RED}FAIL${RESET}  %s\n" "$name"
-    ((fail++))
+    (( fail++ )) || true
   fi
 }
 

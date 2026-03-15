@@ -43,7 +43,7 @@ make up
 | `make up` | Start all services in the background |
 | `make down` | Stop all services |
 | `make logs` | Tail logs from all services |
-| `make reset` | Tear down (including volumes) and rebuild |
+| `make reset` | Tear down (including volumes) and restart |
 | `make ps` | Show running containers |
 | `make migrate` | Run Alembic migrations inside the API container |
 
@@ -64,7 +64,7 @@ The web app runs on [http://localhost:3000](http://localhost:3000) with routes f
 ```bash
 cd apps/api
 uv sync
-uvicorn src.main:app --reload --port 8000
+uv run uvicorn src.main:app --reload --port 8000
 ```
 
 The API runs on [http://localhost:8000](http://localhost:8000) with interactive docs at `/docs`.
