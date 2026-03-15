@@ -1,11 +1,16 @@
-def test_list_schools_empty(client):
-    resp = client.get("/api/schools")
+import pytest
+
+
+@pytest.mark.anyio
+async def test_list_schools_empty(client):
+    resp = await client.get("/api/schools")
     assert resp.status_code == 200
     assert resp.json() == []
 
 
-def test_list_schools(client, seed_schools):
-    resp = client.get("/api/schools")
+@pytest.mark.anyio
+async def test_list_schools(client, seed_schools):
+    resp = await client.get("/api/schools")
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2

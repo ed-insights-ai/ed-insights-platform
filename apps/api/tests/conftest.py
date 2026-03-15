@@ -1,16 +1,20 @@
 import os
 
 # Set DATABASE_URL before any src imports so the module-level engine in
-# src/database.py doesn't choke on an empty string.
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+# src/database.py doesn't try to connect to a real database.
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from datetime import date  # noqa: E402
 
 import pytest  # noqa: E402
-from sqlalchemy import create_engine, event  # noqa: E402
-from sqlalchemy.orm import sessionmaker  # noqa: E402
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import event  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool  # noqa: E402
-from starlette.testclient import TestClient  # noqa: E402
 
 from src.database import get_db  # noqa: E402
 from src.main import app  # noqa: E402
@@ -23,46 +27,49 @@ from src.models import (  # noqa: E402
     TeamGameStats,
 )
 
-# SQLite in-memory with StaticPool so the same connection is reused across
-# threads (FastAPI runs sync endpoints in a threadpool).
-engine = create_engine(
-    "sqlite:///:memory:",
+
+@pytest.fixture(params=["asyncio"])
+def anyio_backend(request):
+    """Only run async tests under asyncio (aiosqlite requires it)."""
+    return request.param
+
+# aiosqlite in-memory with StaticPool so the same connection is reused.
+engine = create_async_engine(
+    "sqlite+aiosqlite:///:memory:",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
 
 
-@event.listens_for(engine, "connect")
+@event.listens_for(engine.sync_engine, "connect")
 def _set_sqlite_pragma(dbapi_conn, _connection_record):
     cursor = dbapi_conn.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
 
-TestingSessionLocal = sessionmaker(bind=engine)
+TestingSessionLocal = async_sessionmaker(
+    bind=engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 @pytest.fixture(autouse=True)
-def db():
+async def db():
     """Create all tables, yield a session, then drop everything."""
-    Base.metadata.create_all(bind=engine)
-    session = TestingSessionLocal()
-    try:
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with TestingSessionLocal() as session:
         yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.fixture(autouse=True)
 def override_get_db(db):
     """Override the FastAPI get_db dependency to use the test session."""
 
-    def _override():
-        try:
-            yield db
-        finally:
-            pass
+    async def _override():
+        yield db
 
     app.dependency_overrides[get_db] = _override
     yield
@@ -70,16 +77,19 @@ def override_get_db(db):
 
 
 @pytest.fixture()
-def client():
-    """Starlette TestClient wired to the ASGI app."""
-    return TestClient(app)
+async def client():
+    """httpx AsyncClient wired to the ASGI app."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        yield ac
 
 
 # --------------- seed helpers ---------------
 
 
 @pytest.fixture()
-def seed_schools(db):
+async def seed_schools(db):
     """Insert two schools and flush so IDs are available."""
     s1 = School(
         id=1,
@@ -92,12 +102,12 @@ def seed_schools(db):
         id=2, name="Morgan State", abbreviation="MSU", conference="MEAC", mascot="Bears"
     )
     db.add_all([s1, s2])
-    db.commit()
+    await db.commit()
     return s1, s2
 
 
 @pytest.fixture()
-def seed_games(db, seed_schools):
+async def seed_games(db, seed_schools):
     """Insert games for both schools."""
     s1, s2 = seed_schools
     g1 = Game(
@@ -134,12 +144,12 @@ def seed_games(db, seed_schools):
         away_score=1,
     )
     db.add_all([g1, g2, g3])
-    db.commit()
+    await db.commit()
     return g1, g2, g3
 
 
 @pytest.fixture()
-def seed_team_stats(db, seed_games):
+async def seed_team_stats(db, seed_games):
     """Insert team game stats for the first game (home & away)."""
     g1, *_ = seed_games
     home = TeamGameStats(
@@ -165,12 +175,12 @@ def seed_team_stats(db, seed_games):
         saves=4,
     )
     db.add_all([home, away])
-    db.commit()
+    await db.commit()
     return home, away
 
 
 @pytest.fixture()
-def seed_player_stats(db, seed_games):
+async def seed_player_stats(db, seed_games):
     """Insert player stats for game 1001."""
     g1, *_ = seed_games
     p1 = PlayerGameStats(
@@ -202,12 +212,12 @@ def seed_player_stats(db, seed_games):
         assists=2,
     )
     db.add_all([p1, p2])
-    db.commit()
+    await db.commit()
     return p1, p2
 
 
 @pytest.fixture()
-def seed_events(db, seed_games):
+async def seed_events(db, seed_games):
     """Insert a game event for game 1001."""
     g1, *_ = seed_games
     ev = GameEvent(
@@ -221,5 +231,5 @@ def seed_events(db, seed_games):
         description="Goal from close range",
     )
     db.add(ev)
-    db.commit()
+    await db.commit()
     return [ev]

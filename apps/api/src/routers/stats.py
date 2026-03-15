@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case, desc, func, literal_column
-from sqlalchemy.orm import Session
+from sqlalchemy import case, desc, func, literal_column, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.models import Game, PlayerGameStats, School, TeamGameStats
@@ -10,17 +10,17 @@ router = APIRouter(prefix="/api/stats")
 
 
 @router.get("/team", response_model=list[TeamStatsAggregation])
-def team_stats(
+async def team_stats(
     school: str | None = Query(None, description="School abbreviation"),
     season: int | None = Query(None, description="Season year"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     # Join Game to access season_year and to filter own-team stats.
     # Each game produces TWO team_game_stats rows (home + away); we must
     # only include the row that matches the school's own team by comparing
     # TeamGameStats.team to Game.home_team (when is_home) or away_team.
-    query = (
-        db.query(
+    stmt = (
+        select(
             TeamGameStats.school_id,
             School.name.label("school_name"),
             Game.season_year,
@@ -33,9 +33,8 @@ def team_stats(
         )
         .join(School, TeamGameStats.school_id == School.id)
         .join(Game, TeamGameStats.game_id == Game.game_id)
-        .filter(
+        .where(
             # Only include the school's own team row, not the opponent's.
-            # The school's team is home_team when is_home=True, away_team otherwise.
             TeamGameStats.team
             == case(
                 (TeamGameStats.is_home == True, Game.home_team),  # noqa: E712
@@ -45,17 +44,19 @@ def team_stats(
     )
 
     if school:
-        school_row = db.query(School).filter(School.abbreviation == school).first()
+        row = await db.execute(select(School).where(School.abbreviation == school))
+        school_row = row.scalars().first()
         if not school_row:
             raise HTTPException(status_code=404, detail=f"School '{school}' not found")
-        query = query.filter(TeamGameStats.school_id == school_row.id)
+        stmt = stmt.where(TeamGameStats.school_id == school_row.id)
 
     if season:
-        query = query.filter(Game.season_year == season)
+        stmt = stmt.where(Game.season_year == season)
 
-    query = query.group_by(TeamGameStats.school_id, School.name, Game.season_year)
+    stmt = stmt.group_by(TeamGameStats.school_id, School.name, Game.season_year)
 
-    rows = query.all()
+    result = await db.execute(stmt)
+    rows = result.all()
 
     return [
         TeamStatsAggregation(
@@ -74,13 +75,13 @@ def team_stats(
 
 
 @router.get("/players", response_model=PaginatedPlayers)
-def player_leaderboard(
+async def player_leaderboard(
     school: str | None = Query(None, description="School abbreviation"),
     season: int | None = Query(None, description="Season year"),
     sort: str = Query("goals", description="Sort by: goals, assists, shots, minutes"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     sort_columns = {
         "goals": "total_goals",
@@ -94,8 +95,8 @@ def player_leaderboard(
             detail=f"Invalid sort field. Must be one of: {', '.join(sort_columns)}",
         )
 
-    query = (
-        db.query(
+    stmt = (
+        select(
             PlayerGameStats.player_name,
             PlayerGameStats.school_id,
             School.name.label("school_name"),
@@ -110,29 +111,33 @@ def player_leaderboard(
     )
 
     if school:
-        school_row = db.query(School).filter(School.abbreviation == school).first()
+        row = await db.execute(select(School).where(School.abbreviation == school))
+        school_row = row.scalars().first()
         if not school_row:
             raise HTTPException(status_code=404, detail=f"School '{school}' not found")
-        query = query.filter(PlayerGameStats.school_id == school_row.id)
+        stmt = stmt.where(PlayerGameStats.school_id == school_row.id)
 
     if season:
-        query = query.join(Game, PlayerGameStats.game_id == Game.game_id).filter(
+        stmt = stmt.join(Game, PlayerGameStats.game_id == Game.game_id).where(
             Game.season_year == season
         )
 
-    query = query.group_by(
+    stmt = stmt.group_by(
         PlayerGameStats.player_name,
         PlayerGameStats.school_id,
         School.name,
     )
 
     # Get total count before pagination
-    count_query = query.subquery()
-    total = db.query(func.count()).select_from(count_query).scalar()
+    count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
+    total = count_result.scalar()
 
     # Apply sort and pagination
     sort_col = sort_columns[sort]
-    rows = query.order_by(desc(literal_column(sort_col))).offset(offset).limit(limit).all()
+    result = await db.execute(
+        stmt.order_by(desc(literal_column(sort_col))).offset(offset).limit(limit)
+    )
+    rows = result.all()
 
     items = [
         PlayerLeaderboard(
