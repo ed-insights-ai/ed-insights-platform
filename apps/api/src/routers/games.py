@@ -13,7 +13,9 @@ router = APIRouter(prefix="/api")
 @router.get("/games", response_model=PaginatedGames)
 async def list_games(
     school: str | None = Query(None, description="School abbreviation (e.g. HU)"),
-    school_id: int | None = Query(None, description="School ID (alternative to abbreviation)"),
+    school_id: int | None = Query(
+        None, description="School ID (alternative to abbreviation)"
+    ),
     season: int | None = Query(None, description="Season year (e.g. 2024)"),
     limit: int = Query(20, ge=1, le=500),
     offset: int = Query(0, ge=0),
@@ -36,7 +38,9 @@ async def list_games(
     count_result = await db.execute(select(func.count()).select_from(stmt.subquery()))
     total = count_result.scalar()
 
-    result = await db.execute(stmt.order_by(Game.date.desc()).offset(offset).limit(limit))
+    result = await db.execute(
+        stmt.order_by(Game.date.desc()).offset(offset).limit(limit)
+    )
     items = result.scalars().all()
 
     return PaginatedGames(items=items, total=total, limit=limit, offset=offset)

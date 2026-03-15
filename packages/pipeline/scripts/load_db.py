@@ -399,7 +399,7 @@ def main() -> None:
         console.print("[bold yellow]DRY RUN — no database changes will be made\n")
         conn = None
     else:
-        console.print(f"[bold blue]Connecting to database...")
+        console.print("[bold blue]Connecting to database...")
         conn = _get_connection(database_url)
         console.print("[green]Connected.\n")
 

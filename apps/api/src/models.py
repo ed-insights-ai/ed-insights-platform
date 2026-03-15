@@ -47,9 +47,7 @@ class Game(Base):
     player_stats = relationship("PlayerGameStats", back_populates="game")
     events = relationship("GameEvent", back_populates="game")
 
-    __table_args__ = (
-        Index("idx_games_school_season", "school_id", "season_year"),
-    )
+    __table_args__ = (Index("idx_games_school_season", "school_id", "season_year"),)
 
 
 class TeamGameStats(Base):

@@ -44,7 +44,7 @@ interface DashboardStatsProps {
 
 export function DashboardStats({
   school: controlledSchool,
-  season: controlledSeason,
+  season: _controlledSeason,
   loading: controlledLoading,
   error: controlledError,
   topPlayers: controlledTopPlayers,

@@ -132,7 +132,7 @@ export default function PlayersPage() {
   );
 
   const handleSelectionChange = useCallback(
-    (abbr: string, yr: number, _name: string) => {
+    (abbr: string, yr: number, _schoolName: string) => {
       setSchool(abbr);
       setSeason(yr);
       setOffset(0);

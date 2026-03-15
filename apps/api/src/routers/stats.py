@@ -27,7 +27,9 @@ async def team_stats(
             func.count(func.distinct(TeamGameStats.game_id)).label("games_played"),
             func.coalesce(func.sum(TeamGameStats.goals), 0).label("total_goals"),
             func.coalesce(func.sum(TeamGameStats.shots), 0).label("total_shots"),
-            func.coalesce(func.sum(TeamGameStats.shots_on_goal), 0).label("total_shots_on_goal"),
+            func.coalesce(func.sum(TeamGameStats.shots_on_goal), 0).label(
+                "total_shots_on_goal"
+            ),
             func.coalesce(func.sum(TeamGameStats.corners), 0).label("total_corners"),
             func.coalesce(func.sum(TeamGameStats.saves), 0).label("total_saves"),
         )
@@ -95,20 +97,19 @@ async def player_leaderboard(
             detail=f"Invalid sort field. Must be one of: {', '.join(sort_columns)}",
         )
 
-    stmt = (
-        select(
-            PlayerGameStats.player_name,
-            PlayerGameStats.school_id,
-            School.name.label("school_name"),
-            func.count(func.distinct(PlayerGameStats.game_id)).label("games_played"),
-            func.coalesce(func.sum(PlayerGameStats.goals), 0).label("total_goals"),
-            func.coalesce(func.sum(PlayerGameStats.assists), 0).label("total_assists"),
-            func.coalesce(func.sum(PlayerGameStats.shots), 0).label("total_shots"),
-            func.coalesce(func.sum(PlayerGameStats.shots_on_goal), 0).label("total_shots_on_goal"),
-            func.coalesce(func.sum(PlayerGameStats.minutes), 0).label("total_minutes"),
-        )
-        .join(School, PlayerGameStats.school_id == School.id)
-    )
+    stmt = select(
+        PlayerGameStats.player_name,
+        PlayerGameStats.school_id,
+        School.name.label("school_name"),
+        func.count(func.distinct(PlayerGameStats.game_id)).label("games_played"),
+        func.coalesce(func.sum(PlayerGameStats.goals), 0).label("total_goals"),
+        func.coalesce(func.sum(PlayerGameStats.assists), 0).label("total_assists"),
+        func.coalesce(func.sum(PlayerGameStats.shots), 0).label("total_shots"),
+        func.coalesce(func.sum(PlayerGameStats.shots_on_goal), 0).label(
+            "total_shots_on_goal"
+        ),
+        func.coalesce(func.sum(PlayerGameStats.minutes), 0).label("total_minutes"),
+    ).join(School, PlayerGameStats.school_id == School.id)
 
     if school:
         row = await db.execute(select(School).where(School.abbreviation == school))
