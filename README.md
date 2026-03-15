@@ -20,6 +20,16 @@ cp .env.example .env
 docker compose up
 ```
 
+### Web App (Next.js)
+
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+
+The web app runs on [http://localhost:3000](http://localhost:3000) with routes for `/`, `/about`, `/login`, `/signup`, and `/dashboard`.
+
 ## Related
 
 - [`sports-data-pipeline`](https://github.com/ed-insights-ai/sports-data-pipeline) — frozen tutorial/reference repo (read-only)
