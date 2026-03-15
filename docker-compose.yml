@@ -39,6 +39,7 @@ services:
       POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./packages/pipeline/migrations:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:

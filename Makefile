@@ -1,4 +1,4 @@
-.PHONY: up down logs reset ps
+.PHONY: up down logs reset ps migrate
 
 up:
 	docker compose up -d
@@ -14,3 +14,10 @@ reset:
 
 ps:
 	docker compose ps
+
+migrate:
+	@for f in packages/pipeline/migrations/*.sql; do \
+		echo "Running $$f ..."; \
+		docker compose exec -T db psql -U postgres -d postgres -f "/docker-entrypoint-initdb.d/$$(basename $$f)"; \
+	done
+	@echo "Migrations complete."
