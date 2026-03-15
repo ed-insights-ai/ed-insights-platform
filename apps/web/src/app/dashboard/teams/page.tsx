@@ -19,7 +19,6 @@ import type { TeamStatsAggregation } from "@/lib/api";
 interface SeasonChartData {
   season: string;
   goals: number;
-  shots: number;
   shots_on_goal: number;
   corners: number;
   saves: number;
@@ -50,7 +49,6 @@ export default function TeamsPage() {
         .map((s) => ({
           season: `${s.season_year - 1}–${s.season_year}`,
           goals: s.total_goals,
-          shots: s.total_shots,
           shots_on_goal: s.total_shots_on_goal,
           corners: s.total_corners,
           saves: s.total_saves,
@@ -64,6 +62,7 @@ export default function TeamsPage() {
   }, []);
 
   const handleSelectionChange = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (abbr: string, yr: number, _name: string) => {
       setSchool(abbr);
       setSeason(yr);
@@ -137,60 +136,93 @@ export default function TeamsPage() {
             </p>
           )}
 
-          {/* Multi-season bar chart */}
-          <div className="rounded-xl border bg-card p-6">
-            <h3 className="text-lg font-semibold text-primary-900 dark:text-white mb-4">
-              Stats Across Seasons
-            </h3>
-            {seasonChartData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={seasonChartData}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis
-                      dataKey="season"
-                      tick={{ fontSize: 11 }}
-                      interval={0}
-                      angle={-30}
-                      textAnchor="end"
-                      height={60}
-                    />
-                    <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar
-                      dataKey="goals"
-                      name="Goals"
-                      fill="#1a365d"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="shots_on_goal"
-                      name="Shots on Goal"
-                      fill="#0d9488"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="corners"
-                      name="Corners"
-                      fill="#d97706"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="saves"
-                      name="Saves"
-                      fill="#7c3aed"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+          {/* Multi-season bar charts — split by category for readable scales */}
+          {seasonChartData.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Scoring chart */}
+              <div className="rounded-xl border bg-card p-6">
+                <h3 className="text-lg font-semibold text-primary-900 dark:text-white mb-4">
+                  Scoring Across Seasons
+                </h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={seasonChartData}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis
+                        dataKey="season"
+                        tick={{ fontSize: 11 }}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="goals"
+                        name="Goals"
+                        fill="#1a365d"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="shots_on_goal"
+                        name="Shots on Goal"
+                        fill="#0d9488"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            ) : (
+
+              {/* Play Style chart */}
+              <div className="rounded-xl border bg-card p-6">
+                <h3 className="text-lg font-semibold text-primary-900 dark:text-white mb-4">
+                  Play Style Across Seasons
+                </h3>
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={seasonChartData}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                      <XAxis
+                        dataKey="season"
+                        tick={{ fontSize: 11 }}
+                        interval={0}
+                        angle={-30}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="corners"
+                        name="Corners"
+                        fill="#d97706"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="saves"
+                        name="Saves"
+                        fill="#7c3aed"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border bg-card p-6">
+              <h3 className="text-lg font-semibold text-primary-900 dark:text-white mb-4">
+                Stats Across Seasons
+              </h3>
               <p className="text-muted-foreground text-sm py-8 text-center">
                 No season data available for this school.
               </p>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </div>
