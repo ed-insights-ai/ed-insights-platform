@@ -16,8 +16,4 @@ ps:
 	docker compose ps
 
 migrate:
-	@for f in packages/pipeline/migrations/*.sql; do \
-		echo "Running $$f ..."; \
-		docker compose exec -T db psql -U postgres -d postgres -f "/docker-entrypoint-initdb.d/$$(basename $$f)"; \
-	done
-	@echo "Migrations complete."
+	docker compose exec api alembic upgrade head

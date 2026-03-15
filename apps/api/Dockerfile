@@ -8,8 +8,10 @@ COPY pyproject.toml uv.lock ./
 
 RUN uv sync --frozen
 
+COPY alembic.ini entrypoint.sh ./
+COPY alembic/ alembic/
 COPY src/ src/
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "entrypoint.sh"]

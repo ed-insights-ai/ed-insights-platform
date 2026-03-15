@@ -45,6 +45,7 @@ make up
 | `make logs` | Tail logs from all services |
 | `make reset` | Tear down (including volumes) and rebuild |
 | `make ps` | Show running containers |
+| `make migrate` | Run Alembic migrations inside the API container |
 
 ### Local Development (without Docker)
 
