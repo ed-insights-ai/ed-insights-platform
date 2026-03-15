@@ -32,7 +32,7 @@ def _scrape_season(
     parsed: list[dict] = []
 
     for gu in urls:
-        game_id = int(f"{year}{gu.game_num:02d}")
+        game_id = school.ordinal * 1_000_000 + year * 100 + gu.game_num
         html: str | None = None
         try:
             html = fetcher.fetch(gu.url, year, gu.game_num, use_cache=use_cache)

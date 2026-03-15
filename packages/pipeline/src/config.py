@@ -22,6 +22,7 @@ class SchoolConfig:
     enabled: bool = False
     notes: str = ""
     mascot: str = ""
+    ordinal: int = 0
 
     def build_game_url(self, year: int, game_num: int) -> str:
         """Build a game URL from the template, substituting {year}, {prefix}, {num:02d}."""
@@ -42,7 +43,7 @@ def load_schools(path: str | Path = DEFAULT_CONFIG) -> list[SchoolConfig]:
         data = tomllib.load(f)
 
     schools: list[SchoolConfig] = []
-    for entry in data.get("schools", []):
+    for idx, entry in enumerate(data.get("schools", []), start=1):
         school = SchoolConfig(
             name=entry["name"],
             abbreviation=entry["abbreviation"],
@@ -53,6 +54,7 @@ def load_schools(path: str | Path = DEFAULT_CONFIG) -> list[SchoolConfig]:
             enabled=entry.get("enabled", False),
             notes=entry.get("notes", ""),
             mascot=entry.get("mascot", ""),
+            ordinal=idx,
         )
         if school.enabled and not school.base_url:
             raise ValueError(
