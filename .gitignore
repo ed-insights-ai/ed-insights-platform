@@ -15,9 +15,9 @@ __pycache__/
 .env.local
 .env.*.local
 
-# Data outputs
+# Data outputs (scratch/temp only — pipeline parquets are tracked)
 data/
-*.parquet
+!packages/pipeline/data/
 
 # IDE
 .vscode/
