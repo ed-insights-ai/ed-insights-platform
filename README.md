@@ -16,21 +16,24 @@ analyzing, and visualizing collegiate athletic data.
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Docker Compose v2)
 - Node 18+ (for local web development)
 - Python 3.12+ (for local API development)
-- [uv](https://docs.astral.sh/uv/) (Python package manager)
+- [uv](https://docs.astral.sh/uv/) (`pip install uv`)
 
-## Getting Started
+## Quick Start
 
 ```bash
-# 1. Copy the environment template and fill in your values
-cp .env.example .env
+# 1. Run the setup script (installs deps, creates .env)
+./scripts/setup.sh
 
 # 2. Start all services
 make up
 
-# 3. Wait ~30 seconds for containers to initialize, then open:
-#    - Frontend:  http://localhost:3000
-#    - API docs:  http://localhost:8000/docs
-#    - Postgres:  localhost:54321 (user: postgres, password: postgres)
+# 3. Wait ~30 seconds, then verify everything works
+./scripts/smoke-test.sh
+
+# Open:
+#   - Frontend:  http://localhost:3000
+#   - API docs:  http://localhost:8000/docs
+#   - Postgres:  localhost:54321 (user: postgres, password: postgres)
 ```
 
 ### Make Targets
@@ -64,6 +67,16 @@ uvicorn src.main:app --reload --port 8000
 ```
 
 The API runs on [http://localhost:8000](http://localhost:8000) with interactive docs at `/docs`.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Port 3000 already in use | `lsof -ti:3000 \| xargs kill` |
+| Port 8000 already in use | `lsof -ti:8000 \| xargs kill` |
+| `.env` missing | `cp .env.example .env` |
+| DB connection refused | `make reset` (recreates volumes) |
+| Containers won't start | `docker compose down -v && docker compose up -d --build` |
 
 ## Related
 
