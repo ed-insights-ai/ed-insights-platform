@@ -77,6 +77,7 @@ The API runs on [http://localhost:8000](http://localhost:8000) with interactive 
 | `.env` missing | `cp .env.example .env` |
 | DB connection refused | `make reset` (recreates volumes) |
 | Containers won't start | `docker compose down -v && docker compose up -d --build` |
+| Supabase auth not working | Create a free project at [supabase.com](https://supabase.com), copy the URL and anon key from Settings > API, and add them to `.env` |
 
 ## Related
 
