@@ -4,7 +4,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.routers import health, schools
+from src.routers import games, health, schools, stats
 
 logger = logging.getLogger(__name__)
 
@@ -32,3 +32,5 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(schools.router)
+app.include_router(games.router)
+app.include_router(stats.router)

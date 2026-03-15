@@ -1,25 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from src.database import get_db
+from src.models import School
+from src.schemas import SchoolResponse
 
 router = APIRouter(prefix="/api")
 
-SCHOOLS = [
-    {
-        "id": "harding",
-        "name": "Harding",
-        "abbreviation": "HU",
-        "conference": "GAC",
-        "mascot": "Bisons",
-    },
-    {
-        "id": "obu",
-        "name": "Ouachita Baptist",
-        "abbreviation": "OBU",
-        "conference": "GAC",
-        "mascot": "Tigers",
-    },
-]
 
-
-@router.get("/schools")
-async def list_schools():
-    return SCHOOLS
+@router.get("/schools", response_model=list[SchoolResponse])
+def list_schools(db: Session = Depends(get_db)):
+    return db.query(School).order_by(School.name).all()
