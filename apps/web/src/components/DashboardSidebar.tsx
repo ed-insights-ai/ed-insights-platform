@@ -10,6 +10,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import { useState } from "react";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Games", href: "/dashboard/games", icon: Trophy },
   { label: "Teams", href: "/dashboard/teams", icon: Users },
   { label: "Players", href: "/dashboard/players", icon: UserCircle },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
