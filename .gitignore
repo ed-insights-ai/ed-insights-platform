@@ -1,0 +1,34 @@
+# Node
+node_modules/
+.next/
+dist/
+out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data outputs
+data/
+*.parquet
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Gas Town runtime (not part of the project)
+.runtime/
+.claude/
+.logs/
+state.json
+.beads/

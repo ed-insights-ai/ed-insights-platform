@@ -1,0 +1,91 @@
+# Ed Insights Platform — School Configuration
+# Only schools with StatCrew static HTML data sources are enabled.
+# Other GAC schools use SideArm Sports (JS-rendered) — add when a scraper exists.
+
+[[schools]]
+name          = "Harding"
+abbreviation  = "HU"
+conference    = "GAC"
+mascot        = "Bisons"
+prefix        = "hu"
+base_url      = "https://static.hardingsports.com/custompages/msoc/{year}/{prefix}-{num:02d}.htm"
+years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+enabled       = true
+
+[[schools]]
+name          = "Harding (W)"
+abbreviation  = "HUW"
+conference    = "GAC"
+mascot        = "Lady Bisons"
+prefix        = "hu"
+base_url      = "https://static.hardingsports.com/custompages/wsoc/{year}/{prefix}-{num:02d}.htm"
+years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+enabled       = true
+
+# --- GAC affiliate members (men's soccer) ---
+
+[[schools]]
+name          = "Ouachita Baptist"
+abbreviation  = "OBU"
+conference    = "GAC"
+mascot        = "Tigers"
+prefix        = "obu"
+base_url      = ""
+years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+enabled       = false
+notes         = "StatCrew endpoint not confirmed."
+
+[[schools]]
+name          = "Fort Hays State"
+abbreviation  = "FHSU"
+conference    = "GAC"
+mascot        = "Tigers"
+prefix        = "fhsu"
+base_url      = ""
+years         = []
+enabled       = false
+notes         = "Uses SideArm Sports. No StatCrew endpoint found."
+
+[[schools]]
+name          = "Rogers State"
+abbreviation  = "RSU"
+conference    = "GAC"
+mascot        = "Hillcats"
+prefix        = "rsu"
+base_url      = ""
+years         = []
+enabled       = false
+notes         = "Uses SideArm Sports. No StatCrew endpoint found."
+
+[[schools]]
+name          = "Newman"
+abbreviation  = "NU"
+conference    = "GAC"
+mascot        = "Jets"
+prefix        = "nu"
+base_url      = ""
+years         = []
+enabled       = false
+notes         = "Uses SideArm Sports. No StatCrew endpoint found."
+
+[[schools]]
+name          = "Northeastern State"
+abbreviation  = "NSU"
+conference    = "GAC"
+mascot        = "RiverHawks"
+prefix        = "nsu"
+base_url      = ""
+years         = []
+enabled       = false
+notes         = "Uses SideArm Sports. No StatCrew endpoint found."
+
+[[schools]]
+name          = "Southern Nazarene"
+abbreviation  = "SNU"
+conference    = "GAC"
+mascot        = "Storm"
+prefix        = "snu"
+base_url      = ""
+years         = []
+enabled       = false
+notes         = "StatCrew endpoint not confirmed."
