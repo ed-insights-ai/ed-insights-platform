@@ -37,3 +37,4 @@ What follows from this decision — both good and bad?
 | [001](ADR-001-monorepo-structure.md) | Monorepo structure | Accepted |
 | [002](ADR-002-fastapi-over-supabase-direct.md) | FastAPI over Supabase direct | Accepted |
 | [003](ADR-003-statcrew-sidearm-scraper-strategy.md) | StatCrew + SideArm scraper strategy | Accepted |
+| [004](ADR-004-parquet-files-in-git.md) | Parquet files tracked in git | Accepted |
