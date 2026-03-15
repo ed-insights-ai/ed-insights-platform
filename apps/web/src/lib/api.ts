@@ -190,6 +190,22 @@ export async function getTeamStats(
   }
 }
 
+export async function getAllSeasonTeamStats(
+  school: string
+): Promise<TeamStatsAggregation[]> {
+  try {
+    const params = new URLSearchParams({ school });
+    const res = await fetch(`${API_BASE_URL}/api/stats/team?${params}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch all-season team stats: ${res.status}`);
+    }
+    return (await res.json()) as TeamStatsAggregation[];
+  } catch (error) {
+    console.error("Error fetching all-season team stats:", error);
+    return [];
+  }
+}
+
 export async function getPlayerLeaderboard(
   school: string,
   season: number,
