@@ -35,6 +35,15 @@ ed-insights-platform/
 docker compose up
 ```
 
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branching, commits, local dev, Gas Town workflow |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System overview, components, data flow, design principles |
+| [docs/decisions/](docs/decisions/) | Architecture Decision Records (ADRs) |
+| [docs/GASTOWN.md](docs/GASTOWN.md) | How we use Gas Town on this project |
+
 ## Rules
 
 - Polecats stay in their assigned component directory.
