@@ -71,19 +71,27 @@ export function Header() {
             </Link>
           ))}
           {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  {user.email}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              <Link
+                href="/dashboard"
+                className="text-sm font-medium text-foreground/60 transition-colors hover:text-foreground"
+              >
+                Dashboard
+              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    {user.email}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
             <Link href="/login">
               <Button variant="outline" size="sm">
@@ -116,6 +124,13 @@ export function Header() {
               ))}
               {user ? (
                 <>
+                  <Link
+                    href="/dashboard"
+                    className="text-lg font-medium"
+                    onClick={() => setOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                   <Button
                     variant="outline"
