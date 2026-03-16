@@ -23,6 +23,9 @@ data/
 .vscode/
 .idea/
 
+# Playwright
+.playwright-mcp/
+
 # OS
 .DS_Store
 
