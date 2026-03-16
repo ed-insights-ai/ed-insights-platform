@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDInsights.AI — GAC Conference</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .form-badge { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; font-size: 9px; font-weight: 700; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <!-- ═══════════════════════════════════════════════
+       GLOBAL HEADER — gender switch lives here only
+       ═══════════════════════════════════════════════ -->
+  <header class="sticky top-0 z-50 border-b shadow-sm" style="background:#0F172A">
+    <div class="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between">
+
+      <!-- Logo -->
+      <div class="flex items-center gap-3">
+        <svg class="w-5 h-5" fill="none" stroke="#0D9488" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span style="color:white;font-weight:800;font-size:1.1rem;letter-spacing:-0.03em">EDInsights<span style="color:#0D9488">.AI</span></span>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="flex items-center gap-1.5 text-sm">
+        <a href="#" class="text-slate-500 hover:text-slate-300 transition-colors">Div II</a>
+        <span class="text-slate-700">›</span>
+        <span class="text-white font-semibold">GAC</span>
+        <span class="text-slate-700">›</span>
+        <span class="text-slate-500 italic">select a team</span>
+      </div>
+
+      <!-- Right side: Gender toggle (global) + Season -->
+      <div class="flex items-center gap-3">
+
+        <!-- GLOBAL GENDER SWITCH -->
+        <div class="flex items-center gap-2.5">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Viewing</span>
+          <div class="flex rounded-lg overflow-hidden border border-slate-600" id="gender-toggle">
+            <button id="btn-men"
+              onclick="switchGender('men')"
+              class="px-4 py-1.5 text-xs font-bold transition-all"
+              style="background:#0D9488;color:white">
+              ⚽ Men's
+            </button>
+            <button id="btn-women"
+              onclick="switchGender('women')"
+              class="px-4 py-1.5 text-xs font-bold transition-all text-slate-400 hover:text-slate-200">
+              Women's
+            </button>
+          </div>
+        </div>
+
+        <div class="w-px h-5 bg-slate-700"></div>
+
+        <select class="text-xs border border-slate-700 rounded-lg px-3 py-1.5 bg-slate-800 text-slate-200 focus:outline-none">
+          <option>2024–25</option>
+          <option>2023–24</option>
+          <option>2022–23</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- Gender mode indicator bar — subtle reminder of current context -->
+  <div id="gender-bar" class="w-full py-1.5 text-center text-xs font-semibold" style="background:#0D9488;color:white;letter-spacing:0.05em">
+    VIEWING: MEN'S SOCCER — GAC 2024–25
+  </div>
+
+  <div class="max-w-screen-xl mx-auto px-6 py-6">
+
+    <!-- Conference header -->
+    <div class="flex items-start justify-between mb-6">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-extrabold text-white border-2 border-teal-400/30" style="background:linear-gradient(135deg,#0F172A,#1E293B)">GAC</div>
+        <div>
+          <h1 class="text-2xl font-extrabold text-slate-900">Great American Conference</h1>
+          <p class="text-sm text-slate-500 mt-0.5">
+            NCAA Division II · South Central Region ·
+            <span id="gender-label" class="font-semibold text-teal-600">Men's Soccer</span>
+            · 2024–25
+          </p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1">10 teams · 18 games played</p>
+        <p class="text-xs text-slate-400">Data current through Mar 15, 2025</p>
+      </div>
+    </div>
+
+    <!-- Conference KPIs -->
+    <div class="grid grid-cols-5 gap-4 mb-6" id="kpi-row">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Leader</p>
+        <p class="text-base font-extrabold text-slate-900" id="kpi-leader">SE Oklahoma St.</p>
+        <p class="text-xs text-slate-500 tabular mt-0.5" id="kpi-leader-sub">46 pts · 15W</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Top Scoring</p>
+        <p class="text-base font-extrabold text-slate-900" id="kpi-topscoring">SOSU</p>
+        <p class="text-xs text-slate-500 tabular mt-0.5" id="kpi-topscoring-sub">50 goals · 2.78/G</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Best Defense</p>
+        <p class="text-base font-extrabold text-slate-900" id="kpi-defense">Harding</p>
+        <p class="text-xs text-slate-500 tabular mt-0.5" id="kpi-defense-sub">14 GA · 0.78/G</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Avg Goals / Game</p>
+        <p class="text-3xl font-extrabold tabular text-slate-900" id="kpi-avg">1.74</p>
+        <p class="text-xs text-slate-500 mt-0.5">Conference average</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Top Scorer (Player)</p>
+        <p class="text-base font-extrabold text-slate-900" id="kpi-topplayer">T. Williams</p>
+        <p class="text-xs text-slate-500 tabular mt-0.5" id="kpi-topplayer-sub">9G · 2A · SOSU</p>
+      </div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="grid grid-cols-12 gap-5">
+
+      <!-- Standings (full, single gender) -->
+      <div class="col-span-7">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400" id="standings-title">Men's Standings · GAC 2024–25</p>
+            <div class="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+              <button class="px-3 py-1 bg-slate-900 text-white">Overall</button>
+              <button class="px-3 py-1 bg-white text-slate-500 hover:bg-slate-50">Conf Only</button>
+            </div>
+          </div>
+          <table class="w-full text-sm tabular">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200">
+                <th class="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400 w-6">#</th>
+                <th class="text-left px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Team</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">GP</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">W</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">L</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">D</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">GF</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">GA</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">GD</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Pts</th>
+                <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Form</th>
+              </tr>
+            </thead>
+            <tbody id="standings-body" class="divide-y divide-slate-100">
+              <!-- Men's rows (shown by default) -->
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">1</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">SE Oklahoma St.</div><div class="text-xs text-slate-400">Savage Storm</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">15</td>
+                <td class="px-3 py-3 text-center">3</td>
+                <td class="px-3 py-3 text-center">0</td>
+                <td class="px-3 py-3 text-center font-semibold">50</td>
+                <td class="px-3 py-3 text-center">22</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+28</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">46</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div></div></td>
+              </tr>
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">2</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">Henderson State</div><div class="text-xs text-slate-400">Reddies</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">13</td>
+                <td class="px-3 py-3 text-center">4</td>
+                <td class="px-3 py-3 text-center">1</td>
+                <td class="px-3 py-3 text-center font-semibold">41</td>
+                <td class="px-3 py-3 text-center">24</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+17</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">40</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-amber-400 text-white">D</div></div></td>
+              </tr>
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">3</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">Harding University</div><div class="text-xs text-slate-400">Bisons</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">12</td>
+                <td class="px-3 py-3 text-center">4</td>
+                <td class="px-3 py-3 text-center">2</td>
+                <td class="px-3 py-3 text-center font-semibold">28</td>
+                <td class="px-3 py-3 text-center">14</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+14</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">38</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-amber-400 text-white">D</div><div class="form-badge bg-emerald-500 text-white">W</div></div></td>
+              </tr>
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">4</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">Southern Arkansas</div><div class="text-xs text-slate-400">Muleriders</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">11</td>
+                <td class="px-3 py-3 text-center">5</td>
+                <td class="px-3 py-3 text-center">2</td>
+                <td class="px-3 py-3 text-center font-semibold">33</td>
+                <td class="px-3 py-3 text-center">26</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+7</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">35</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div></div></td>
+              </tr>
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">5</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">Ouachita Baptist</div><div class="text-xs text-slate-400">Tigers</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">10</td>
+                <td class="px-3 py-3 text-center">5</td>
+                <td class="px-3 py-3 text-center">3</td>
+                <td class="px-3 py-3 text-center font-semibold">32</td>
+                <td class="px-3 py-3 text-center">28</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+4</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">33</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-amber-400 text-white">D</div><div class="form-badge bg-rose-500 text-white">L</div></div></td>
+              </tr>
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">6</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">Arkansas Tech</div><div class="text-xs text-slate-400">Wonder Boys</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">8</td>
+                <td class="px-3 py-3 text-center">7</td>
+                <td class="px-3 py-3 text-center">3</td>
+                <td class="px-3 py-3 text-center font-semibold">29</td>
+                <td class="px-3 py-3 text-center">31</td>
+                <td class="px-3 py-3 text-center"><span class="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-xs font-semibold">−2</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">27</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-amber-400 text-white">D</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-amber-400 text-white">D</div></div></td>
+              </tr>
+              <tr class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 font-bold text-slate-400">7</td>
+                <td class="px-4 py-3"><div class="flex items-center justify-between"><div><div class="font-semibold text-slate-900 group-hover:text-teal-700">NW Oklahoma St.</div><div class="text-xs text-slate-400">Rangers</div></div><span class="text-xs text-teal-500 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View →</span></div></td>
+                <td class="px-3 py-3 text-center">18</td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">6</td>
+                <td class="px-3 py-3 text-center">9</td>
+                <td class="px-3 py-3 text-center">3</td>
+                <td class="px-3 py-3 text-center font-semibold">22</td>
+                <td class="px-3 py-3 text-center">35</td>
+                <td class="px-3 py-3 text-center"><span class="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-xs font-semibold">−13</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">21</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-amber-400 text-white">D</div></div></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-400">
+            Click any team to open their full dashboard →
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="col-span-5 space-y-4">
+
+        <!-- Goal Leaders -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4" id="leaders-title">GAC Men's Goal Leaders</p>
+          <div class="space-y-3" id="leaders-list">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-extrabold text-slate-300 w-5 text-right tabular">1</span>
+              <div class="flex-1">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-sm font-semibold text-slate-900">T. Williams</span>
+                  <span class="text-xs font-bold tabular">9G 2A</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <div class="flex-1 h-1.5 rounded-full bg-slate-100"><div class="h-1.5 rounded-full bg-orange-400" style="width:100%"></div></div>
+                  <span class="text-xs text-slate-400 shrink-0">SOSU</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-extrabold text-slate-300 w-5 text-right tabular">2</span>
+              <div class="flex-1">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-sm font-semibold text-slate-900">J. Martinez</span>
+                  <span class="text-xs font-bold tabular">8G 3A</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <div class="flex-1 h-1.5 rounded-full bg-slate-100"><div class="h-1.5 rounded-full bg-orange-400" style="width:89%"></div></div>
+                  <span class="text-xs text-slate-400 shrink-0">OBU</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-extrabold text-slate-300 w-5 text-right tabular">3</span>
+              <div class="flex-1">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-sm font-semibold text-slate-900">R. Chen</span>
+                  <span class="text-xs font-bold tabular">7G 1A</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <div class="flex-1 h-1.5 rounded-full bg-slate-100"><div class="h-1.5 rounded-full bg-orange-400" style="width:78%"></div></div>
+                  <span class="text-xs text-slate-400 shrink-0">HSU</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-extrabold text-slate-300 w-5 text-right tabular">4</span>
+              <div class="flex-1">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-sm font-semibold text-slate-900">N. Grudis</span>
+                  <span class="text-xs font-bold tabular">4G 1A</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <div class="flex-1 h-1.5 rounded-full bg-slate-100"><div class="h-1.5 rounded-full" style="width:44%;background:#0D9488"></div></div>
+                  <span class="text-xs font-semibold shrink-0" style="color:#0D9488">HU</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-extrabold text-slate-300 w-5 text-right tabular">5</span>
+              <div class="flex-1">
+                <div class="flex justify-between items-baseline">
+                  <span class="text-sm font-semibold text-slate-900">P. Okafor</span>
+                  <span class="text-xs font-bold tabular">4G 4A</span>
+                </div>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <div class="flex-1 h-1.5 rounded-full bg-slate-100"><div class="h-1.5 rounded-full bg-orange-400" style="width:44%"></div></div>
+                  <span class="text-xs text-slate-400 shrink-0">SAU</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <a href="player.html" class="mt-4 flex items-center justify-center text-xs font-semibold pt-3 border-t border-slate-100 hover:underline" style="color:#0D9488">Full player leaderboard →</a>
+        </div>
+
+        <!-- Goals/Game bar chart -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4" id="chart-title">Goals / Game · Men's</p>
+          <div class="space-y-2" id="bar-chart">
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-700">SOSU</span><span class="font-extrabold tabular text-slate-900">2.78</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-orange-400 transition-all" style="width:100%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-700">Henderson St.</span><span class="font-extrabold tabular text-slate-900">2.28</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-orange-300 transition-all" style="width:82%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-semibold" style="color:#0D9488">Harding</span><span class="font-extrabold tabular" style="color:#0D9488">2.14</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full transition-all" style="width:77%;background:#0D9488"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-600">S. Arkansas</span><span class="font-extrabold tabular text-slate-700">1.83</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-slate-300 transition-all" style="width:66%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-600">OBU</span><span class="font-extrabold tabular text-slate-700">1.78</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-slate-300 transition-all" style="width:64%"></div></div>
+            </div>
+            <!-- Avg line -->
+            <div class="py-1 flex items-center gap-2">
+              <div class="h-px flex-1 border-t border-dashed border-slate-400"></div>
+              <span class="text-xs font-bold text-slate-500 shrink-0">GAC Avg 1.74</span>
+              <div class="h-px flex-1 border-t border-dashed border-slate-400"></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-500">ATU</span><span class="font-extrabold tabular text-slate-500">1.61</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-slate-200 transition-all" style="width:58%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1"><span class="font-medium text-slate-500">NWOSU</span><span class="font-extrabold tabular text-slate-500">1.22</span></div>
+              <div class="h-2 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-rose-200 transition-all" style="width:44%"></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const data = {
+      men: {
+        bar: '#gender-bar background:#0D9488',
+        label: "Men's Soccer",
+        standingsTitle: "Men's Standings · GAC 2024–25",
+        leadersTitle: "GAC Men's Goal Leaders",
+        chartTitle: "Goals / Game · Men's",
+        genderBarText: "VIEWING: MEN'S SOCCER — GAC 2024–25",
+        kpi: { leader:"SE Oklahoma St.", leaderSub:"46 pts · 15W", topScoring:"SOSU", topScoringSub:"50 goals · 2.78/G", defense:"Harding", defenseSub:"14 GA · 0.78/G", avg:"1.74", topPlayer:"T. Williams", topPlayerSub:"9G · 2A · SOSU" }
+      },
+      women: {
+        label: "Women's Soccer",
+        standingsTitle: "Women's Standings · GAC 2024–25",
+        leadersTitle: "GAC Women's Goal Leaders",
+        chartTitle: "Goals / Game · Women's",
+        genderBarText: "VIEWING: WOMEN'S SOCCER — GAC 2024–25",
+        kpi: { leader:"Southern Arkansas", leaderSub:"44 pts · 14W", topScoring:"SAU", topScoringSub:"48 goals · 2.67/G", defense:"Harding (W)", defenseSub:"12 GA · 0.67/G", avg:"1.82", topPlayer:"M. Johnson", topPlayerSub:"11G · 1A · SAU" }
+      }
+    };
+
+    function switchGender(g) {
+      const d = data[g];
+
+      // Header toggle
+      document.getElementById('btn-men').style.background = g === 'men' ? '#0D9488' : 'transparent';
+      document.getElementById('btn-men').style.color = g === 'men' ? 'white' : '#94A3B8';
+      document.getElementById('btn-women').style.background = g === 'women' ? '#0D9488' : 'transparent';
+      document.getElementById('btn-women').style.color = g === 'women' ? 'white' : '#94A3B8';
+
+      // Context bar
+      const bar = document.getElementById('gender-bar');
+      bar.textContent = d.genderBarText;
+      bar.style.background = g === 'men' ? '#0D9488' : '#7C3AED';
+
+      // Labels
+      document.getElementById('gender-label').textContent = d.label;
+      document.getElementById('gender-label').style.color = g === 'men' ? '#0D9488' : '#7C3AED';
+      document.getElementById('standings-title').textContent = d.standingsTitle;
+      document.getElementById('leaders-title').textContent = d.leadersTitle;
+      document.getElementById('chart-title').textContent = d.chartTitle;
+
+      // KPIs
+      document.getElementById('kpi-leader').textContent = d.kpi.leader;
+      document.getElementById('kpi-leader-sub').textContent = d.kpi.leaderSub;
+      document.getElementById('kpi-topscoring').textContent = d.kpi.topScoring;
+      document.getElementById('kpi-topscoring-sub').textContent = d.kpi.topScoringSub;
+      document.getElementById('kpi-defense').textContent = d.kpi.defense;
+      document.getElementById('kpi-defense-sub').textContent = d.kpi.defenseSub;
+      document.getElementById('kpi-avg').textContent = d.kpi.avg;
+      document.getElementById('kpi-topplayer').textContent = d.kpi.topPlayer;
+      document.getElementById('kpi-topplayer-sub').textContent = d.kpi.topPlayerSub;
+    }
+  </script>
+
+</body>
+</html>

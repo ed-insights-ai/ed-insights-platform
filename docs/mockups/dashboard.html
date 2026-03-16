@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDInsights.AI — War Room Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'brand-primary': '#0F172A',
+            'brand-accent': '#EA580C',
+            'data-primary': '#0D9488',
+            'data-opponent': '#F97316',
+            'data-positive': '#10B981',
+            'data-negative': '#F43F5E',
+            'data-neutral': '#F59E0B',
+          },
+          fontVariantNumeric: {
+            'tabular': 'tabular-nums',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .tabular { font-variant-numeric: tabular-nums; }
+
+    /* Sparkline SVG */
+    .sparkline { display: inline-block; }
+
+    /* Animated insight fade */
+    .insight-card { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Form badge */
+    .form-badge { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 11px; font-weight: 700; }
+
+    /* Nav active */
+    .nav-active { color: #0D9488; border-left: 2px solid #0D9488; background: #F0FDFA; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <!-- Top Header -->
+  <header class="sticky top-0 z-50 bg-brand-primary border-b border-slate-800">
+    <div class="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <svg class="w-6 h-6 text-data-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span class="text-white font-bold text-lg tracking-tight">EDInsights<span class="text-data-primary">.AI</span></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-slate-400 text-xs">Harding University · Men's Soccer</span>
+        <div class="w-7 h-7 rounded-full bg-data-primary flex items-center justify-center text-white text-xs font-bold">D</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-screen-xl mx-auto">
+
+    <!-- Sidebar Nav -->
+    <aside class="w-52 shrink-0 border-r border-slate-200 bg-white min-h-[calc(100vh-56px)] sticky top-14 pt-4">
+      <div class="px-3 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 mb-2">My Team</p>
+        <nav class="space-y-0.5">
+          <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium nav-active">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Schedule
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Roster & Stats
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Analytics
+          </a>
+        </nav>
+      </div>
+
+      <div class="px-3 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 mb-2 mt-4">Explore</p>
+        <nav class="space-y-0.5">
+          <a href="standings.html" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18M14 3v18"/></svg>
+            Standings
+          </a>
+          <a href="player.html" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.5 21a7 7 0 0113 0"/></svg>
+            Players
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            All Teams
+          </a>
+        </nav>
+      </div>
+
+      <div class="px-3 mt-auto absolute bottom-4 left-0 right-0">
+        <div class="mx-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <p class="text-xs text-slate-500 font-medium">2024–25 Season</p>
+          <p class="text-xs text-slate-400 mt-0.5">Data through Mar 2025</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6 overflow-auto">
+
+      <!-- Page Header -->
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">War Room</h1>
+          <p class="text-sm text-slate-500">Harding University · Bisons · GAC</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <select class="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-data-primary">
+            <option>2024–25</option>
+            <option>2023–24</option>
+            <option>2022–23</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ROW 1: Record + Smart Insights -->
+      <div class="grid grid-cols-12 gap-4 mb-4">
+
+        <!-- Season Record & Form -->
+        <div class="col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-start justify-between mb-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Season Record & Form</p>
+            <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">3rd in GAC ↑</span>
+          </div>
+          <div class="flex items-end gap-6">
+            <div>
+              <div class="text-5xl font-extrabold tabular text-slate-900 tracking-tight">12<span class="text-slate-300 mx-1">–</span>4<span class="text-slate-300 mx-1">–</span>2</div>
+              <div class="text-sm text-slate-500 mt-1 font-medium">W – L – D · 18 games played</div>
+            </div>
+            <div class="flex-1">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Last 5</p>
+              <div class="flex gap-1.5">
+                <div class="form-badge bg-emerald-500 text-white">W</div>
+                <div class="form-badge bg-emerald-500 text-white">W</div>
+                <div class="form-badge bg-rose-500 text-white">L</div>
+                <div class="form-badge bg-amber-400 text-white">D</div>
+                <div class="form-badge bg-emerald-500 text-white">W</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-3xl font-extrabold tabular text-slate-700">38</div>
+              <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Points</div>
+              <div class="text-xs text-data-positive font-semibold mt-1">+0.14 PPG vs conf. ↑</div>
+            </div>
+          </div>
+          <!-- Mini stats row -->
+          <div class="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-slate-100">
+            <div>
+              <div class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-1">GF / GA</div>
+              <div class="text-xl font-extrabold tabular">28 <span class="text-slate-300 text-base">/ </span><span class="text-rose-500">14</span></div>
+              <div class="text-xs text-data-positive font-semibold">+0.4 GD avg ▲</div>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-1">Home</div>
+              <div class="text-xl font-extrabold tabular">8–1–0</div>
+              <div class="text-xs text-slate-400">Conf: 5–2–1</div>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-1">Away</div>
+              <div class="text-xl font-extrabold tabular">4–3–2</div>
+              <div class="text-xs text-slate-400">Conf: 2–2–2</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smart Insights -->
+        <div class="col-span-5 bg-teal-50 border border-teal-200 rounded-xl shadow-sm p-5 insight-card">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-bold uppercase tracking-wider text-teal-700">Smart Insights</p>
+            <span class="text-xs text-teal-500 bg-teal-100 px-2 py-0.5 rounded-full">3 insights</span>
+          </div>
+          <div class="space-y-3">
+            <div class="bg-white rounded-lg p-3 border border-teal-100">
+              <div class="flex items-start gap-2">
+                <span class="text-lg mt-0.5">📈</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-800">Grudis has scored in 3 consecutive games</p>
+                  <p class="text-xs text-slate-500 mt-0.5">4 goals total · career high run this season</p>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg p-3 border border-rose-100">
+              <div class="flex items-start gap-2">
+                <span class="text-lg mt-0.5">⚠️</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-800">Shot conversion dropped 3.2% in last 3 games</p>
+                  <p class="text-xs text-slate-500 mt-0.5">Now 11.4% vs season avg 14.6%</p>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg p-3 border border-amber-100">
+              <div class="flex items-start gap-2">
+                <span class="text-lg mt-0.5">🏠</span>
+                <div>
+                  <p class="text-sm font-semibold text-slate-800">Clean sheet rate drops to 0% in away games</p>
+                  <p class="text-xs text-slate-500 mt-0.5">6 clean sheets at home · 0 on road this season</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 2: KPI Cards + Next Match -->
+      <div class="grid grid-cols-12 gap-4 mb-4">
+
+        <!-- KPI Cards -->
+        <div class="col-span-7 grid grid-cols-3 gap-4">
+
+          <!-- Goals / Game -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Goals / Game</p>
+            <div class="text-3xl font-extrabold tabular text-slate-900">2.14</div>
+            <div class="flex items-center gap-1.5 mt-2">
+              <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+0.4 ▲</span>
+              <span class="text-xs text-slate-400">vs GAC avg</span>
+            </div>
+            <!-- Sparkline -->
+            <svg class="mt-3 w-full" height="28" viewBox="0 0 100 28">
+              <polyline points="0,20 16,16 32,22 48,10 64,8 80,12 100,6" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="0" y1="16" x2="100" y2="16" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,3"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">GAC avg: 1.74</p>
+          </div>
+
+          <!-- Shot Conversion -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Shot Conversion</p>
+            <div class="text-3xl font-extrabold tabular text-slate-900">14.2%</div>
+            <div class="flex items-center gap-1.5 mt-2">
+              <span class="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-semibold">−1.2 ▼</span>
+              <span class="text-xs text-slate-400">vs GAC avg</span>
+            </div>
+            <svg class="mt-3 w-full" height="28" viewBox="0 0 100 28">
+              <polyline points="0,8 16,12 32,10 48,14 64,18 80,16 100,20" fill="none" stroke="#F43F5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="0" y1="13" x2="100" y2="13" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,3"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">GAC avg: 15.4%</p>
+          </div>
+
+          <!-- Clean Sheets -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Clean Sheets</p>
+            <div class="text-3xl font-extrabold tabular text-slate-900">6</div>
+            <div class="flex items-center gap-1.5 mt-2">
+              <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+2 ▲</span>
+              <span class="text-xs text-slate-400">vs GAC avg</span>
+            </div>
+            <svg class="mt-3 w-full" height="28" viewBox="0 0 100 28">
+              <polyline points="0,22 16,22 32,14 48,22 64,6 80,22 100,14" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="0" y1="18" x2="100" y2="18" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,3"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">GAC avg: 4</p>
+          </div>
+
+          <!-- SOG Accuracy -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">SOG Accuracy</p>
+            <div class="text-3xl font-extrabold tabular text-slate-900">46.3%</div>
+            <div class="flex items-center gap-1.5 mt-2">
+              <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+3.8 ▲</span>
+              <span class="text-xs text-slate-400">vs GAC avg</span>
+            </div>
+            <svg class="mt-3 w-full" height="28" viewBox="0 0 100 28">
+              <polyline points="0,16 16,10 32,14 48,8 64,12 80,8 100,6" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="0" y1="16" x2="100" y2="16" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,3"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">GAC avg: 42.5%</p>
+          </div>
+
+          <!-- Goals Against / Game -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Goals Against / Game</p>
+            <div class="text-3xl font-extrabold tabular text-slate-900">0.78</div>
+            <div class="flex items-center gap-1.5 mt-2">
+              <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">−0.34 ▲</span>
+              <span class="text-xs text-slate-400">vs GAC avg</span>
+            </div>
+            <svg class="mt-3 w-full" height="28" viewBox="0 0 100 28">
+              <polyline points="0,10 16,14 32,8 48,18 64,12 80,16 100,10" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="0" y1="18" x2="100" y2="18" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,3"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">GAC avg: 1.12</p>
+          </div>
+
+          <!-- Shots / Game -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Shots / Game</p>
+            <div class="text-3xl font-extrabold tabular text-slate-900">15.1</div>
+            <div class="flex items-center gap-1.5 mt-2">
+              <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+2.6 ▲</span>
+              <span class="text-xs text-slate-400">vs GAC avg</span>
+            </div>
+            <svg class="mt-3 w-full" height="28" viewBox="0 0 100 28">
+              <polyline points="0,18 16,12 32,16 48,8 64,10 80,8 100,6" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="0" y1="16" x2="100" y2="16" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,3"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">GAC avg: 12.5</p>
+          </div>
+        </div>
+
+        <!-- Next Match Scouting Card -->
+        <div class="col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Next Match</p>
+            <span class="text-xs text-slate-400">Sat, Nov 15 · 2:00 PM</span>
+          </div>
+
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-400 border-2 border-slate-200">OBU</div>
+            <div>
+              <div class="text-lg font-bold text-slate-900">Ouachita Baptist</div>
+              <div class="text-sm text-slate-500">Tigers · GAC · Home</div>
+            </div>
+            <div class="ml-auto text-right">
+              <div class="text-sm font-bold text-slate-900">10–5–3</div>
+              <div class="text-xs text-slate-400">5th in GAC</div>
+            </div>
+          </div>
+
+          <!-- Opponent form -->
+          <div class="flex items-center gap-2 mb-4">
+            <span class="text-xs text-slate-400 uppercase tracking-wider font-bold">OBU Form</span>
+            <div class="flex gap-1">
+              <div class="form-badge bg-rose-500 text-white" style="width:22px;height:22px;font-size:9px">L</div>
+              <div class="form-badge bg-emerald-500 text-white" style="width:22px;height:22px;font-size:9px">W</div>
+              <div class="form-badge bg-emerald-500 text-white" style="width:22px;height:22px;font-size:9px">W</div>
+              <div class="form-badge bg-amber-400 text-white" style="width:22px;height:22px;font-size:9px">D</div>
+              <div class="form-badge bg-rose-500 text-white" style="width:22px;height:22px;font-size:9px">L</div>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-100 pt-3 space-y-2">
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-500">Key Threat</span>
+              <span class="font-semibold text-slate-900">J. Martinez · 8 goals</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-500">Avg goals/game</span>
+              <span class="font-semibold text-slate-900">1.78 <span class="text-slate-400 font-normal">vs GAC avg 1.74</span></span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-500">H2H History</span>
+              <span class="font-semibold text-slate-900">HU 4W – 2L – 1D (last 7)</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-500">Last Meeting</span>
+              <span class="font-semibold text-emerald-600">W 2–1 · Oct 2024</span>
+            </div>
+          </div>
+
+          <button class="mt-4 w-full bg-slate-900 text-white text-xs font-semibold py-2 rounded-lg hover:bg-slate-700 transition-colors">View Full Scouting Report →</button>
+        </div>
+      </div>
+
+      <!-- ROW 3: Season Trend + Top Contributors -->
+      <div class="grid grid-cols-12 gap-4">
+
+        <!-- Season Trend -->
+        <div class="col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Season Trend — Goals For vs Against</p>
+            <div class="flex items-center gap-4 text-xs">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-teal-500 inline-block rounded"></span>Goals For</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-orange-400 inline-block rounded"></span>Goals Against</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 border-t border-dashed border-slate-400 inline-block"></span>Conf Avg</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 500 140" class="w-full" style="height:140px">
+            <!-- Dashed ref line -->
+            <line x1="0" y1="90" x2="500" y2="90" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="5,5"/>
+            <text x="4" y="88" font-size="9" fill="#94A3B8">GAC Avg</text>
+            <!-- GF area -->
+            <defs>
+              <linearGradient id="gfGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#0D9488" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#0D9488" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="gaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#F97316" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#F97316" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <polygon points="0,130 0,110 28,95 55,80 83,60 110,70 138,50 165,40 193,55 220,45 248,70 275,60 303,45 330,50 358,30 385,40 413,35 440,45 468,30 500,35 500,130" fill="url(#gfGrad)"/>
+            <polyline points="0,110 28,95 55,80 83,60 110,70 138,50 165,40 193,55 220,45 248,70 275,60 303,45 330,50 358,30 385,40 413,35 440,45 468,30 500,35" fill="none" stroke="#0D9488" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- GA area -->
+            <polygon points="0,130 0,120 28,125 55,115 83,120 110,110 138,125 165,115 193,120 220,118 248,115 275,120 303,118 330,122 358,116 385,120 413,118 440,122 468,116 500,120 500,130" fill="url(#gaGrad)"/>
+            <polyline points="0,120 28,125 55,115 83,120 110,110 138,125 165,115 193,120 220,118 248,115 275,120 303,118 330,122 358,116 385,120 413,118 440,122 468,116 500,120" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- X labels -->
+            <text x="0" y="138" font-size="8" fill="#94A3B8">Aug</text>
+            <text x="80" y="138" font-size="8" fill="#94A3B8">Sep</text>
+            <text x="165" y="138" font-size="8" fill="#94A3B8">Oct</text>
+            <text x="248" y="138" font-size="8" fill="#94A3B8">Oct</text>
+            <text x="330" y="138" font-size="8" fill="#94A3B8">Nov</text>
+            <text x="440" y="138" font-size="8" fill="#94A3B8">Now</text>
+          </svg>
+        </div>
+
+        <!-- Top Contributors -->
+        <div class="col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Top Contributors</p>
+            <a href="player.html" class="text-xs text-data-primary font-semibold hover:underline">View All →</a>
+          </div>
+          <div class="space-y-3">
+            <!-- Player rows -->
+            <div class="flex items-center gap-3 group cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 -mx-1.5 transition-colors">
+              <div class="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">#9</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-semibold text-slate-900 truncate">N. Grudis</span>
+                  <span class="text-xs font-bold tabular text-slate-900 ml-2">4G 1A</span>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                  <div class="h-1.5 rounded-full bg-data-primary" style="width: 78%"></div>
+                  <span class="text-xs text-slate-400">16 GP</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 group cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 -mx-1.5 transition-colors">
+              <div class="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">#7</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-semibold text-slate-900 truncate">C. Hahn</span>
+                  <span class="text-xs font-bold tabular text-slate-900 ml-2">3G 3A</span>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                  <div class="h-1.5 rounded-full bg-data-primary" style="width: 60%"></div>
+                  <span class="text-xs text-slate-400">14 GP</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 group cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 -mx-1.5 transition-colors">
+              <div class="w-7 h-7 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700">#11</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-semibold text-slate-900 truncate">M. Torres</span>
+                  <span class="text-xs font-bold tabular text-slate-900 ml-2">2G 4A</span>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                  <div class="h-1.5 rounded-full bg-data-primary" style="width: 50%"></div>
+                  <span class="text-xs text-slate-400">18 GP</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 group cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 -mx-1.5 transition-colors">
+              <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">#3</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-semibold text-slate-900 truncate">D. Kim</span>
+                  <span class="text-xs font-bold tabular text-slate-900 ml-2">1G 5A</span>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                  <div class="h-1.5 rounded-full bg-slate-200" style="width: 45%"></div>
+                  <span class="text-xs text-slate-400">17 GP</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-3 group cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 -mx-1.5 transition-colors">
+              <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">#21</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-semibold text-slate-900 truncate">A. Scholl</span>
+                  <span class="text-xs font-bold tabular text-slate-900 ml-2">1G 2A</span>
+                </div>
+                <div class="flex items-center gap-1 mt-1">
+                  <div class="h-1.5 rounded-full bg-slate-200" style="width: 30%"></div>
+                  <span class="text-xs text-slate-400">12 GP</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EDInsights.AI — App Shell & Navigation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .form-badge { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 9px; font-weight: 700; }
+    .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; color: #475569; cursor: pointer; transition: all 0.15s; }
+    .nav-item:hover { background: #F8FAFC; color: #0F172A; }
+    .nav-item.active { background: #F0FDFA; color: #0D9488; border-left: 2px solid #0D9488; margin-left: -2px; }
+    .nav-item.dim { color: #CBD5E1; }
+    .content-panel { display: none; }
+    .content-panel.active { display: block; }
+    .tab-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; color: #64748B; }
+    .tab-btn.active { background: #0F172A; color: white; }
+    .badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900" style="min-height:100vh">
+
+  <!-- ════════════ GLOBAL HEADER ════════════ -->
+  <header class="sticky top-0 z-50 border-b shadow-sm" style="background:#0F172A;height:52px">
+    <div class="h-full px-5 flex items-center justify-between">
+      <!-- Logo — always clickable, returns to conference level -->
+      <button onclick="goToLevel('conference')" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+        <svg class="w-5 h-5" fill="none" stroke="#0D9488" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span style="color:white;font-weight:800;font-size:1.05rem;letter-spacing:-0.03em">EDInsights<span style="color:#0D9488">.AI</span></span>
+      </button>
+
+      <!-- Breadcrumb — shows current location -->
+      <div id="breadcrumb" class="flex items-center gap-1.5 text-xs">
+        <button onclick="goToLevel('conference')" class="text-slate-400 hover:text-white transition-colors">GAC</button>
+        <span id="bc-team-sep" class="text-slate-700" style="display:none">›</span>
+        <span id="bc-team" class="text-white font-semibold" style="display:none">Harding University</span>
+        <span id="bc-page-sep" class="text-slate-700" style="display:none">›</span>
+        <span id="bc-page" class="text-slate-500" style="display:none"></span>
+      </div>
+
+      <!-- Global controls -->
+      <div class="flex items-center gap-3">
+        <!-- GENDER — global, persistent -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Viewing</span>
+          <div class="flex rounded-lg overflow-hidden border border-slate-600 text-xs font-bold">
+            <button id="btn-men" onclick="switchGender('men')" class="px-3 py-1.5 transition-all" style="background:#0D9488;color:white">⚽ Men's</button>
+            <button id="btn-women" onclick="switchGender('women')" class="px-3 py-1.5 transition-all text-slate-400">Women's</button>
+          </div>
+        </div>
+        <div style="width:1px;height:20px;background:#334155"></div>
+        <!-- Season -->
+        <select class="text-xs border border-slate-700 rounded-lg px-2.5 py-1.5 bg-slate-800 text-slate-200 focus:outline-none">
+          <option>2024–25</option><option>2023–24</option>
+        </select>
+        <div style="width:1px;height:20px;background:#334155"></div>
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#0D9488">D</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Gender context bar -->
+  <div id="gender-bar" class="w-full py-1 text-center text-xs font-bold tracking-widest uppercase" style="background:#0D9488;color:white">
+    Men's Soccer · GAC · 2024–25
+  </div>
+
+  <div class="flex" style="min-height:calc(100vh - 76px)">
+
+    <!-- ════════════ SIDEBAR ════════════ -->
+    <aside class="shrink-0 border-r border-slate-200 bg-white sticky" style="width:200px;top:76px;height:calc(100vh - 76px);overflow-y:auto">
+
+      <!-- CONFERENCE LEVEL sidebar -->
+      <div id="sidebar-conference" class="pt-3 pb-4">
+        <div class="px-4 mb-3">
+          <div class="flex items-center gap-2 py-2 px-1">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-extrabold text-white" style="background:#EA580C">GAC</div>
+            <div>
+              <div class="text-xs font-bold text-slate-900">Great American</div>
+              <div class="text-xs text-slate-400">Conference</div>
+            </div>
+          </div>
+        </div>
+        <div class="px-2">
+          <div onclick="showPage('conf-overview')" class="nav-item active" id="nav-conf-overview">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Overview
+          </div>
+          <div onclick="showPage('conf-players')" class="nav-item" id="nav-conf-players">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20a6 6 0 0112 0"/><circle cx="17" cy="8" r="3"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 20a4 4 0 00-6.33-3.26"/></svg>
+            All Players
+          </div>
+          <div onclick="showPage('conf-teams')" class="nav-item" id="nav-conf-teams">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1"/></svg>
+            All Teams
+          </div>
+          <div class="nav-item dim">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10"/></svg>
+            Compare <span class="text-xs ml-auto text-slate-400">soon</span>
+          </div>
+        </div>
+
+        <!-- Team quick-pick -->
+        <div class="mt-4 px-4">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Teams</p>
+          <div class="space-y-0.5">
+            <button onclick="goToTeam('harding')" class="w-full text-left px-2 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2 transition-colors group">
+              <div class="w-5 h-5 rounded bg-teal-100 flex items-center justify-center text-teal-700 font-bold" style="font-size:8px">HU</div>
+              Harding
+              <span class="ml-auto text-slate-400 group-hover:text-teal-500 text-xs">3rd</span>
+            </button>
+            <button onclick="goToTeam('sosu')" class="w-full text-left px-2 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2 transition-colors group">
+              <div class="w-5 h-5 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold" style="font-size:8px">SO</div>
+              SE Oklahoma
+              <span class="ml-auto text-slate-400 group-hover:text-teal-500 text-xs">1st</span>
+            </button>
+            <button class="w-full text-left px-2 py-1.5 rounded-md text-xs font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2 transition-colors group">
+              <div class="w-5 h-5 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold" style="font-size:8px">OBU</div>
+              Ouachita
+              <span class="ml-auto text-slate-400 group-hover:text-teal-500 text-xs">5th</span>
+            </button>
+            <button class="w-full text-left px-2 py-1.5 rounded-md text-xs text-slate-400 hover:bg-slate-50 px-2 py-1">+ 7 more teams</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TEAM LEVEL sidebar (hidden initially) -->
+      <div id="sidebar-team" class="pt-0 pb-4" style="display:none">
+        <!-- Back to conference -->
+        <div class="border-b border-slate-100">
+          <button onclick="goToLevel('conference')" class="w-full px-4 py-2.5 text-left flex items-center gap-2 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to GAC
+          </button>
+        </div>
+
+        <!-- Team identity in sidebar -->
+        <div class="px-4 py-3 border-b border-slate-100" style="background:linear-gradient(135deg,#0F172A,#134E4A)">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-extrabold border border-white/20" style="background:#0D9488">HU</div>
+            <div>
+              <div class="text-white text-sm font-bold">Harding</div>
+              <div class="text-teal-300 text-xs">Bisons · 3rd in GAC</div>
+            </div>
+          </div>
+          <div class="flex gap-1 mt-2.5">
+            <span class="badge bg-teal-800 text-teal-200">12W</span>
+            <span class="badge bg-red-900 text-red-200">4L</span>
+            <span class="badge bg-slate-700 text-slate-300">2D</span>
+          </div>
+        </div>
+
+        <!-- Team nav -->
+        <div class="px-2 pt-3">
+          <div onclick="showPage('team-warroom')" class="nav-item active" id="nav-team-warroom">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            War Room
+          </div>
+          <div onclick="showPage('team-schedule')" class="nav-item" id="nav-team-schedule">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Schedule
+          </div>
+          <div onclick="showPage('team-roster')" class="nav-item" id="nav-team-roster">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Roster & Stats
+          </div>
+          <div onclick="showPage('team-analytics')" class="nav-item" id="nav-team-analytics">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Analytics
+          </div>
+        </div>
+
+        <!-- In this team section - other teams quick-jump -->
+        <div class="mt-5 px-4">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Other Teams</p>
+          <div class="space-y-0.5">
+            <button onclick="goToTeam('sosu')" class="w-full text-left px-2 py-1.5 rounded-md text-xs text-slate-500 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2 group transition-colors">
+              <div class="w-5 h-5 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold" style="font-size:8px">SO</div>
+              SE Oklahoma
+            </button>
+            <button class="w-full text-left px-2 py-1.5 rounded-md text-xs text-slate-500 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-2 group transition-colors">
+              <div class="w-5 h-5 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold" style="font-size:8px">OBU</div>
+              Ouachita
+            </button>
+            <button onclick="goToLevel('conference')" class="w-full text-left px-2 py-1.5 rounded-md text-xs text-teal-600 hover:bg-teal-50 font-semibold">All GAC teams →</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ════════════ MAIN CONTENT AREA ════════════ -->
+    <main class="flex-1 overflow-auto">
+
+      <!-- ── CONFERENCE OVERVIEW ── -->
+      <div id="page-conf-overview" class="content-panel active p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h1 class="text-xl font-extrabold text-slate-900">GAC Overview <span class="text-slate-400 font-normal">· Men's</span></h1>
+            <p class="text-sm text-slate-500">Great American Conference · 2024–25 Season</p>
+          </div>
+        </div>
+        <!-- KPIs -->
+        <div class="grid grid-cols-4 gap-4 mb-5">
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Leader</p>
+            <p class="font-extrabold text-slate-900">SE Oklahoma St.</p>
+            <p class="text-xs text-slate-500 tabular mt-0.5">46 pts · 15W–3L</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Top Scoring</p>
+            <p class="font-extrabold text-slate-900">SOSU · 2.78 G/G</p>
+            <p class="text-xs text-slate-500 tabular mt-0.5">50 goals this season</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Conf Avg G/G</p>
+            <p class="text-3xl font-extrabold tabular text-slate-900">1.74</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Top Player</p>
+            <p class="font-extrabold text-slate-900">T. Williams</p>
+            <p class="text-xs text-slate-500 tabular mt-0.5">9G 2A · SOSU</p>
+          </div>
+        </div>
+        <!-- Standings mini -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-5 py-3 border-b border-slate-100">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Men's Standings · Click any team to open War Room</p>
+          </div>
+          <table class="w-full text-sm tabular">
+            <thead><tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <th class="px-4 py-2.5 text-left w-6">#</th>
+              <th class="px-4 py-2.5 text-left">Team</th>
+              <th class="px-3 py-2.5 text-center">W</th><th class="px-3 py-2.5 text-center">L</th><th class="px-3 py-2.5 text-center">D</th>
+              <th class="px-3 py-2.5 text-center">GD</th><th class="px-3 py-2.5 text-center">Pts</th>
+              <th class="px-3 py-2.5 text-center">Form</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr onclick="goToTeam('sosu')" class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 text-slate-400 font-bold">1</td>
+                <td class="px-4 py-3"><div class="font-semibold group-hover:text-teal-700">SE Oklahoma St. <span class="text-slate-300 group-hover:text-teal-400 text-xs font-normal ml-1">→</span></div><div class="text-xs text-slate-400">Savage Storm</div></td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">15</td><td class="px-3 py-3 text-center">3</td><td class="px-3 py-3 text-center">0</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+28</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">46</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div></div></td>
+              </tr>
+              <tr onclick="goToTeam('henderson')" class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 text-slate-400 font-bold">2</td>
+                <td class="px-4 py-3"><div class="font-semibold group-hover:text-teal-700">Henderson State <span class="text-slate-300 group-hover:text-teal-400 text-xs font-normal ml-1">→</span></div><div class="text-xs text-slate-400">Reddies</div></td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">13</td><td class="px-3 py-3 text-center">4</td><td class="px-3 py-3 text-center">1</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+17</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">40</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-amber-400 text-white">D</div></div></td>
+              </tr>
+              <tr onclick="goToTeam('harding')" class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 text-slate-400 font-bold">3</td>
+                <td class="px-4 py-3"><div class="font-semibold group-hover:text-teal-700">Harding University <span class="text-slate-300 group-hover:text-teal-400 text-xs font-normal ml-1">→</span></div><div class="text-xs text-slate-400">Bisons</div></td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">12</td><td class="px-3 py-3 text-center">4</td><td class="px-3 py-3 text-center">2</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+14</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">38</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-amber-400 text-white">D</div><div class="form-badge bg-emerald-500 text-white">W</div></div></td>
+              </tr>
+              <tr onclick="goToTeam('sau')" class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 text-slate-400 font-bold">4</td>
+                <td class="px-4 py-3"><div class="font-semibold group-hover:text-teal-700">Southern Arkansas <span class="text-slate-300 group-hover:text-teal-400 text-xs font-normal ml-1">→</span></div><div class="text-xs text-slate-400">Muleriders</div></td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">11</td><td class="px-3 py-3 text-center">5</td><td class="px-3 py-3 text-center">2</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+7</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">35</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div></div></td>
+              </tr>
+              <tr onclick="goToTeam('obu')" class="hover:bg-teal-50 cursor-pointer group transition-colors">
+                <td class="px-4 py-3 text-slate-400 font-bold">5</td>
+                <td class="px-4 py-3"><div class="font-semibold group-hover:text-teal-700">Ouachita Baptist <span class="text-slate-300 group-hover:text-teal-400 text-xs font-normal ml-1">→</span></div><div class="text-xs text-slate-400">Tigers</div></td>
+                <td class="px-3 py-3 text-center font-bold text-emerald-600">10</td><td class="px-3 py-3 text-center">5</td><td class="px-3 py-3 text-center">3</td>
+                <td class="px-3 py-3 text-center"><span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-xs font-semibold">+4</span></td>
+                <td class="px-3 py-3 text-center font-extrabold">33</td>
+                <td class="px-3 py-3"><div class="flex gap-0.5 justify-center"><div class="form-badge bg-rose-500 text-white">L</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-emerald-500 text-white">W</div><div class="form-badge bg-amber-400 text-white">D</div><div class="form-badge bg-rose-500 text-white">L</div></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ALL PLAYERS ── -->
+      <div id="page-conf-players" class="content-panel p-6">
+        <h1 class="text-xl font-extrabold mb-1">GAC Player Leaderboard <span class="text-slate-400 font-normal">· Men's</span></h1>
+        <p class="text-sm text-slate-500 mb-5">All players · ranked by goals · 2024–25</p>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <table class="w-full text-sm tabular">
+            <thead><tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <th class="px-4 py-2.5 text-left w-6">Rank</th>
+              <th class="px-4 py-2.5 text-left">Player</th>
+              <th class="px-3 py-2.5 text-left">School</th>
+              <th class="px-3 py-2.5 text-center">GP</th>
+              <th class="px-3 py-2.5 text-center">G</th>
+              <th class="px-3 py-2.5 text-center">A</th>
+              <th class="px-3 py-2.5 text-center">Pts</th>
+              <th class="px-3 py-2.5 text-center">G/90</th>
+              <th class="px-3 py-2.5 text-center">Conv%</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-3 font-bold text-slate-400">1</td><td class="px-4 py-3 font-semibold">T. Williams</td><td class="px-3 py-3 text-slate-500">SOSU</td><td class="px-3 py-3 text-center">18</td><td class="px-3 py-3 text-center font-bold text-emerald-600">9</td><td class="px-3 py-3 text-center">2</td><td class="px-3 py-3 text-center font-bold">11</td><td class="px-3 py-3 text-center">0.47</td><td class="px-3 py-3 text-center">28.1%</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-3 font-bold text-slate-400">2</td><td class="px-4 py-3 font-semibold">J. Martinez</td><td class="px-3 py-3 text-slate-500">OBU</td><td class="px-3 py-3 text-center">18</td><td class="px-3 py-3 text-center font-bold text-emerald-600">8</td><td class="px-3 py-3 text-center">3</td><td class="px-3 py-3 text-center font-bold">11</td><td class="px-3 py-3 text-center">0.41</td><td class="px-3 py-3 text-center">24.2%</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-3 font-bold text-slate-400">3</td><td class="px-4 py-3 font-semibold">R. Chen</td><td class="px-3 py-3 text-slate-500">HSU</td><td class="px-3 py-3 text-center">18</td><td class="px-3 py-3 text-center font-bold text-emerald-600">7</td><td class="px-3 py-3 text-center">1</td><td class="px-3 py-3 text-center font-bold">8</td><td class="px-3 py-3 text-center">0.36</td><td class="px-3 py-3 text-center">21.9%</td></tr>
+              <tr class="hover:bg-teal-50 cursor-pointer" style="background:#F0FDFA"><td class="px-4 py-3 font-bold" style="color:#0D9488">4</td><td class="px-4 py-3 font-semibold">N. Grudis <span class="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-semibold ml-1">HU</span></td><td class="px-3 py-3 font-semibold" style="color:#0D9488">Harding</td><td class="px-3 py-3 text-center">16</td><td class="px-3 py-3 text-center font-bold text-emerald-600">4</td><td class="px-3 py-3 text-center">1</td><td class="px-3 py-3 text-center font-bold">5</td><td class="px-3 py-3 text-center">0.34</td><td class="px-3 py-3 text-center">22.2%</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-3 font-bold text-slate-400">5</td><td class="px-4 py-3 font-semibold">P. Okafor</td><td class="px-3 py-3 text-slate-500">SAU</td><td class="px-3 py-3 text-center">18</td><td class="px-3 py-3 text-center font-bold text-emerald-600">4</td><td class="px-3 py-3 text-center">4</td><td class="px-3 py-3 text-center font-bold">8</td><td class="px-3 py-3 text-center">0.22</td><td class="px-3 py-3 text-center">14.8%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── ALL TEAMS ── -->
+      <div id="page-conf-teams" class="content-panel p-6">
+        <h1 class="text-xl font-extrabold mb-1">GAC Teams <span class="text-slate-400 font-normal">· Men's</span></h1>
+        <p class="text-sm text-slate-500 mb-5">Click any team to open their War Room</p>
+        <div class="grid grid-cols-3 gap-4">
+          <div onclick="goToTeam('sosu')" class="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-teal-300 hover:shadow-md transition-all">
+            <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-extrabold text-slate-600 text-sm">SO</div><div><div class="font-bold">SE Oklahoma St.</div><div class="text-xs text-slate-400">Savage Storm</div></div></div>
+            <div class="flex items-center justify-between text-sm"><span class="font-extrabold text-slate-900 tabular">15–3–0</span><span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">1st · 46pts</span></div>
+          </div>
+          <div onclick="goToTeam('harding')" class="bg-teal-50 rounded-xl border border-teal-200 p-4 cursor-pointer hover:shadow-md transition-all">
+            <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center font-extrabold text-teal-700 text-sm">HU</div><div><div class="font-bold">Harding University</div><div class="text-xs text-slate-400">Bisons</div></div></div>
+            <div class="flex items-center justify-between text-sm"><span class="font-extrabold text-slate-900 tabular">12–4–2</span><span class="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-semibold">3rd · 38pts</span></div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-teal-300 hover:shadow-md transition-all">
+            <div class="flex items-center gap-3 mb-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-extrabold text-slate-600 text-sm">OBU</div><div><div class="font-bold">Ouachita Baptist</div><div class="text-xs text-slate-400">Tigers</div></div></div>
+            <div class="flex items-center justify-between text-sm"><span class="font-extrabold text-slate-900 tabular">10–5–3</span><span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-semibold">5th · 33pts</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TEAM: WAR ROOM ── -->
+      <div id="page-team-warroom" class="content-panel p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h1 class="text-xl font-extrabold">War Room <span class="text-slate-400 font-normal">· Harding Men's</span></h1>
+            <p class="text-sm text-slate-500">Bisons · GAC · 3rd Place · 2024–25</p>
+          </div>
+        </div>
+        <!-- Record row -->
+        <div class="grid grid-cols-12 gap-4 mb-4">
+          <div class="col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Season Record & Form</p>
+            <div class="flex items-end gap-6">
+              <div class="text-5xl font-extrabold tabular tracking-tight">12<span class="text-slate-300 mx-1 text-3xl">–</span>4<span class="text-slate-300 mx-1 text-3xl">–</span>2</div>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Last 5</p>
+                <div class="flex gap-1">
+                  <div class="form-badge bg-emerald-500 text-white" style="width:26px;height:26px">W</div>
+                  <div class="form-badge bg-emerald-500 text-white" style="width:26px;height:26px">W</div>
+                  <div class="form-badge bg-rose-500 text-white" style="width:26px;height:26px">L</div>
+                  <div class="form-badge bg-amber-400 text-white" style="width:26px;height:26px">D</div>
+                  <div class="form-badge bg-emerald-500 text-white" style="width:26px;height:26px">W</div>
+                </div>
+              </div>
+              <div class="ml-auto text-right">
+                <span class="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-bold">3rd in GAC ↑</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-span-5 bg-teal-50 border border-teal-200 rounded-xl shadow-sm p-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-teal-700 mb-2">Smart Insights</p>
+            <div class="space-y-2">
+              <div class="bg-white rounded-lg p-2.5 border border-teal-100 text-xs"><span class="font-semibold">📈 Grudis scored in 3 straight games</span></div>
+              <div class="bg-white rounded-lg p-2.5 border border-rose-100 text-xs"><span class="font-semibold">⚠️ Shot conversion down 3.2% last 3 games</span></div>
+              <div class="bg-white rounded-lg p-2.5 border border-amber-100 text-xs"><span class="font-semibold">🏠 0 clean sheets on the road this season</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- KPI row -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Goals / Game</p>
+            <div class="text-3xl font-extrabold tabular">2.14</div>
+            <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+0.4 vs GAC ▲</span>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Shot Conversion</p>
+            <div class="text-3xl font-extrabold tabular">14.2%</div>
+            <span class="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-semibold">−1.2 vs GAC ▼</span>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Clean Sheets</p>
+            <div class="text-3xl font-extrabold tabular">6</div>
+            <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+2 vs GAC ▲</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 text-center">Click Roster & Stats or Analytics in the sidebar to explore deeper →</p>
+      </div>
+
+      <!-- ── TEAM: SCHEDULE ── -->
+      <div id="page-team-schedule" class="content-panel p-6">
+        <h1 class="text-xl font-extrabold mb-1">Schedule & Results <span class="text-slate-400 font-normal">· Harding Men's</span></h1>
+        <p class="text-sm text-slate-500 mb-5">2024–25 · 18 games · 12W–4L–2D</p>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <table class="w-full text-sm tabular">
+            <thead><tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <th class="px-4 py-2.5 text-left">Date</th>
+              <th class="px-4 py-2.5 text-left">Opponent</th>
+              <th class="px-3 py-2.5 text-center">H/A</th>
+              <th class="px-3 py-2.5 text-center">Result</th>
+              <th class="px-3 py-2.5 text-center">Score</th>
+              <th class="px-3 py-2.5 text-center">GF</th>
+              <th class="px-3 py-2.5 text-center">GA</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-2.5 text-slate-500">Nov 12</td><td class="px-4 py-2.5 font-medium">Arkansas Tech</td><td class="px-3 py-2.5 text-center text-xs">H</td><td class="px-3 py-2.5 text-center"><span class="form-badge bg-emerald-500 text-white">W</span></td><td class="px-3 py-2.5 text-center font-bold">3–1</td><td class="px-3 py-2.5 text-center">3</td><td class="px-3 py-2.5 text-center">1</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-2.5 text-slate-500">Nov 8</td><td class="px-4 py-2.5 font-medium">S. Arkansas</td><td class="px-3 py-2.5 text-center text-xs text-slate-400">A</td><td class="px-3 py-2.5 text-center"><span class="form-badge bg-emerald-500 text-white">W</span></td><td class="px-3 py-2.5 text-center font-bold">2–0</td><td class="px-3 py-2.5 text-center">2</td><td class="px-3 py-2.5 text-center">0</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-2.5 text-slate-500">Nov 2</td><td class="px-4 py-2.5 font-medium">Ouachita Baptist</td><td class="px-3 py-2.5 text-center text-xs">H</td><td class="px-3 py-2.5 text-center"><span class="form-badge bg-emerald-500 text-white">W</span></td><td class="px-3 py-2.5 text-center font-bold">1–0</td><td class="px-3 py-2.5 text-center">1</td><td class="px-3 py-2.5 text-center">0</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-2.5 text-slate-500">Oct 26</td><td class="px-4 py-2.5 font-medium">NW Oklahoma St.</td><td class="px-3 py-2.5 text-center text-xs text-slate-400">A</td><td class="px-3 py-2.5 text-center"><span class="form-badge bg-amber-400 text-white">D</span></td><td class="px-3 py-2.5 text-center font-bold">1–1</td><td class="px-3 py-2.5 text-center">1</td><td class="px-3 py-2.5 text-center">1</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer"><td class="px-4 py-2.5 text-slate-500">Oct 18</td><td class="px-4 py-2.5 font-medium">Henderson State</td><td class="px-3 py-2.5 text-center text-xs">H</td><td class="px-3 py-2.5 text-center"><span class="form-badge bg-rose-500 text-white">L</span></td><td class="px-3 py-2.5 text-center font-bold">0–2</td><td class="px-3 py-2.5 text-center">0</td><td class="px-3 py-2.5 text-center">2</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── TEAM: ROSTER ── -->
+      <div id="page-team-roster" class="content-panel p-6">
+        <h1 class="text-xl font-extrabold mb-1">Roster & Stats <span class="text-slate-400 font-normal">· Harding Men's</span></h1>
+        <p class="text-sm text-slate-500 mb-5">2024–25 · Click player name to view profile</p>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <table class="w-full text-sm tabular">
+            <thead><tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-400">
+              <th class="px-3 py-2.5 text-center">#</th>
+              <th class="px-4 py-2.5 text-left">Player</th>
+              <th class="px-3 py-2.5 text-center">Pos</th>
+              <th class="px-3 py-2.5 text-center">GP</th>
+              <th class="px-3 py-2.5 text-center">G</th>
+              <th class="px-3 py-2.5 text-center">A</th>
+              <th class="px-3 py-2.5 text-center">Sh</th>
+              <th class="px-3 py-2.5 text-center">SOG</th>
+              <th class="px-3 py-2.5 text-center">Min</th>
+              <th class="px-3 py-2.5 text-center">G/90</th>
+            </tr></thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr onclick="showPage('player-profile')" class="hover:bg-teal-50 cursor-pointer group"><td class="px-3 py-3 text-center text-slate-400 font-bold">9</td><td class="px-4 py-3 font-semibold group-hover:text-teal-700">N. Grudis →</td><td class="px-3 py-3 text-center text-xs text-slate-500">FWD</td><td class="px-3 py-3 text-center">16</td><td class="px-3 py-3 text-center font-bold text-emerald-600">4</td><td class="px-3 py-3 text-center">1</td><td class="px-3 py-3 text-center">18</td><td class="px-3 py-3 text-center">9</td><td class="px-3 py-3 text-center">1058</td><td class="px-3 py-3 text-center font-semibold" style="color:#0D9488">0.34</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer group"><td class="px-3 py-3 text-center text-slate-400 font-bold">7</td><td class="px-4 py-3 font-semibold group-hover:text-teal-700">C. Hahn →</td><td class="px-3 py-3 text-center text-xs text-slate-500">MID</td><td class="px-3 py-3 text-center">14</td><td class="px-3 py-3 text-center font-bold text-emerald-600">3</td><td class="px-3 py-3 text-center">3</td><td class="px-3 py-3 text-center">15</td><td class="px-3 py-3 text-center">7</td><td class="px-3 py-3 text-center">980</td><td class="px-3 py-3 text-center">0.28</td></tr>
+              <tr class="hover:bg-slate-50 cursor-pointer group"><td class="px-3 py-3 text-center text-slate-400 font-bold">21</td><td class="px-4 py-3 font-semibold group-hover:text-teal-700">A. Scholl →</td><td class="px-3 py-3 text-center text-xs text-slate-500">MID</td><td class="px-3 py-3 text-center">12</td><td class="px-3 py-3 text-center font-bold text-emerald-600">1</td><td class="px-3 py-3 text-center">2</td><td class="px-3 py-3 text-center">8</td><td class="px-3 py-3 text-center">4</td><td class="px-3 py-3 text-center">720</td><td class="px-3 py-3 text-center">0.13</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── TEAM: ANALYTICS ── -->
+      <div id="page-team-analytics" class="content-panel p-6">
+        <h1 class="text-xl font-extrabold mb-1">Season Analytics <span class="text-slate-400 font-normal">· Harding Men's</span></h1>
+        <p class="text-sm text-slate-500 mb-5">Trends, splits, and patterns · 2024–25</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Goals For vs Against — Per Game</p>
+            <svg viewBox="0 0 300 100" class="w-full" height="100">
+              <line x1="0" y1="55" x2="300" y2="55" stroke="#E2E8F0" stroke-dasharray="4,4" stroke-width="1"/>
+              <polyline points="0,70 40,60 80,45 120,35 160,50 200,30 240,25 300,20" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round"/>
+              <polyline points="0,80 40,82 80,75 120,80 160,72 200,78 240,75 300,72" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round"/>
+              <text x="4" y="52" font-size="8" fill="#94A3B8">GAC Avg</text>
+            </svg>
+            <div class="flex gap-4 text-xs mt-2">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded inline-block" style="background:#0D9488"></span>GF</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-0.5 rounded inline-block" style="background:#F97316"></span>GA</span>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Home vs Away Splits</p>
+            <div class="space-y-3 text-sm">
+              <div class="flex items-center justify-between"><span class="text-slate-600 font-medium">Home record</span><span class="font-bold tabular">8–1–0 <span class="text-xs text-emerald-600 font-semibold">89% pts</span></span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-600 font-medium">Away record</span><span class="font-bold tabular">4–3–2 <span class="text-xs text-slate-400 font-semibold">56% pts</span></span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-600 font-medium">Conf record</span><span class="font-bold tabular">7–2–3 <span class="text-xs text-slate-400 font-semibold">67% pts</span></span></div>
+              <div class="flex items-center justify-between"><span class="text-slate-600 font-medium">Non-conf</span><span class="font-bold tabular">5–2–1 <span class="text-xs text-slate-400 font-semibold">69% pts</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PLAYER PROFILE ── -->
+      <div id="page-player-profile" class="content-panel p-6">
+        <div class="flex items-center gap-2 text-xs text-slate-400 mb-4">
+          <button onclick="showPage('team-roster')" class="hover:text-slate-600">← Back to Roster</button>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-4">
+          <div class="flex items-center gap-5">
+            <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300">
+              <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            </div>
+            <div class="flex-1">
+              <h1 class="text-2xl font-extrabold">Nojus Grudis</h1>
+              <p class="text-slate-500 text-sm mt-0.5">#9 · Forward · Harding University · Junior · 16 GP</p>
+              <div class="grid grid-cols-4 gap-3 mt-4">
+                <div><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Goals/90</p><p class="text-2xl font-extrabold tabular" style="color:#0D9488">0.34</p><span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+0.12 GAC ▲</span></div>
+                <div><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Ast/90</p><p class="text-2xl font-extrabold tabular">0.11</p><span class="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-semibold">−0.02 GAC ▼</span></div>
+                <div><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Conv%</p><p class="text-2xl font-extrabold tabular">22.2%</p><span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+4.1 GAC ▲</span></div>
+                <div><p class="text-xs font-bold uppercase tracking-wider text-slate-400">Invlv%</p><p class="text-2xl font-extrabold tabular">28.6%</p><span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+8.2 GAC ▲</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 text-center">Full career stats, radar chart, and game log shown on full player profile page</p>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    let currentLevel = 'conference';
+    let currentPage = 'conf-overview';
+
+    const pageNavMap = {
+      'conf-overview': 'nav-conf-overview',
+      'conf-players': 'nav-conf-players',
+      'conf-teams': 'nav-conf-teams',
+      'team-warroom': 'nav-team-warroom',
+      'team-schedule': 'nav-team-schedule',
+      'team-roster': 'nav-team-roster',
+      'team-analytics': 'nav-team-analytics',
+      'player-profile': null,
+    };
+
+    function showPage(pageId) {
+      // Hide all pages
+      document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + pageId).classList.add('active');
+
+      // Update nav active states
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const navId = pageNavMap[pageId];
+      if (navId) document.getElementById(navId).classList.add('active');
+
+      currentPage = pageId;
+
+      // Breadcrumb page label
+      const pageLabels = {
+        'conf-overview': null, 'conf-players': 'All Players', 'conf-teams': 'All Teams',
+        'team-warroom': 'War Room', 'team-schedule': 'Schedule', 'team-roster': 'Roster & Stats',
+        'team-analytics': 'Analytics', 'player-profile': 'N. Grudis'
+      };
+      const lbl = pageLabels[pageId];
+      document.getElementById('bc-page').textContent = lbl || '';
+      document.getElementById('bc-page-sep').style.display = lbl ? 'inline' : 'none';
+      document.getElementById('bc-page').style.display = lbl ? 'inline' : 'none';
+    }
+
+    function goToTeam(team) {
+      // Switch sidebar to team level
+      document.getElementById('sidebar-conference').style.display = 'none';
+      document.getElementById('sidebar-team').style.display = 'block';
+      currentLevel = 'team';
+
+      // Breadcrumb
+      document.getElementById('bc-team-sep').style.display = 'inline';
+      document.getElementById('bc-team').style.display = 'inline';
+
+      showPage('team-warroom');
+    }
+
+    function goToLevel(level) {
+      if (level === 'conference') {
+        document.getElementById('sidebar-conference').style.display = 'block';
+        document.getElementById('sidebar-team').style.display = 'none';
+        document.getElementById('bc-team-sep').style.display = 'none';
+        document.getElementById('bc-team').style.display = 'none';
+        currentLevel = 'conference';
+        showPage('conf-overview');
+      }
+    }
+
+    function switchGender(g) {
+      document.getElementById('btn-men').style.background = g === 'men' ? '#0D9488' : 'transparent';
+      document.getElementById('btn-men').style.color = g === 'men' ? 'white' : '#94A3B8';
+      document.getElementById('btn-women').style.background = g === 'women' ? '#0D9488' : 'transparent';
+      document.getElementById('btn-women').style.color = g === 'women' ? 'white' : '#94A3B8';
+      const bar = document.getElementById('gender-bar');
+      bar.textContent = (g === 'men' ? "Men's" : "Women's") + ' Soccer · GAC · 2024–25';
+      bar.style.background = g === 'men' ? '#0D9488' : '#7C3AED';
+    }
+  </script>
+
+</body>
+</html>

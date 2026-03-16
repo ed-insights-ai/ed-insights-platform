@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDInsights.AI — Player Profile</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .tabular { font-variant-numeric: tabular-nums; }
+    .nav-active { color: #0D9488; border-left: 2px solid #0D9488; background: #F0FDFA; }
+    .form-badge { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; font-size: 10px; font-weight: 700; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+  <header class="sticky top-0 z-50 border-b" style="background:#0F172A">
+    <div class="max-w-screen-xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <svg class="w-6 h-6" fill="none" stroke="#0D9488" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <span style="color:white;font-weight:700;font-size:1.125rem">EDInsights<span style="color:#0D9488">.AI</span></span>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex max-w-screen-xl mx-auto">
+    <aside class="w-52 shrink-0 border-r border-slate-200 bg-white min-h-[calc(100vh-56px)] sticky top-14 pt-4">
+      <div class="px-3 mb-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 mb-2">My Team</p>
+        <nav class="space-y-0.5">
+          <a href="dashboard.html" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">Schedule</a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">Roster & Stats</a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">Analytics</a>
+        </nav>
+      </div>
+      <div class="px-3">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 px-3 mb-2 mt-4">Explore</p>
+        <nav class="space-y-0.5">
+          <a href="standings.html" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">Standings</a>
+          <a href="player.html" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium nav-active">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.5 21a7 7 0 0113 0"/></svg>
+            Players
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">All Teams</a>
+        </nav>
+      </div>
+    </aside>
+
+    <main class="flex-1 p-6">
+
+      <!-- Breadcrumb -->
+      <div class="flex items-center gap-2 text-xs text-slate-400 mb-4">
+        <a href="#" class="hover:text-slate-600">Explore</a>
+        <span>›</span>
+        <a href="#" class="hover:text-slate-600">Players</a>
+        <span>›</span>
+        <span class="text-slate-700 font-medium">Nojus Grudis</span>
+      </div>
+
+      <!-- Player Header Card -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-5">
+        <div class="h-2 w-full" style="background: linear-gradient(to right, #0D9488, #0F172A)"></div>
+        <div class="p-6 flex items-start gap-6">
+          <!-- Avatar -->
+          <div class="relative shrink-0">
+            <div class="w-24 h-24 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center overflow-hidden">
+              <svg class="w-14 h-14 text-slate-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+            </div>
+            <div class="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-data-primary border-2 border-white flex items-center justify-center text-white text-xs font-extrabold" style="background:#0D9488">#9</div>
+          </div>
+
+          <!-- Identity -->
+          <div class="flex-1">
+            <div class="flex items-start justify-between">
+              <div>
+                <h1 class="text-2xl font-extrabold text-slate-900">Nojus Grudis</h1>
+                <div class="flex items-center gap-3 mt-1 flex-wrap">
+                  <span class="text-sm text-slate-600 font-medium">Forward</span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-sm text-slate-600">Harding University</span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-sm text-slate-600">Junior</span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-sm text-slate-600">16 GP</span>
+                  <span class="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full font-semibold border border-teal-200">GAC · Men's</span>
+                </div>
+              </div>
+              <button class="flex items-center gap-1.5 text-sm font-semibold border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Compare Player
+              </button>
+            </div>
+
+            <!-- Contextual KPI row -->
+            <div class="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Goals / 90</p>
+                <p class="text-2xl font-extrabold tabular text-slate-900 mt-0.5">0.34</p>
+                <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+0.12 vs GAC ▲</span>
+              </div>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Assists / 90</p>
+                <p class="text-2xl font-extrabold tabular text-slate-900 mt-0.5">0.11</p>
+                <span class="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full font-semibold">−0.02 vs GAC ▼</span>
+              </div>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Shot Conv%</p>
+                <p class="text-2xl font-extrabold tabular text-slate-900 mt-0.5">22.2%</p>
+                <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+4.1 vs GAC ▲</span>
+              </div>
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Goal Involvement</p>
+                <p class="text-2xl font-extrabold tabular text-slate-900 mt-0.5">28.6%</p>
+                <span class="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-semibold">+8.2 vs GAC ▲</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two column layout: Radar + Career Stats -->
+      <div class="grid grid-cols-12 gap-5 mb-5">
+
+        <!-- Radar chart column -->
+        <div class="col-span-4 space-y-4">
+          <!-- Radar -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Percentile Rank vs GAC</p>
+              <span class="text-xs text-slate-400">2024–25</span>
+            </div>
+
+            <!-- Radar SVG — 9-axis pentagon+ -->
+            <div class="flex justify-center">
+              <svg viewBox="0 0 200 200" width="200" height="200">
+                <defs>
+                  <style>.rax { font-size: 8px; fill: #94A3B8; font-weight: 600; text-anchor: middle; }</style>
+                </defs>
+                <!-- Grid rings -->
+                <g opacity="0.3" stroke="#CBD5E1" fill="none" stroke-width="0.5">
+                  <polygon points="100,30 147,58 147,114 100,142 53,114 53,58" />
+                  <polygon points="100,50 133,67 133,105 100,122 67,105 67,67" />
+                  <polygon points="100,70 119,79 119,97 100,106 81,97 81,79" />
+                </g>
+                <!-- Axis lines -->
+                <g stroke="#CBD5E1" stroke-width="0.5" opacity="0.5">
+                  <line x1="100" y1="100" x2="100" y2="30"/>
+                  <line x1="100" y1="100" x2="147" y2="58"/>
+                  <line x1="100" y1="100" x2="147" y2="114"/>
+                  <line x1="100" y1="100" x2="100" y2="142"/>
+                  <line x1="100" y1="100" x2="53" y2="114"/>
+                  <line x1="100" y1="100" x2="53" y2="58"/>
+                </g>
+
+                <!-- Player area (85th, 62nd, 78th, 90th, 55th, 70th pct) -->
+                <polygon
+                  points="100,36 144,62 143,110 100,136 60,111 57,64"
+                  fill="#0D9488" fill-opacity="0.25" stroke="#0D9488" stroke-width="1.5"/>
+
+                <!-- Conference avg area -->
+                <polygon
+                  points="100,70 119,79 119,97 100,106 81,97 81,79"
+                  fill="none" stroke="#CBD5E1" stroke-width="1" stroke-dasharray="3,2"/>
+
+                <!-- Axis labels -->
+                <text class="rax" x="100" y="22">Goals/90</text>
+                <text class="rax" x="157" y="56">Shots/90</text>
+                <text class="rax" x="157" y="118">Shot Conv</text>
+                <text class="rax" x="100" y="154">Assists/90</text>
+                <text class="rax" x="43" y="118">Mins/Game</text>
+                <text class="rax" x="43" y="56">G Invlv%</text>
+
+                <!-- Percentile dots -->
+                <circle cx="100" cy="36" r="3" fill="#0D9488"/>
+                <circle cx="144" cy="62" r="3" fill="#0D9488"/>
+                <circle cx="143" cy="110" r="3" fill="#0D9488"/>
+                <circle cx="100" cy="136" r="3" fill="#0D9488"/>
+                <circle cx="60" cy="111" r="3" fill="#0D9488"/>
+                <circle cx="57" cy="64" r="3" fill="#0D9488"/>
+
+                <!-- Center point -->
+                <circle cx="100" cy="100" r="2" fill="#CBD5E1"/>
+              </svg>
+            </div>
+
+            <div class="flex items-center gap-4 justify-center text-xs mt-2">
+              <span class="flex items-center gap-1.5"><span class="w-3 h-1 rounded" style="background:#0D9488;opacity:0.6;display:inline-block"></span>Player</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-1 rounded border border-dashed border-slate-400 inline-block"></span>GAC Avg</span>
+            </div>
+          </div>
+
+          <!-- Form strip -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">2024–25 Game Form</p>
+            <div class="flex gap-1 flex-wrap">
+              <div class="form-badge bg-slate-100 text-slate-500">–</div>
+              <div class="form-badge bg-emerald-500 text-white" title="Goal vs Ouachita">⚽</div>
+              <div class="form-badge bg-slate-100 text-slate-500">–</div>
+              <div class="form-badge bg-emerald-500 text-white" title="Goal vs SAU">⚽</div>
+              <div class="form-badge bg-slate-100 text-slate-500">–</div>
+              <div class="form-badge bg-slate-100 text-slate-500">–</div>
+              <div class="form-badge bg-amber-400 text-white" title="Assist vs NWOSU">A</div>
+              <div class="form-badge bg-emerald-500 text-white" title="Goal vs ATU">⚽</div>
+              <div class="form-badge bg-emerald-500 text-white" title="Goal (3 game streak)">⚽</div>
+              <div class="form-badge bg-emerald-500 text-white" title="Goal (current streak)">⚽</div>
+            </div>
+            <p class="text-xs text-slate-400 mt-2">⚽ = Goal scored · A = Assist · – = No contribution</p>
+          </div>
+        </div>
+
+        <!-- Career stats + game log -->
+        <div class="col-span-8 space-y-4">
+
+          <!-- Career Stats -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400">Career Stats</p>
+            </div>
+            <table class="w-full text-sm tabular">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="text-left px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Season</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">GP</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">G</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">A</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Pts</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Shots</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">SOG</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Min</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">G/90</th>
+                  <th class="text-center px-3 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-400">Conv%</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr class="bg-teal-50 border-l-2" style="border-left-color:#0D9488">
+                  <td class="px-5 py-3 font-semibold text-slate-900">2024–25</td>
+                  <td class="px-3 py-3 text-center">16</td>
+                  <td class="px-3 py-3 text-center font-bold text-slate-900">4</td>
+                  <td class="px-3 py-3 text-center">1</td>
+                  <td class="px-3 py-3 text-center font-bold">5</td>
+                  <td class="px-3 py-3 text-center">18</td>
+                  <td class="px-3 py-3 text-center">9</td>
+                  <td class="px-3 py-3 text-center">1058</td>
+                  <td class="px-3 py-3 text-center font-semibold text-data-primary" style="color:#0D9488">0.34</td>
+                  <td class="px-3 py-3 text-center font-semibold text-data-primary" style="color:#0D9488">22.2%</td>
+                </tr>
+                <tr class="hover:bg-slate-50">
+                  <td class="px-5 py-3 font-medium text-slate-700">2023–24</td>
+                  <td class="px-3 py-3 text-center">18</td>
+                  <td class="px-3 py-3 text-center font-bold text-slate-900">6</td>
+                  <td class="px-3 py-3 text-center">2</td>
+                  <td class="px-3 py-3 text-center font-bold">8</td>
+                  <td class="px-3 py-3 text-center">22</td>
+                  <td class="px-3 py-3 text-center">11</td>
+                  <td class="px-3 py-3 text-center">1320</td>
+                  <td class="px-3 py-3 text-center">0.41</td>
+                  <td class="px-3 py-3 text-center">27.3%</td>
+                </tr>
+                <tr class="hover:bg-slate-50">
+                  <td class="px-5 py-3 font-medium text-slate-700">2022–23</td>
+                  <td class="px-3 py-3 text-center">14</td>
+                  <td class="px-3 py-3 text-center font-bold text-slate-900">2</td>
+                  <td class="px-3 py-3 text-center">0</td>
+                  <td class="px-3 py-3 text-center font-bold">2</td>
+                  <td class="px-3 py-3 text-center">12</td>
+                  <td class="px-3 py-3 text-center">5</td>
+                  <td class="px-3 py-3 text-center">860</td>
+                  <td class="px-3 py-3 text-center text-slate-500">0.21</td>
+                  <td class="px-3 py-3 text-center text-slate-500">16.7%</td>
+                </tr>
+              </tbody>
+              <tfoot class="border-t-2 border-slate-200 bg-slate-50">
+                <tr>
+                  <td class="px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-500">Career</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">48</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">12</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">3</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">15</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">52</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">25</td>
+                  <td class="px-3 py-2.5 text-center font-bold tabular">3238</td>
+                  <td class="px-3 py-2.5 text-center font-bold" style="color:#0D9488">0.33</td>
+                  <td class="px-3 py-2.5 text-center font-bold" style="color:#0D9488">23.1%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Game Log -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+              <p class="text-xs font-bold uppercase tracking-wider text-slate-400">2024–25 Game Log</p>
+              <span class="text-xs text-slate-400">Most recent first</span>
+            </div>
+            <table class="w-full text-sm tabular">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="text-left px-5 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Date</th>
+                  <th class="text-left px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Opponent</th>
+                  <th class="text-center px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Result</th>
+                  <th class="text-center px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">G</th>
+                  <th class="text-center px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">A</th>
+                  <th class="text-center px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Sh</th>
+                  <th class="text-center px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">SOG</th>
+                  <th class="text-center px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-400">Min</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <!-- Standout game -->
+                <tr class="border-l-2 bg-amber-50" style="border-left-color:#F59E0B">
+                  <td class="px-5 py-2.5 text-slate-600">Nov 12</td>
+                  <td class="px-3 py-2.5 font-medium text-slate-900">vs ATU</td>
+                  <td class="px-3 py-2.5 text-center"><span class="form-badge bg-emerald-500 text-white" style="width:auto;padding:0 6px">W 3–1</span></td>
+                  <td class="px-3 py-2.5 text-center font-extrabold text-emerald-600">2</td>
+                  <td class="px-3 py-2.5 text-center">0</td>
+                  <td class="px-3 py-2.5 text-center">5</td>
+                  <td class="px-3 py-2.5 text-center">3</td>
+                  <td class="px-3 py-2.5 text-center">90</td>
+                </tr>
+                <tr class="hover:bg-slate-50">
+                  <td class="px-5 py-2.5 text-slate-600">Nov 8</td>
+                  <td class="px-3 py-2.5 font-medium text-slate-900">at SAU</td>
+                  <td class="px-3 py-2.5 text-center"><span class="form-badge bg-emerald-500 text-white" style="width:auto;padding:0 6px">W 2–0</span></td>
+                  <td class="px-3 py-2.5 text-center font-extrabold text-emerald-600">1</td>
+                  <td class="px-3 py-2.5 text-center">0</td>
+                  <td class="px-3 py-2.5 text-center">3</td>
+                  <td class="px-3 py-2.5 text-center">2</td>
+                  <td class="px-3 py-2.5 text-center">90</td>
+                </tr>
+                <tr class="hover:bg-slate-50">
+                  <td class="px-5 py-2.5 text-slate-600">Nov 2</td>
+                  <td class="px-3 py-2.5 font-medium text-slate-900">vs OBU</td>
+                  <td class="px-3 py-2.5 text-center"><span class="form-badge bg-emerald-500 text-white" style="width:auto;padding:0 6px">W 1–0</span></td>
+                  <td class="px-3 py-2.5 text-center font-extrabold text-emerald-600">1</td>
+                  <td class="px-3 py-2.5 text-center">0</td>
+                  <td class="px-3 py-2.5 text-center">4</td>
+                  <td class="px-3 py-2.5 text-center">2</td>
+                  <td class="px-3 py-2.5 text-center">90</td>
+                </tr>
+                <tr class="hover:bg-slate-50">
+                  <td class="px-5 py-2.5 text-slate-600">Oct 26</td>
+                  <td class="px-3 py-2.5 font-medium text-slate-900">at NWOSU</td>
+                  <td class="px-3 py-2.5 text-center"><span class="form-badge bg-amber-400 text-white" style="width:auto;padding:0 6px">D 1–1</span></td>
+                  <td class="px-3 py-2.5 text-center text-slate-400">0</td>
+                  <td class="px-3 py-2.5 text-center text-emerald-600 font-bold">1</td>
+                  <td class="px-3 py-2.5 text-center">2</td>
+                  <td class="px-3 py-2.5 text-center">1</td>
+                  <td class="px-3 py-2.5 text-center">90</td>
+                </tr>
+                <tr class="hover:bg-slate-50">
+                  <td class="px-5 py-2.5 text-slate-600">Oct 18</td>
+                  <td class="px-3 py-2.5 font-medium text-slate-900">vs HSU</td>
+                  <td class="px-3 py-2.5 text-center"><span class="form-badge bg-rose-500 text-white" style="width:auto;padding:0 6px">L 0–2</span></td>
+                  <td class="px-3 py-2.5 text-center text-slate-400">0</td>
+                  <td class="px-3 py-2.5 text-center text-slate-400">0</td>
+                  <td class="px-3 py-2.5 text-center">1</td>
+                  <td class="px-3 py-2.5 text-center">0</td>
+                  <td class="px-3 py-2.5 text-center">72</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-400">
+              <span class="border-l-2 border-amber-400 pl-2">Amber highlight = exceptional game (2+ goal contributions)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

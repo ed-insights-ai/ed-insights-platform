@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EDInsights.AI — Design Blueprint</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+
+    /* Wireframe block styling */
+    .wf-block { background: #F1F5F9; border: 1.5px dashed #CBD5E1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: #94A3B8; text-align: center; padding: 4px; }
+    .wf-block.primary { background: #F0FDFA; border-color: #99F6E4; color: #0D9488; }
+    .wf-block.accent { background: #FFF7ED; border-color: #FED7AA; color: #EA580C; }
+    .wf-block.insight { background: #F0FDF4; border-color: #BBF7D0; color: #16A34A; }
+    .wf-block.chart { background: #EFF6FF; border-color: #BFDBFE; color: #3B82F6; }
+    .wf-block.nav { background: #0F172A; border: none; color: #94A3B8; font-size: 9px; }
+    .wf-block.header { background: #0F172A; border: none; color: white; font-size: 9px; }
+    .wf-block.dark { background: #1E293B; border: none; color: #64748B; }
+
+    /* Page frame */
+    .page-frame { border: 2px solid #E2E8F0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); }
+    .page-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748B; margin-bottom: 8px; }
+    .route-tag { font-size: 10px; font-family: monospace; background: #F1F5F9; border: 1px solid #E2E8F0; padding: 2px 8px; border-radius: 4px; color: #475569; }
+
+    /* Section headers */
+    .section-title { font-size: 18px; font-weight: 800; color: #0F172A; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px; margin-bottom: 20px; }
+
+    /* Site map nodes */
+    .sm-node { border: 2px solid #E2E8F0; border-radius: 8px; padding: 8px 12px; background: white; text-align: center; }
+    .sm-node.root { border-color: #0D9488; background: #F0FDFA; }
+    .sm-node.conf { border-color: #EA580C; background: #FFF7ED; }
+    .sm-node.team { border-color: #0D9488; background: #F0FDFA; }
+    .sm-node.player { border-color: #7C3AED; background: #F5F3FF; }
+    .sm-node.future { border-color: #CBD5E1; background: #F8FAFC; opacity: 0.6; }
+    .sm-line { border-left: 2px solid #E2E8F0; margin-left: 50%; height: 16px; }
+    .sm-hline { border-top: 2px solid #E2E8F0; }
+
+    /* Component cards */
+    .comp-card { background: white; border: 1.5px solid #E2E8F0; border-radius: 8px; padding: 12px; }
+    .comp-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94A3B8; margin-bottom: 6px; }
+
+    /* Template grid */
+    .tpl-grid { display: grid; gap: 4px; height: 100%; }
+  </style>
+</head>
+<body class="bg-slate-50 p-8">
+<div class="max-w-6xl mx-auto space-y-16">
+
+  <!-- ═══════ HEADER ═══════ -->
+  <div>
+    <h1 class="text-3xl font-extrabold text-slate-900">EDInsights.AI</h1>
+    <p class="text-slate-500 mt-1">UI Design Blueprint · Navigation Architecture · Page Templates · Component System</p>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       1. SITE MAP
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <div class="section-title">1 · Site Map & Information Architecture</div>
+
+    <!-- Top level context note -->
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800">
+      <strong>Design constraint:</strong> Gender (Men's / Women's) is a global filter set in the header. It is never a page-level choice. Every page is fully scoped to one gender at a time. Switching gender reloads the current view in the other gender's context.
+    </div>
+
+    <!-- Site map diagram -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-8">
+
+      <!-- L0: Landing -->
+      <div class="flex justify-center mb-2">
+        <div class="sm-node root px-6">
+          <div class="text-xs font-bold text-teal-700">LANDING</div>
+          <div class="text-xs text-slate-500 font-mono mt-0.5">/</div>
+          <div class="text-xs text-slate-500 mt-1">Marketing · Sign in · Sign up</div>
+        </div>
+      </div>
+
+      <div class="sm-line"></div>
+
+      <!-- L1: Conference -->
+      <div class="flex justify-center mb-2">
+        <div class="sm-node conf px-6">
+          <div class="text-xs font-bold text-orange-700">CONFERENCE LEVEL</div>
+          <div class="text-xs text-slate-500 font-mono mt-0.5">/conference/[abbr]</div>
+          <div class="text-xs text-slate-500 mt-1">Default landing for logged-in users w/o team preference</div>
+        </div>
+      </div>
+
+      <!-- Conference pages row -->
+      <div class="flex justify-center gap-3 mb-2 px-8">
+        <div class="h-4 border-l-2 border-slate-200 mx-auto" style="width:1px;margin-left:calc(50% - 1px)"></div>
+      </div>
+      <div class="flex justify-center gap-2 mb-2">
+        <div class="sm-line" style="height:0;border-top:2px solid #E2E8F0;width:60%;margin:0 auto"></div>
+      </div>
+
+      <!-- Conference child pages -->
+      <div class="grid grid-cols-4 gap-3 mb-2 max-w-3xl mx-auto">
+        <div class="sm-node conf">
+          <div class="text-xs font-bold text-orange-700">Overview</div>
+          <div class="font-mono text-xs text-slate-400">/conference/gac</div>
+          <div class="text-xs text-slate-400 mt-1">Standings · KPIs · Leaders</div>
+        </div>
+        <div class="sm-node conf">
+          <div class="text-xs font-bold text-orange-700">All Players</div>
+          <div class="font-mono text-xs text-slate-400">/conference/gac/players</div>
+          <div class="text-xs text-slate-400 mt-1">Cross-school leaderboard</div>
+        </div>
+        <div class="sm-node conf">
+          <div class="text-xs font-bold text-orange-700">All Teams</div>
+          <div class="font-mono text-xs text-slate-400">/conference/gac/teams</div>
+          <div class="text-xs text-slate-400 mt-1">Browse · filter · pick</div>
+        </div>
+        <div class="sm-node future">
+          <div class="text-xs font-bold text-slate-400">Compare Teams</div>
+          <div class="font-mono text-xs text-slate-400">/compare/teams</div>
+          <div class="text-xs text-slate-400 mt-1">Phase 2</div>
+        </div>
+      </div>
+
+      <div class="flex justify-center"><div class="h-5 border-l-2 border-slate-200" style="width:1px"></div></div>
+
+      <!-- L2: Team -->
+      <div class="flex justify-center mb-2">
+        <div class="sm-node team px-6">
+          <div class="text-xs font-bold text-teal-700">TEAM LEVEL</div>
+          <div class="text-xs text-slate-500 font-mono mt-0.5">/team/[abbr]</div>
+          <div class="text-xs text-slate-500 mt-1">Default landing for coaches w/ team preference set</div>
+        </div>
+      </div>
+
+      <!-- Team child pages -->
+      <div class="grid grid-cols-5 gap-3 mb-2 max-w-4xl mx-auto mt-2">
+        <div class="sm-node team">
+          <div class="text-xs font-bold text-teal-700">War Room</div>
+          <div class="font-mono text-xs text-slate-500">/team/hu</div>
+          <div class="text-xs text-slate-400 mt-1">Dashboard · default</div>
+        </div>
+        <div class="sm-node team">
+          <div class="text-xs font-bold text-teal-700">Schedule</div>
+          <div class="font-mono text-xs text-slate-500">/team/hu/schedule</div>
+          <div class="text-xs text-slate-400 mt-1">Results · upcoming</div>
+        </div>
+        <div class="sm-node team">
+          <div class="text-xs font-bold text-teal-700">Roster</div>
+          <div class="font-mono text-xs text-slate-500">/team/hu/roster</div>
+          <div class="text-xs text-slate-400 mt-1">Players · stats</div>
+        </div>
+        <div class="sm-node team">
+          <div class="text-xs font-bold text-teal-700">Analytics</div>
+          <div class="font-mono text-xs text-slate-500">/team/hu/analytics</div>
+          <div class="text-xs text-slate-400 mt-1">Trends · splits</div>
+        </div>
+        <div class="sm-node team">
+          <div class="text-xs font-bold text-teal-700">Game Detail</div>
+          <div class="font-mono text-xs text-slate-500">/team/hu/games/[id]</div>
+          <div class="text-xs text-slate-400 mt-1">Per-game breakdown</div>
+        </div>
+      </div>
+
+      <div class="flex justify-center"><div class="h-5 border-l-2 border-slate-200" style="width:1px"></div></div>
+
+      <!-- L3: Player -->
+      <div class="flex justify-center">
+        <div class="sm-node player px-6">
+          <div class="text-xs font-bold text-purple-700">PLAYER LEVEL</div>
+          <div class="text-xs text-slate-500 font-mono mt-0.5">/player/[id]</div>
+          <div class="text-xs text-slate-500 mt-1">Accessible from Roster, All Players, Top Contributors</div>
+        </div>
+      </div>
+
+      <!-- Entry point key -->
+      <div class="flex items-center gap-6 mt-8 pt-6 border-t border-slate-100 justify-center text-xs text-slate-500">
+        <span class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded border-2 border-orange-400 bg-orange-50"></span>Scout entry point</span>
+        <span class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded border-2 border-teal-500 bg-teal-50"></span>Coach entry point</span>
+        <span class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded border-2 border-purple-400 bg-purple-50"></span>Athlete entry point</span>
+        <span class="flex items-center gap-2"><span class="inline-block w-3 h-3 rounded border-2 border-slate-300 bg-slate-50 opacity-60"></span>Phase 2+</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       2. APP SHELL TEMPLATE
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <div class="section-title">2 · App Shell — Persistent Layout</div>
+    <p class="text-sm text-slate-500 mb-5">Every page inside the app uses this shell. The header and sidebar are always present. Only the main content area changes.</p>
+
+    <div class="page-frame bg-slate-100" style="height:520px">
+      <div style="display:grid;grid-template-rows:52px 24px 1fr;height:100%">
+
+        <!-- Header strip -->
+        <div class="wf-header flex items-center justify-between px-4" style="background:#0F172A">
+          <div class="flex items-center gap-3">
+            <div class="w-5 h-5 rounded" style="background:#0D9488"></div>
+            <span class="text-white font-extrabold text-sm">EDInsights<span style="color:#0D9488">.AI</span></span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <span>GAC</span><span class="text-slate-600">›</span>
+            <span class="text-white">Harding</span><span class="text-slate-600">›</span>
+            <span class="text-slate-500">War Room</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="flex rounded overflow-hidden border border-slate-600 text-xs">
+              <div class="px-3 py-1" style="background:#0D9488;color:white;font-weight:700">⚽ Men's</div>
+              <div class="px-3 py-1 text-slate-400">Women's</div>
+            </div>
+            <div class="bg-slate-700 rounded px-2 py-1 text-xs text-slate-300">2024–25 ▾</div>
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold" style="background:#0D9488">D</div>
+          </div>
+        </div>
+
+        <!-- Gender context bar -->
+        <div class="flex items-center justify-center text-xs font-bold text-white tracking-widest uppercase" style="background:#0D9488">
+          Men's Soccer · GAC · 2024–25
+        </div>
+
+        <!-- Body: sidebar + main -->
+        <div style="display:grid;grid-template-columns:200px 1fr;overflow:hidden">
+
+          <!-- Sidebar -->
+          <div class="border-r border-slate-200 bg-white p-2" style="font-size:11px">
+
+            <!-- CONFERENCE STATE (shown when at L1) -->
+            <div class="mb-4">
+              <div class="flex items-center gap-1.5 p-2 rounded-lg mb-1" style="background:#EA580C20">
+                <div class="w-6 h-6 rounded flex items-center justify-center text-white font-extrabold text-xs" style="background:#EA580C">GAC</div>
+                <span class="font-bold text-slate-700 text-xs">Great American</span>
+              </div>
+              <div class="space-y-0.5 pl-1">
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-400">📊 Overview</div>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-400">👥 All Players</div>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-400">🏫 All Teams</div>
+              </div>
+            </div>
+
+            <div class="border-t border-dashed border-slate-200 my-2 mx-2"></div>
+            <div class="px-2 mb-1 text-xs font-bold uppercase tracking-wider text-slate-300">↓ drill into team ↓</div>
+
+            <!-- TEAM STATE (shown when at L2) -->
+            <div>
+              <div class="px-2 py-1 text-xs text-slate-400 flex items-center gap-1">← Back to GAC</div>
+              <div class="flex items-center gap-1.5 p-2 rounded-lg mb-1 mt-1" style="background:#0D948820">
+                <div class="w-6 h-6 rounded flex items-center justify-center text-white font-extrabold text-xs" style="background:#0D9488">HU</div>
+                <div>
+                  <div class="font-bold text-slate-700 text-xs">Harding</div>
+                  <div class="text-slate-400" style="font-size:9px">Bisons · 3rd in GAC</div>
+                </div>
+              </div>
+              <div class="space-y-0.5 pl-1">
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded font-semibold border-l-2 border-teal-500" style="background:#F0FDFA;color:#0D9488">⚡ War Room</div>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-500">📅 Schedule</div>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-500">👤 Roster & Stats</div>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-500">📈 Analytics</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Main content area (placeholder) -->
+          <div class="bg-slate-50 p-4" style="overflow:hidden">
+            <div class="wf-block primary h-full flex-col gap-2 text-center" style="font-size:11px">
+              <div class="font-bold text-teal-700 text-sm">MAIN CONTENT AREA</div>
+              <div class="text-teal-500">Swaps entirely based on current page</div>
+              <div class="text-teal-400 text-xs mt-1">Conference Overview / War Room / Schedule / Roster / Player Profile / etc.</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Shell rules -->
+    <div class="grid grid-cols-3 gap-4 mt-4">
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Header — always visible</p>
+        <ul class="text-xs text-slate-600 space-y-1">
+          <li>• Logo → home (conference level)</li>
+          <li>• Breadcrumb → current location</li>
+          <li>• Gender toggle → global, persistent</li>
+          <li>• Season selector → global</li>
+          <li>• User avatar → settings</li>
+        </ul>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Sidebar — context-aware</p>
+        <ul class="text-xs text-slate-600 space-y-1">
+          <li>• At L1: Conference nav + team list</li>
+          <li>• At L2: ← Back + team identity + team nav</li>
+          <li>• At L3 (player): ← Back to Roster</li>
+          <li>• 200px fixed width</li>
+          <li>• Team quick-jump always reachable</li>
+        </ul>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-4">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Gender context bar</p>
+        <ul class="text-xs text-slate-600 space-y-1">
+          <li>• Teal = Men's. Purple = Women's.</li>
+          <li>• Always visible below header</li>
+          <li>• Visual reminder — never ambiguous</li>
+          <li>• Color changes entire bar on switch</li>
+          <li>• Helps prevent "wrong gender" errors</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       3. PAGE TEMPLATES (WIREFRAMES)
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <div class="section-title">3 · Page Templates — Wireframe Layouts</div>
+    <p class="text-sm text-slate-500 mb-6">Six distinct page templates. All share the app shell. Content area shown below.</p>
+
+    <div class="grid grid-cols-2 gap-8">
+
+      <!-- TEMPLATE A: Conference Overview -->
+      <div>
+        <div class="page-label">Template A · Conference Overview <span class="route-tag">/conference/gac</span></div>
+        <div class="page-frame bg-white p-3" style="height:340px">
+          <div class="space-y-2 h-full flex flex-col">
+            <!-- Page title -->
+            <div class="wf-block accent h-8 shrink-0">PAGE TITLE + conference name</div>
+            <!-- KPI row -->
+            <div class="grid grid-cols-4 gap-2 shrink-0" style="height:56px">
+              <div class="wf-block accent">LEADER<br/>team + pts</div>
+              <div class="wf-block accent">TOP SCORING<br/>team + G/G</div>
+              <div class="wf-block accent">AVG G/G<br/>large number</div>
+              <div class="wf-block accent">TOP PLAYER<br/>name + stats</div>
+            </div>
+            <!-- Main area -->
+            <div class="grid gap-2 flex-1" style="grid-template-columns:1.4fr 1fr;min-height:0">
+              <!-- Standings -->
+              <div class="wf-block accent flex-col gap-1" style="align-items:stretch;padding:8px">
+                <div class="text-xs font-bold text-orange-700 mb-1">STANDINGS TABLE</div>
+                <div class="space-y-1">
+                  <div style="height:22px;background:#FFF7ED;border-radius:4px;border:1px solid #FED7AA;display:flex;align-items:center;padding:0 8px;font-size:9px;color:#92400E">1 · SE Oklahoma St. — 15W 3L 0D · +28GD · 46pts · W W W L W</div>
+                  <div style="height:22px;background:#FFF7ED;border-radius:4px;border:1px solid #FED7AA;display:flex;align-items:center;padding:0 8px;font-size:9px;color:#92400E">2 · Henderson State — 13W 4L 1D · +17GD · 40pts · W L W W D</div>
+                  <div style="height:22px;background:#F0FDFA;border-radius:4px;border:1px solid #99F6E4;display:flex;align-items:center;padding:0 8px;font-size:9px;color:#0D9488;font-weight:700">3 · Harding (YOU) — 12W 4L 2D · +14GD · 38pts · W W L D W</div>
+                  <div style="height:22px;background:#FFF7ED;border-radius:4px;border:1px solid #FED7AA;display:flex;align-items:center;padding:0 8px;font-size:9px;color:#92400E">4 · Southern Arkansas — 11W 5L 2D · +7GD · 35pts</div>
+                  <div style="height:22px;background:#FFF7ED;border-radius:4px;border:1px solid #FED7AA;display:flex;align-items:center;padding:0 8px;font-size:9px;color:#92400E">5 · Ouachita Baptist — 10W 5L 3D · +4GD · 33pts</div>
+                </div>
+                <div class="text-center text-orange-500 mt-1" style="font-size:9px">↑ every row is clickable → opens team War Room</div>
+              </div>
+              <!-- Right column -->
+              <div class="flex flex-col gap-2 min-h-0">
+                <div class="wf-block chart flex-1">GOAL LEADERS<br/>top 5 players bar chart</div>
+                <div class="wf-block chart flex-1">GOALS/GAME<br/>horizontal bar by team<br/>+ conf avg dashed line</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Primary question answered: <em>"Where does every team stand and who are the top performers?"</em></p>
+      </div>
+
+      <!-- TEMPLATE B: War Room -->
+      <div>
+        <div class="page-label">Template B · Team War Room <span class="route-tag">/team/[abbr]</span></div>
+        <div class="page-frame bg-white p-3" style="height:340px">
+          <div class="space-y-2 h-full flex flex-col">
+            <div class="wf-block primary h-8 shrink-0">PAGE TITLE · team name + conference position</div>
+            <!-- Row 1 -->
+            <div class="grid gap-2 shrink-0" style="grid-template-columns:1.4fr 1fr;height:80px">
+              <div class="wf-block primary flex-col" style="align-items:flex-start;padding:8px">
+                <div class="font-bold text-teal-700 text-xs mb-1">SEASON RECORD + FORM</div>
+                <div class="text-2xl font-extrabold text-slate-900">12–4–2</div>
+                <div class="flex gap-1 mt-1">
+                  <div style="width:18px;height:18px;background:#10B981;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:700">W</div>
+                  <div style="width:18px;height:18px;background:#10B981;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:700">W</div>
+                  <div style="width:18px;height:18px;background:#F43F5E;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:700">L</div>
+                  <div style="width:18px;height:18px;background:#F59E0B;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:700">D</div>
+                  <div style="width:18px;height:18px;background:#10B981;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;color:white;font-weight:700">W</div>
+                </div>
+              </div>
+              <div class="wf-block insight flex-col" style="align-items:flex-start;padding:8px">
+                <div class="font-bold text-green-700 text-xs mb-1">🤖 SMART INSIGHTS</div>
+                <div style="font-size:9px;color:#166534;line-height:1.4">
+                  📈 Grudis scored 3 straight<br/>
+                  ⚠️ Conversion down 3.2%<br/>
+                  🏠 0 clean sheets away
+                </div>
+              </div>
+            </div>
+            <!-- Row 2 KPIs -->
+            <div class="grid grid-cols-3 gap-2 shrink-0" style="height:52px">
+              <div class="wf-block primary flex-col" style="align-items:flex-start;padding:6px">
+                <div style="font-size:8px;color:#0D9488;font-weight:700">GOALS/GAME</div>
+                <div style="font-size:18px;font-weight:800;color:#0F172A">2.14</div>
+                <div style="font-size:8px;background:#ECFDF5;color:#059669;padding:1px 6px;border-radius:99px;font-weight:700">+0.4 GAC ▲</div>
+              </div>
+              <div class="wf-block primary flex-col" style="align-items:flex-start;padding:6px">
+                <div style="font-size:8px;color:#0D9488;font-weight:700">SHOT CONV%</div>
+                <div style="font-size:18px;font-weight:800;color:#0F172A">14.2%</div>
+                <div style="font-size:8px;background:#FFF1F2;color:#E11D48;padding:1px 6px;border-radius:99px;font-weight:700">−1.2 GAC ▼</div>
+              </div>
+              <div class="wf-block accent flex-col" style="align-items:flex-start;padding:6px">
+                <div style="font-size:8px;color:#EA580C;font-weight:700">NEXT MATCH</div>
+                <div style="font-size:11px;font-weight:700;color:#0F172A">vs OBU</div>
+                <div style="font-size:8px;color:#64748B">Sat Nov 15 · Home</div>
+              </div>
+            </div>
+            <!-- Row 3 -->
+            <div class="grid gap-2 flex-1" style="grid-template-columns:1.4fr 1fr;min-height:0">
+              <div class="wf-block chart">SEASON TREND CHART<br/>GF (teal) vs GA (orange) per game<br/>conf avg dashed reference line</div>
+              <div class="wf-block primary flex-col" style="align-items:flex-start;padding:8px">
+                <div class="font-bold text-teal-700 text-xs mb-1">TOP CONTRIBUTORS</div>
+                <div class="space-y-1 w-full">
+                  <div style="font-size:9px;display:flex;justify-content:space-between">#9 Grudis <span style="font-weight:700">4G 1A</span></div>
+                  <div style="font-size:9px;display:flex;justify-content:space-between">#7 Hahn <span style="font-weight:700">3G 3A</span></div>
+                  <div style="font-size:9px;display:flex;justify-content:space-between">#21 Scholl <span style="font-weight:700">1G 2A</span></div>
+                </div>
+                <div style="font-size:8px;color:#0D9488;margin-top:4px">↑ names are links → Player Profile</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Primary question answered: <em>"How is my season going and what do I need to pay attention to today?"</em></p>
+      </div>
+
+      <!-- TEMPLATE C: Schedule -->
+      <div>
+        <div class="page-label">Template C · Schedule & Results <span class="route-tag">/team/[abbr]/schedule</span></div>
+        <div class="page-frame bg-white p-3" style="height:300px">
+          <div class="space-y-2 h-full flex flex-col">
+            <div class="wf-block primary h-8 shrink-0">PAGE TITLE + season record summary</div>
+            <!-- Filter bar -->
+            <div class="wf-block h-8 shrink-0">FILTER BAR: All · Home · Away · Conf · Non-Conf · W · L · D</div>
+            <!-- Schedule table -->
+            <div class="flex-1 min-h-0 wf-block primary flex-col" style="align-items:stretch;padding:8px">
+              <div class="font-bold text-teal-700 text-xs mb-1">SEASON TIMELINE TABLE</div>
+              <div class="space-y-1 flex-1 overflow-hidden">
+                <div style="height:20px;background:#ECFDF5;border-radius:3px;border:1px solid #BBF7D0;display:flex;align-items:center;padding:0 8px;gap:8px;font-size:9px">
+                  <span style="color:#64748B;width:44px">Nov 12</span>
+                  <span style="font-weight:600;flex:1">vs Arkansas Tech</span>
+                  <span style="background:#0F172A;color:white;padding:1px 4px;border-radius:3px;font-weight:700;font-size:8px">H</span>
+                  <span style="background:#10B981;color:white;padding:1px 6px;border-radius:3px;font-weight:700;font-size:8px">W</span>
+                  <span style="font-weight:700;color:#0F172A;width:32px">3–1</span>
+                  <span style="color:#94A3B8;font-size:8px">click for game detail →</span>
+                </div>
+                <div style="height:20px;background:#ECFDF5;border-radius:3px;border:1px solid #BBF7D0;display:flex;align-items:center;padding:0 8px;gap:8px;font-size:9px">
+                  <span style="color:#64748B;width:44px">Nov 8</span>
+                  <span style="font-weight:600;flex:1">at Southern Arkansas</span>
+                  <span style="background:#94A3B8;color:white;padding:1px 4px;border-radius:3px;font-weight:700;font-size:8px">A</span>
+                  <span style="background:#10B981;color:white;padding:1px 6px;border-radius:3px;font-weight:700;font-size:8px">W</span>
+                  <span style="font-weight:700;color:#0F172A;width:32px">2–0</span>
+                </div>
+                <div style="height:20px;background:#FFF1F2;border-radius:3px;border:1px solid #FECDD3;display:flex;align-items:center;padding:0 8px;gap:8px;font-size:9px">
+                  <span style="color:#64748B;width:44px">Oct 18</span>
+                  <span style="font-weight:600;flex:1">vs Henderson State</span>
+                  <span style="background:#0F172A;color:white;padding:1px 4px;border-radius:3px;font-weight:700;font-size:8px">H</span>
+                  <span style="background:#F43F5E;color:white;padding:1px 6px;border-radius:3px;font-weight:700;font-size:8px">L</span>
+                  <span style="font-weight:700;color:#0F172A;width:32px">0–2</span>
+                </div>
+                <div style="height:20px;background:#FFFBEB;border-radius:3px;border:1px dashed #FDE68A;display:flex;align-items:center;padding:0 8px;gap:8px;font-size:9px;opacity:0.7">
+                  <span style="color:#64748B;width:44px">Nov 15</span>
+                  <span style="font-weight:600;flex:1">vs Ouachita Baptist</span>
+                  <span style="background:#0F172A;color:white;padding:1px 4px;border-radius:3px;font-weight:700;font-size:8px">H</span>
+                  <span style="background:#F59E0B;color:white;padding:1px 10px;border-radius:3px;font-weight:700;font-size:8px">NEXT</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Primary question: <em>"What happened this season and what's coming up?"</em></p>
+      </div>
+
+      <!-- TEMPLATE D: Roster -->
+      <div>
+        <div class="page-label">Template D · Roster & Stats <span class="route-tag">/team/[abbr]/roster</span></div>
+        <div class="page-frame bg-white p-3" style="height:300px">
+          <div class="space-y-2 h-full flex flex-col">
+            <div class="wf-block primary h-8 shrink-0">PAGE TITLE + player count</div>
+            <!-- Position tabs + sort -->
+            <div class="grid gap-2 shrink-0" style="grid-template-columns:1fr 1fr;height:28px">
+              <div class="wf-block">POSITION TABS: All · FWD · MID · DEF · GK</div>
+              <div class="wf-block">SORT BY: Goals · Assists · Pts · G/90 · Minutes ▾</div>
+            </div>
+            <!-- Table -->
+            <div class="flex-1 min-h-0 wf-block primary flex-col" style="align-items:stretch;padding:8px">
+              <div class="font-bold text-teal-700 text-xs mb-1">PLAYER TABLE — every name is a link to Player Profile</div>
+              <!-- Header row -->
+              <div style="height:18px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;display:flex;align-items:center;padding:0 6px;gap:12px;font-size:8px;font-weight:700;color:#94A3B8;text-transform:uppercase">
+                <span style="width:16px">#</span><span style="flex:1">PLAYER</span><span style="width:28px">POS</span><span style="width:24px;text-align:center">GP</span><span style="width:20px;text-align:center">G</span><span style="width:20px;text-align:center">A</span><span style="width:28px;text-align:center">SHOTS</span><span style="width:28px;text-align:center">SOG</span><span style="width:36px;text-align:center">MIN</span><span style="width:36px;text-align:center">G/90</span>
+              </div>
+              <div class="space-y-0.5 mt-1">
+                <div style="height:20px;background:#F0FDFA;border-radius:3px;display:flex;align-items:center;padding:0 6px;gap:12px;font-size:9px;color:#0D9488;font-weight:600">
+                  <span style="width:16px">9</span><span style="flex:1">N. Grudis →</span><span style="width:28px">FWD</span><span style="width:24px;text-align:center">16</span><span style="width:20px;text-align:center;font-weight:800">4</span><span style="width:20px;text-align:center">1</span><span style="width:28px;text-align:center">18</span><span style="width:28px;text-align:center">9</span><span style="width:36px;text-align:center">1058</span><span style="width:36px;text-align:center;color:#0D9488">0.34</span>
+                </div>
+                <div style="height:20px;background:white;border-radius:3px;display:flex;align-items:center;padding:0 6px;gap:12px;font-size:9px;color:#475569">
+                  <span style="width:16px">7</span><span style="flex:1">C. Hahn →</span><span style="width:28px">MID</span><span style="width:24px;text-align:center">14</span><span style="width:20px;text-align:center;font-weight:700">3</span><span style="width:20px;text-align:center">3</span><span style="width:28px;text-align:center">15</span><span style="width:28px;text-align:center">7</span><span style="width:36px;text-align:center">980</span><span style="width:36px;text-align:center">0.28</span>
+                </div>
+                <div style="height:20px;background:white;border-radius:3px;display:flex;align-items:center;padding:0 6px;gap:12px;font-size:9px;color:#475569">
+                  <span style="width:16px">21</span><span style="flex:1">A. Scholl →</span><span style="width:28px">MID</span><span style="width:24px;text-align:center">12</span><span style="width:20px;text-align:center;font-weight:700">1</span><span style="width:20px;text-align:center">2</span><span style="width:28px;text-align:center">8</span><span style="width:28px;text-align:center">4</span><span style="width:36px;text-align:center">720</span><span style="width:36px;text-align:center">0.13</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Primary question: <em>"Who on my squad is doing what, ranked by what matters?"</em></p>
+      </div>
+
+      <!-- TEMPLATE E: Game Detail -->
+      <div>
+        <div class="page-label">Template E · Game Detail <span class="route-tag">/team/[abbr]/games/[id]</span></div>
+        <div class="page-frame bg-white p-3" style="height:300px">
+          <div class="space-y-2 h-full flex flex-col">
+            <!-- Score hero -->
+            <div class="wf-block primary shrink-0 flex items-center justify-between px-4" style="height:52px">
+              <div class="text-left">
+                <div style="font-size:9px;color:#0D9488;font-weight:700">HARDING UNIVERSITY</div>
+                <div style="font-size:28px;font-weight:800;color:#0F172A;line-height:1">3</div>
+              </div>
+              <div class="text-center">
+                <div style="font-size:8px;color:#94A3B8">NOV 12 · HOME · GAC</div>
+                <div style="font-size:10px;font-weight:600;color:#0F172A">FINAL</div>
+              </div>
+              <div class="text-right">
+                <div style="font-size:9px;color:#94A3B8;font-weight:700">ARKANSAS TECH</div>
+                <div style="font-size:28px;font-weight:800;color:#94A3B8;line-height:1">1</div>
+              </div>
+            </div>
+            <!-- Main grid -->
+            <div class="grid gap-2 flex-1" style="grid-template-columns:1fr 1fr;min-height:0">
+              <div class="flex flex-col gap-2">
+                <div class="wf-block chart" style="height:60px">MOMENTUM TIMELINE<br/>0–90 min · goals as markers</div>
+                <div class="wf-block flex-1">TERRITORIAL DOMINANCE<br/>horiz stacked bar · shots+corners proxy</div>
+              </div>
+              <div class="flex flex-col gap-2">
+                <div class="wf-block primary flex-1">PLAYER STATS TABLE<br/>goals · assists · shots · SOG · min<br/>both teams side by side</div>
+                <div class="wf-block accent" style="height:44px">PRE-GAME CONTEXT<br/>"Harding came in 3rd in GAC, 8–3–1 run"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Primary question: <em>"What happened in this specific game, who contributed, and what does it mean?"</em></p>
+      </div>
+
+      <!-- TEMPLATE F: Player Profile -->
+      <div>
+        <div class="page-label">Template F · Player Profile <span class="route-tag">/player/[id]</span></div>
+        <div class="page-frame bg-white p-3" style="height:300px">
+          <div class="space-y-2 h-full flex flex-col">
+            <!-- Identity header -->
+            <div class="wf-block primary shrink-0 flex items-center gap-3 px-3 text-left" style="height:52px;justify-content:flex-start">
+              <div style="width:36px;height:36px;background:#F0FDFA;border:2px solid #99F6E4;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#0D9488">#9</div>
+              <div>
+                <div style="font-size:14px;font-weight:800;color:#0F172A">Nojus Grudis</div>
+                <div style="font-size:9px;color:#64748B">FWD · Harding · Junior · 16 GP · GAC Men's</div>
+              </div>
+              <div class="ml-auto grid grid-cols-4 gap-2">
+                <div style="text-align:center">
+                  <div style="font-size:8px;color:#94A3B8;font-weight:700">G/90</div>
+                  <div style="font-size:14px;font-weight:800;color:#0D9488">0.34</div>
+                  <div style="font-size:7px;background:#ECFDF5;color:#059669;padding:1px 4px;border-radius:99px;font-weight:700">+0.12▲</div>
+                </div>
+                <div style="text-align:center">
+                  <div style="font-size:8px;color:#94A3B8;font-weight:700">A/90</div>
+                  <div style="font-size:14px;font-weight:800;color:#0F172A">0.11</div>
+                  <div style="font-size:7px;background:#FFF1F2;color:#E11D48;padding:1px 4px;border-radius:99px;font-weight:700">−0.02▼</div>
+                </div>
+                <div style="text-align:center">
+                  <div style="font-size:8px;color:#94A3B8;font-weight:700">CONV</div>
+                  <div style="font-size:14px;font-weight:800;color:#0F172A">22%</div>
+                  <div style="font-size:7px;background:#ECFDF5;color:#059669;padding:1px 4px;border-radius:99px;font-weight:700">+4.1▲</div>
+                </div>
+                <div style="text-align:center">
+                  <div style="font-size:8px;color:#94A3B8;font-weight:700">INVLV</div>
+                  <div style="font-size:14px;font-weight:800;color:#0F172A">28%</div>
+                  <div style="font-size:7px;background:#ECFDF5;color:#059669;padding:1px 4px;border-radius:99px;font-weight:700">+8.2▲</div>
+                </div>
+              </div>
+            </div>
+            <!-- Main area -->
+            <div class="grid gap-2 flex-1" style="grid-template-columns:160px 1fr;min-height:0">
+              <div class="wf-block chart flex-col">
+                <div style="font-size:9px;font-weight:700;color:#3B82F6">RADAR CHART</div>
+                <div style="font-size:8px;color:#6B7280;margin-top:4px">9-axis percentile<br/>rank vs GAC avg</div>
+                <div style="margin-top:8px;opacity:0.4">
+                  <svg viewBox="0 0 80 80" width="60" height="60">
+                    <polygon points="40,8 64,26 64,54 40,72 16,54 16,26" fill="none" stroke="#CBD5E1" stroke-width="0.5"/>
+                    <polygon points="40,20 55,30 55,50 40,60 25,50 25,30" fill="none" stroke="#CBD5E1" stroke-width="0.5"/>
+                    <polygon points="40,10 62,28 60,54 40,70 18,52 18,28" fill="#3B82F6" fill-opacity="0.2" stroke="#3B82F6" stroke-width="1.5"/>
+                  </svg>
+                </div>
+              </div>
+              <div class="flex flex-col gap-2 min-h-0">
+                <div class="wf-block primary flex-1">CAREER STATS TABLE<br/>season-by-season · G, A, Pts, Min, G/90, Conv%<br/>current season highlighted</div>
+                <div class="wf-block flex-1">GAME LOG<br/>per-game rows · exceptional games amber-highlighted<br/>goals / assists / shots / mins per game</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Primary question: <em>"Who is this player, how do they compare to the conference, and how have they developed?"</em></p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       4. COMPONENT INVENTORY
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <div class="section-title">4 · Component Inventory</div>
+    <p class="text-sm text-slate-500 mb-5">Every reusable UI piece. Build these once, use everywhere.</p>
+
+    <div class="grid grid-cols-4 gap-4">
+
+      <!-- Contextual Metric Card -->
+      <div class="comp-card">
+        <div class="comp-label">Contextual Metric Card</div>
+        <div class="bg-white border border-slate-200 rounded-lg p-3" style="width:120px">
+          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94A3B8">GOALS / GAME</div>
+          <div style="font-size:22px;font-weight:800;color:#0F172A;line-height:1.1;margin:4px 0">2.14</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <div style="font-size:9px;background:#ECFDF5;color:#059669;padding:2px 6px;border-radius:99px;font-weight:700">+0.4 ▲</div>
+            <div style="font-size:9px;color:#94A3B8">vs GAC</div>
+          </div>
+          <svg style="margin-top:6px;width:100%" height="20" viewBox="0 0 100 20">
+            <polyline points="0,15 20,12 40,8 60,10 80,5 100,3" fill="none" stroke="#0D9488" stroke-width="1.5"/>
+            <line x1="0" y1="12" x2="100" y2="12" stroke="#CBD5E1" stroke-width="0.8" stroke-dasharray="3,2"/>
+          </svg>
+          <div style="font-size:8px;color:#94A3B8">GAC avg: 1.74</div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Used: War Room (×6), Player Profile (×4)</p>
+      </div>
+
+      <!-- Form Badge Strip -->
+      <div class="comp-card">
+        <div class="comp-label">Form Badge Strip</div>
+        <div class="space-y-3">
+          <div>
+            <div style="font-size:9px;color:#94A3B8;font-weight:700;margin-bottom:4px">LAST 5 RESULTS</div>
+            <div style="display:flex;gap:3px">
+              <div style="width:24px;height:24px;background:#10B981;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white">W</div>
+              <div style="width:24px;height:24px;background:#10B981;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white">W</div>
+              <div style="width:24px;height:24px;background:#F43F5E;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white">L</div>
+              <div style="width:24px;height:24px;background:#F59E0B;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white">D</div>
+              <div style="width:24px;height:24px;background:#10B981;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white">W</div>
+            </div>
+          </div>
+          <div style="font-size:9px;color:#94A3B8">Compact variant (standings table):</div>
+          <div style="display:flex;gap:2px">
+            <div style="width:18px;height:18px;background:#10B981;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white">W</div>
+            <div style="width:18px;height:18px;background:#10B981;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white">W</div>
+            <div style="width:18px;height:18px;background:#F43F5E;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white">L</div>
+            <div style="width:18px;height:18px;background:#F59E0B;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white">D</div>
+            <div style="width:18px;height:18px;background:#10B981;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:white">W</div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Used: War Room, Standings, Scouting Card</p>
+      </div>
+
+      <!-- Delta Badge -->
+      <div class="comp-card">
+        <div class="comp-label">Delta Badge</div>
+        <div class="space-y-2">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#ECFDF5;color:#059669;padding:3px 8px;border-radius:99px;font-weight:700">+0.4 ▲</div>
+            <span style="font-size:10px;color:#64748B">positive</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#FFF1F2;color:#E11D48;padding:3px 8px;border-radius:99px;font-weight:700">−1.2 ▼</div>
+            <span style="font-size:10px;color:#64748B">negative</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#F1F5F9;color:#475569;padding:3px 8px;border-radius:99px;font-weight:700">±0.0 —</div>
+            <span style="font-size:10px;color:#64748B">neutral</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#ECFDF5;color:#059669;padding:3px 8px;border-radius:99px;font-weight:700">3rd in GAC ↑</div>
+            <span style="font-size:10px;color:#64748B">rank</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Green = better than avg. Red = worse. Never use for non-data.</p>
+      </div>
+
+      <!-- GD Badge -->
+      <div class="comp-card">
+        <div class="comp-label">GD / Table Badge</div>
+        <div class="space-y-2">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#ECFDF5;color:#059669;padding:2px 8px;border-radius:99px;font-weight:700">+28</div>
+            <span style="font-size:10px;color:#64748B">positive GD</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#FFF1F2;color:#E11D48;padding:2px 8px;border-radius:99px;font-weight:700">−13</div>
+            <span style="font-size:10px;color:#64748B">negative GD</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:11px;background:#F8FAFC;color:#94A3B8;padding:2px 8px;border-radius:99px;font-weight:700">0</div>
+            <span style="font-size:10px;color:#64748B">zero</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Used in standings GD column</p>
+      </div>
+
+      <!-- Sparkline -->
+      <div class="comp-card">
+        <div class="comp-label">Inline Sparkline</div>
+        <div class="space-y-3">
+          <div>
+            <div style="font-size:9px;color:#94A3B8;margin-bottom:2px">Trending up (teal)</div>
+            <svg width="80" height="20" viewBox="0 0 80 20"><polyline points="0,16 16,13 32,10 48,8 64,5 80,3" fill="none" stroke="#0D9488" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="12" x2="80" y2="12" stroke="#CBD5E1" stroke-width="0.8" stroke-dasharray="3,2"/></svg>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#94A3B8;margin-bottom:2px">Trending down (rose)</div>
+            <svg width="80" height="20" viewBox="0 0 80 20"><polyline points="0,4 16,7 32,10 48,12 64,15 80,17" fill="none" stroke="#F43F5E" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="12" x2="80" y2="12" stroke="#CBD5E1" stroke-width="0.8" stroke-dasharray="3,2"/></svg>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#94A3B8;margin-bottom:2px">Flat / neutral (slate)</div>
+            <svg width="80" height="20" viewBox="0 0 80 20"><polyline points="0,11 16,9 32,12 48,10 64,11 80,10" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="12" x2="80" y2="12" stroke="#CBD5E1" stroke-width="0.8" stroke-dasharray="3,2"/></svg>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">40×16px in tables. Full width in stat cards. Dashed = conf avg.</p>
+      </div>
+
+      <!-- Smart Insight Card -->
+      <div class="comp-card">
+        <div class="comp-label">Smart Insight Item</div>
+        <div class="space-y-2">
+          <div style="background:white;border:1px solid #BBF7D0;border-radius:6px;padding:6px 8px;display:flex;gap:6px;align-items:flex-start">
+            <span style="font-size:14px">📈</span>
+            <div>
+              <div style="font-size:10px;font-weight:600;color:#0F172A">Grudis scored in 3 consecutive games</div>
+              <div style="font-size:9px;color:#64748B;margin-top:1px">4 goals total · career-high run</div>
+            </div>
+          </div>
+          <div style="background:white;border:1px solid #FECDD3;border-radius:6px;padding:6px 8px;display:flex;gap:6px;align-items:flex-start">
+            <span style="font-size:14px">⚠️</span>
+            <div>
+              <div style="font-size:10px;font-weight:600;color:#0F172A">Shot conversion down 3.2% last 3 games</div>
+              <div style="font-size:9px;color:#64748B;margin-top:1px">Now 11.4% vs season avg 14.6%</div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">SQL-generated, not LLM. Renders in teal card on War Room.</p>
+      </div>
+
+      <!-- Next Match Card -->
+      <div class="comp-card">
+        <div class="comp-label">Next Match Scouting Card</div>
+        <div style="background:white;border:1px solid #E2E8F0;border-radius:8px;padding:10px">
+          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94A3B8;margin-bottom:6px">NEXT MATCH</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:32px;height:32px;background:#F1F5F9;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#64748B">OBU</div>
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#0F172A">Ouachita Baptist</div>
+              <div style="font-size:9px;color:#64748B">Sat Nov 15 · Home · 2:00PM</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid #F1F5F9;padding-top:6px;font-size:9px;space-y:2px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#64748B">Their record</span><span style="font-weight:600;color:#0F172A">10–5–3</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#64748B">Key threat</span><span style="font-weight:600;color:#0F172A">J. Martinez 8G</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#64748B">H2H (last 7)</span><span style="font-weight:600;color:#059669">HU 4W–2L–1D</span></div>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Right column of War Room, spans rows 2+3</p>
+      </div>
+
+      <!-- Momentum Timeline -->
+      <div class="comp-card">
+        <div class="comp-label">Momentum Timeline (Game Detail)</div>
+        <div style="background:white;border:1px solid #E2E8F0;border-radius:8px;padding:10px">
+          <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94A3B8;margin-bottom:6px">MATCH TIMELINE · 0–90 MIN</div>
+          <div style="position:relative;height:32px">
+            <!-- Base line -->
+            <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:#E2E8F0;transform:translateY(-50%)"></div>
+            <!-- Half time -->
+            <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#CBD5E1;border-left:1px dashed #CBD5E1"></div>
+            <!-- Goals (teal = HU, orange = opponent) -->
+            <div style="position:absolute;top:50%;left:28%;transform:translate(-50%,-50%);width:14px;height:14px;background:#0D9488;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:7px;color:white;font-weight:700">⚽</div>
+            <div style="position:absolute;top:50%;left:58%;transform:translate(-50%,-50%);width:14px;height:14px;background:#0D9488;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:7px;color:white;font-weight:700">⚽</div>
+            <div style="position:absolute;top:50%;left:72%;transform:translate(-50%,-50%);width:10px;height:10px;background:#F43F5E;border-radius:50%;border:2px solid white"></div>
+            <div style="position:absolute;top:50%;left:88%;transform:translate(-50%,-50%);width:14px;height:14px;background:#0D9488;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:7px;color:white;font-weight:700">⚽</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:8px;color:#94A3B8;margin-top:2px"><span>0'</span><span>45'</span><span>90'</span></div>
+          <div style="display:flex;gap:8px;font-size:8px;margin-top:4px">
+            <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:#0D9488;border-radius:50%;display:inline-block"></span>HU goal</span>
+            <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;background:#F43F5E;border-radius:50%;display:inline-block"></span>Opponent</span>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">Built with D3. The most engaging game-level viz.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       5. COLOR + TYPE SYSTEM
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <div class="section-title">5 · Color & Typography System</div>
+    <div class="grid grid-cols-2 gap-6">
+      <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Color Tokens</p>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#0F172A;border-radius:6px"></div><div><div class="text-sm font-bold">brand-primary #0F172A</div><div class="text-xs text-slate-400">Header, logo, body text</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#EA580C;border-radius:6px"></div><div><div class="text-sm font-bold">brand-accent #EA580C</div><div class="text-xs text-slate-400">CTA buttons, conference level accent</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#0D9488;border-radius:6px"></div><div><div class="text-sm font-bold">data-primary #0D9488</div><div class="text-xs text-slate-400">MY team data, nav active, Men's mode</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#F97316;border-radius:6px"></div><div><div class="text-sm font-bold">data-opponent #F97316</div><div class="text-xs text-slate-400">Opponent data series. ALWAYS.</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#10B981;border-radius:6px"></div><div><div class="text-sm font-bold">data-positive #10B981</div><div class="text-xs text-slate-400">Above avg · wins · improving</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#F43F5E;border-radius:6px"></div><div><div class="text-sm font-bold">data-negative #F43F5E</div><div class="text-xs text-slate-400">Below avg · losses · declining</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#F59E0B;border-radius:6px"></div><div><div class="text-sm font-bold">data-neutral #F59E0B</div><div class="text-xs text-slate-400">Draws · warnings · caution</div></div></div>
+          <div class="flex items-center gap-3"><div style="width:32px;height:32px;background:#7C3AED;border-radius:6px"></div><div><div class="text-sm font-bold">women-accent #7C3AED</div><div class="text-xs text-slate-400">Women's mode indicator only</div></div></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border border-slate-200 p-6">
+        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Typography Scale</p>
+        <div class="space-y-3">
+          <div style="font-size:32px;font-weight:800;color:#0F172A;font-variant-numeric:tabular-nums;line-height:1">2.14</div>
+          <div class="text-xs text-slate-400">KPI Value — text-4xl extrabold tabular-nums</div>
+          <hr class="border-slate-100"/>
+          <div style="font-size:20px;font-weight:700;color:#0F172A;line-height:1">Season Analytics</div>
+          <div class="text-xs text-slate-400">Page title — text-xl bold</div>
+          <hr class="border-slate-100"/>
+          <div style="font-size:13px;font-weight:600;color:#0F172A">N. Grudis</div>
+          <div class="text-xs text-slate-400">Table cell — text-sm semibold</div>
+          <hr class="border-slate-100"/>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#94A3B8">GOALS / GAME</div>
+          <div class="text-xs text-slate-400">Card label — text-xs bold uppercase tracking-wider text-slate-400</div>
+          <hr class="border-slate-100"/>
+          <div class="bg-slate-900 rounded-lg p-3 text-xs text-slate-200 font-mono">
+            <div style="font-variant-numeric:tabular-nums">16 — 14 — 2.14 — 22.2%</div>
+          </div>
+          <div class="text-xs text-slate-400">All numerics — font-variant-numeric: tabular-nums. Columns stay aligned.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       6. BUILD ORDER
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <div class="section-title">6 · Build Order — What to ship first</div>
+    <div class="grid grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border-2 border-teal-400 p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-extrabold" style="background:#0D9488">1</div>
+          <span class="font-bold text-slate-900">Foundation</span>
+        </div>
+        <ul class="text-xs text-slate-600 space-y-1.5">
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>App shell (header + sidebar + gender bar)</li>
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>Color tokens + tabular-nums typography</li>
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>Contextual Metric Card component</li>
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>Form Badge Strip component</li>
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>Delta Badge component</li>
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>conferences table + seed data in DB</li>
+          <li class="flex items-start gap-1.5"><span class="text-teal-500 font-bold mt-0.5">✓</span>Derived metrics on existing API</li>
+        </ul>
+      </div>
+      <div class="bg-white rounded-xl border-2 border-orange-300 p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-extrabold" style="background:#EA580C">2</div>
+          <span class="font-bold text-slate-900">Core Pages</span>
+        </div>
+        <ul class="text-xs text-slate-600 space-y-1.5">
+          <li class="flex items-start gap-1.5"><span class="text-orange-400 font-bold mt-0.5">→</span>Conference Overview (Template A)</li>
+          <li class="flex items-start gap-1.5"><span class="text-orange-400 font-bold mt-0.5">→</span>War Room (Template B) with real API data</li>
+          <li class="flex items-start gap-1.5"><span class="text-orange-400 font-bold mt-0.5">→</span>Sidebar context switch (L1 ↔ L2)</li>
+          <li class="flex items-start gap-1.5"><span class="text-orange-400 font-bold mt-0.5">→</span>Schedule (Template C)</li>
+          <li class="flex items-start gap-1.5"><span class="text-orange-400 font-bold mt-0.5">→</span>Roster & Stats (Template D)</li>
+          <li class="flex items-start gap-1.5"><span class="text-orange-400 font-bold mt-0.5">→</span>Sparklines in stat cards</li>
+        </ul>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 p-5 opacity-70">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-extrabold bg-slate-400">3</div>
+          <span class="font-bold text-slate-900">Depth</span>
+        </div>
+        <ul class="text-xs text-slate-600 space-y-1.5">
+          <li class="flex items-start gap-1.5"><span class="text-slate-400 font-bold mt-0.5">·</span>Player Profile w/ radar chart</li>
+          <li class="flex items-start gap-1.5"><span class="text-slate-400 font-bold mt-0.5">·</span>Game Detail w/ momentum timeline</li>
+          <li class="flex items-start gap-1.5"><span class="text-slate-400 font-bold mt-0.5">·</span>Season Analytics page</li>
+          <li class="flex items-start gap-1.5"><span class="text-slate-400 font-bold mt-0.5">·</span>Smart Insights rule engine</li>
+          <li class="flex items-start gap-1.5"><span class="text-slate-400 font-bold mt-0.5">·</span>Conference All Players leaderboard</li>
+          <li class="flex items-start gap-1.5"><span class="text-slate-400 font-bold mt-0.5">·</span>Player comparison (Phase 2)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

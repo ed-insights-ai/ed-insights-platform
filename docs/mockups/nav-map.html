@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>EDInsights.AI — Navigation Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .level-card { border-left: 3px solid; }
+    .arrow { color: #94A3B8; font-size: 1.5rem; }
+    .page-pill { display: inline-flex; align-items: center; gap: 6px; background: white; border: 1px solid #E2E8F0; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #334155; }
+    .page-pill.active { background: #F0FDFA; border-color: #99F6E4; color: #0D9488; }
+    .page-pill.dim { background: #F8FAFC; border-color: #E2E8F0; color: #94A3B8; }
+    .flow-arrow { display: flex; align-items: center; justify-content: center; color: #CBD5E1; font-size: 24px; margin: 8px 0; }
+    .persona-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.06em; }
+  </style>
+</head>
+<body class="bg-slate-50 p-8">
+
+  <div class="max-w-5xl mx-auto">
+    <div class="mb-8">
+      <h1 class="text-2xl font-extrabold text-slate-900">EDInsights.AI — Navigation Architecture</h1>
+      <p class="text-slate-500 mt-1 text-sm">How users move through the app · information hierarchy · persona entry points</p>
+    </div>
+
+    <!-- ═══════════ ENTRY POINTS ═══════════ -->
+    <div class="mb-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Entry Points — Who lands where</h2>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="bg-teal-50 border border-teal-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xl">🏆</span>
+            <span class="font-bold text-teal-800">Coach / Staff</span>
+          </div>
+          <p class="text-xs text-teal-700 mb-3">Has an affiliated team. Cares about their program first, opponents second.</p>
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="persona-tag bg-teal-100 text-teal-700">Lands on</span>
+            <span class="font-bold text-teal-900">Team → War Room</span>
+          </div>
+        </div>
+        <div class="bg-orange-50 border border-orange-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xl">🔍</span>
+            <span class="font-bold text-orange-800">Scout / Analyst</span>
+          </div>
+          <p class="text-xs text-orange-700 mb-3">No fixed team. Browses across programs. Evaluates players and matchups.</p>
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="persona-tag bg-orange-100 text-orange-700">Lands on</span>
+            <span class="font-bold text-orange-900">Conference → Overview</span>
+          </div>
+        </div>
+        <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xl">⚽</span>
+            <span class="font-bold text-purple-800">Athlete / Fan</span>
+          </div>
+          <p class="text-xs text-purple-700 mb-3">Tracks personal stats or follows a team. Arrives via direct link.</p>
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="persona-tag bg-purple-100 text-purple-700">Lands on</span>
+            <span class="font-bold text-purple-900">Player Profile (direct)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ HIERARCHY MAP ═══════════ -->
+    <div class="grid grid-cols-12 gap-5 mb-8">
+
+      <!-- Level 1: Conference -->
+      <div class="col-span-4">
+        <div class="level-card border-orange-400 bg-white rounded-xl shadow-sm p-5 h-full">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-extrabold" style="background:#EA580C">L1</div>
+            <span class="font-bold text-slate-900">Conference Level</span>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">Viewing the full GAC. No team selected. Scout/analyst home base.</p>
+
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Pages</p>
+          <div class="space-y-2">
+            <div class="page-pill active w-full justify-start">
+              <span>📊</span> Conference Overview
+              <span class="ml-auto text-xs text-teal-500">default</span>
+            </div>
+            <div class="page-pill w-full justify-start"><span>👥</span> All Players</div>
+            <div class="page-pill w-full justify-start"><span>🏫</span> All Teams</div>
+            <div class="page-pill dim w-full justify-start"><span>⚖️</span> Compare Teams <span class="ml-auto text-xs text-slate-400">Phase 2</span></div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-100">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">What they see</p>
+            <ul class="text-xs text-slate-600 space-y-1">
+              <li>• Full standings table (all 10 teams)</li>
+              <li>• Conference-wide KPIs</li>
+              <li>• Top goal scorers leaderboard</li>
+              <li>• Goals/game bar chart</li>
+              <li>• Click any team row → goes to Level 2</li>
+            </ul>
+          </div>
+
+          <div class="mt-3 p-2.5 bg-orange-50 rounded-lg border border-orange-100">
+            <p class="text-xs text-orange-700 font-semibold">🔍 Scout path starts here</p>
+            <p class="text-xs text-orange-600 mt-0.5">Browse conference → pick a team → drill into players</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="col-span-1 flex flex-col items-center justify-center gap-2 pt-10">
+        <div class="text-xs text-slate-400 font-semibold text-center">Click team row</div>
+        <div class="text-3xl text-slate-300">→</div>
+        <div class="text-xs text-slate-400 font-semibold text-center">← Back to GAC</div>
+      </div>
+
+      <!-- Level 2: Team -->
+      <div class="col-span-4">
+        <div class="level-card border-teal-500 bg-white rounded-xl shadow-sm p-5 h-full">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-extrabold" style="background:#0D9488">L2</div>
+            <span class="font-bold text-slate-900">Team Level</span>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">A specific team selected. Full program view. Coach's home base.</p>
+
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Pages</p>
+          <div class="space-y-2">
+            <div class="page-pill active w-full justify-start">
+              <span>⚡</span> War Room (Dashboard)
+              <span class="ml-auto text-xs text-teal-500">default</span>
+            </div>
+            <div class="page-pill w-full justify-start"><span>📅</span> Schedule & Results</div>
+            <div class="page-pill w-full justify-start"><span>👤</span> Roster & Stats</div>
+            <div class="page-pill w-full justify-start"><span>📈</span> Season Analytics</div>
+            <div class="page-pill dim w-full justify-start"><span>🎯</span> Projections <span class="ml-auto text-xs text-slate-400">Phase 5</span></div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-100">
+            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">What they see</p>
+            <ul class="text-xs text-slate-600 space-y-1">
+              <li>• Season record + form badges</li>
+              <li>• Smart Insights (rule-based)</li>
+              <li>• KPI cards vs conference avg</li>
+              <li>• Next match scouting card</li>
+              <li>• Season trend + top contributors</li>
+              <li>• Click player name → goes to Level 3</li>
+              <li>• Click game result → goes to Game Detail</li>
+            </ul>
+          </div>
+
+          <div class="mt-3 p-2.5 bg-teal-50 rounded-lg border border-teal-100">
+            <p class="text-xs text-teal-700 font-semibold">🏆 Coach path starts here</p>
+            <p class="text-xs text-teal-600 mt-0.5">War Room loads instantly, no config needed</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrow -->
+      <div class="col-span-1 flex flex-col items-center justify-center gap-2 pt-10">
+        <div class="text-xs text-slate-400 font-semibold text-center">Click player name</div>
+        <div class="text-3xl text-slate-300">→</div>
+        <div class="text-xs text-slate-400 font-semibold text-center">← Back button</div>
+      </div>
+
+      <!-- Level 3: Player -->
+      <div class="col-span-2">
+        <div class="level-card border-purple-400 bg-white rounded-xl shadow-sm p-5 h-full">
+          <div class="flex items-center gap-2 mb-1">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-extrabold" style="background:#7C3AED">L3</div>
+            <span class="font-bold text-slate-900">Player</span>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">Single player profile. Accessible from any team view or all-players list.</p>
+
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Pages</p>
+          <div class="space-y-2">
+            <div class="page-pill active w-full justify-start text-xs"><span>🃏</span> Profile</div>
+            <div class="page-pill dim w-full justify-start text-xs"><span>⚖️</span> Compare <span class="text-slate-400">P2</span></div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-100">
+            <ul class="text-xs text-slate-600 space-y-1">
+              <li>• Identity card</li>
+              <li>• KPIs vs conf avg</li>
+              <li>• Radar chart</li>
+              <li>• Career stats</li>
+              <li>• Game log</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ SIDEBAR STATES ═══════════ -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mb-8">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-5">Sidebar State — Changes with context level</h2>
+      <div class="grid grid-cols-2 gap-6">
+
+        <!-- Conference sidebar -->
+        <div>
+          <div class="text-xs font-bold text-orange-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span>
+            When at Conference Level
+          </div>
+          <div class="border border-slate-200 rounded-xl overflow-hidden" style="width:180px">
+            <div class="bg-slate-900 px-3 py-2.5">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-slate-700 flex items-center justify-center text-white text-xs font-bold">GAC</div>
+                <span class="text-white text-xs font-bold">Great American</span>
+              </div>
+            </div>
+            <div class="bg-white divide-y divide-slate-100">
+              <div class="px-3 py-2 bg-teal-50 border-l-2 border-teal-500">
+                <span class="text-xs font-semibold text-teal-700">📊 Overview</span>
+              </div>
+              <div class="px-3 py-2 hover:bg-slate-50">
+                <span class="text-xs text-slate-600">👥 All Players</span>
+              </div>
+              <div class="px-3 py-2 hover:bg-slate-50">
+                <span class="text-xs text-slate-600">🏫 All Teams</span>
+              </div>
+              <div class="px-3 py-2 hover:bg-slate-50 opacity-50">
+                <span class="text-xs text-slate-400">⚖️ Compare</span>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">No team in context. Sidebar scope = conference.</p>
+        </div>
+
+        <!-- Team sidebar -->
+        <div>
+          <div class="text-xs font-bold text-teal-600 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-teal-500 inline-block"></span>
+            When at Team Level (e.g. Harding)
+          </div>
+          <div class="border border-slate-200 rounded-xl overflow-hidden" style="width:180px">
+            <div class="bg-slate-900 px-3 py-2">
+              <a class="flex items-center gap-1 text-slate-400 text-xs hover:text-slate-200">
+                <span>←</span> <span>Back to GAC</span>
+              </a>
+            </div>
+            <div class="bg-teal-900 px-3 py-2.5">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded bg-teal-700 flex items-center justify-center text-white text-xs font-bold">HU</div>
+                <div>
+                  <div class="text-white text-xs font-bold">Harding</div>
+                  <div class="text-teal-300 text-xs">Bisons · GAC</div>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white divide-y divide-slate-100">
+              <div class="px-3 py-2 bg-teal-50 border-l-2 border-teal-500">
+                <span class="text-xs font-semibold text-teal-700">⚡ War Room</span>
+              </div>
+              <div class="px-3 py-2 hover:bg-slate-50">
+                <span class="text-xs text-slate-600">📅 Schedule</span>
+              </div>
+              <div class="px-3 py-2 hover:bg-slate-50">
+                <span class="text-xs text-slate-600">👤 Roster & Stats</span>
+              </div>
+              <div class="px-3 py-2 hover:bg-slate-50">
+                <span class="text-xs text-slate-600">📈 Analytics</span>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">Team in context. Sidebar scope = that team. "← Back to GAC" always visible.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ INFORMATION FLOW / WHAT COACHES NEED ═══════════ -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-5">What each page needs to answer</h2>
+      <div class="grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
+
+        <div>
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-2"><span class="text-base">⚡</span> War Room — "How is my season going?"</div>
+          <div class="pl-6 text-slate-500 space-y-0.5">
+            <div>→ Record, form, conference position</div>
+            <div>→ Am I trending up or down? (last 5 games)</div>
+            <div>→ Who is performing / who is slumping?</div>
+            <div>→ What's the next threat I'm preparing for?</div>
+            <div>→ Any anomalies I should know about?</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-2"><span class="text-base">📅</span> Schedule — "What happened / what's coming?"</div>
+          <div class="pl-6 text-slate-500 space-y-0.5">
+            <div>→ Full season timeline, past results</div>
+            <div>→ Home vs away record at a glance</div>
+            <div>→ Conference vs non-conference split</div>
+            <div>→ Upcoming opponents + their current form</div>
+            <div>→ Click any game → Game Detail</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-2"><span class="text-base">👤</span> Roster — "Who is doing what?"</div>
+          <div class="pl-6 text-slate-500 space-y-0.5">
+            <div>→ Every player with their season stats</div>
+            <div>→ Per-90 rates (not just raw totals)</div>
+            <div>→ Sort by any metric instantly</div>
+            <div>→ Minutes distribution (who is seeing the field)</div>
+            <div>→ Click player → Player Profile</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-2"><span class="text-base">📊</span> Conference Overview — "Where do we fit?"</div>
+          <div class="pl-6 text-slate-500 space-y-0.5">
+            <div>→ Full standings with GD, form, PPG</div>
+            <div>→ Who are the top scorers conference-wide?</div>
+            <div>→ Which teams are on hot/cold streaks?</div>
+            <div>→ How do teams compare on key metrics?</div>
+            <div>→ Click team → drill into their War Room</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-2"><span class="text-base">📈</span> Analytics — "What are our patterns?"</div>
+          <div class="pl-6 text-slate-500 space-y-0.5">
+            <div>→ Goals scored/allowed per game (trend line)</div>
+            <div>→ Home vs away performance split</div>
+            <div>→ Conference vs non-conference split</div>
+            <div>→ Multi-season comparison (are we improving?)</div>
+            <div>→ Shot funnel (shots → SOG → goals)</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="font-bold text-slate-700 mb-1 flex items-center gap-2"><span class="text-base">🃏</span> Player Profile — "Who is this player?"</div>
+          <div class="pl-6 text-slate-500 space-y-0.5">
+            <div>→ Season + career stats table</div>
+            <div>→ Per-90 KPIs vs conference avg</div>
+            <div>→ Radar chart (percentile rank vs GAC)</div>
+            <div>→ Game log (when did they show up?)</div>
+            <div>→ Multi-season trajectory (developing?)</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
