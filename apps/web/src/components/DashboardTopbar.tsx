@@ -33,7 +33,11 @@ export function DashboardTopbar({ userEmail, pageTitle }: DashboardTopbarProps) 
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-white px-6">
-      <h1 className="text-lg font-semibold text-primary-900">{pageTitle}</h1>
+      <h1 className="text-lg font-semibold text-primary-900">
+        <span className="text-muted-foreground">GAC</span>
+        <span className="mx-1.5 text-muted-foreground">&rsaquo;</span>
+        {pageTitle}
+      </h1>
 
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted transition-colors">

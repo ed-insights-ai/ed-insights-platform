@@ -170,7 +170,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-primary-900">Overview</h2>
+          <h2 className="text-2xl font-bold text-primary-900">War Room</h2>
           <p className="text-muted-foreground">
             Your team at a glance
           </p>
