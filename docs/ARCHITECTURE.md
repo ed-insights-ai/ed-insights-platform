@@ -37,32 +37,54 @@ See [ADR-002](decisions/ADR-002-fastapi-over-supabase-direct.md).
 
 ### `packages/pipeline` — Data Collection Pipeline
 
-Python scraper that collects collegiate athletic data from public sources
-(StatCrew HTML pages, conference sites). Normalizes the data and loads it
-into Postgres.
+Python scraper that collects collegiate athletic data from public sources.
+Normalizes the data and loads it into Postgres.
 
 The pipeline runs independently — scrape, transform, load — and the API
 reads what it wrote.
 
+#### Scraper Variant Strategy
+
+Not all schools expose data the same way. The pipeline uses a three-tier
+strategy keyed by the `scraper` field in `config/schools.toml`:
+
+| Variant | `scraper` value | Discovery method | Boxscore format |
+|---|---|---|---|
+| StatCrew (Harding) | `statcrew` | HTML regex on schedule page | `.htm` static files |
+| SideArm New (Nuxt 3/Vue) | `sidearm` | HTML regex on schedule page | `/stats/{year}/{opp}/boxscore/{id}` |
+| SideArm New (API) | `sidearm_api` | `GET /api/v2/Schedule/{id}` JSON | same |
+| SideArm Legacy (KnockoutJS) | `sidearm_legacy` | ⚠️ Not yet implemented | `boxscore.aspx?id={id}` |
+
+Legacy SideArm sites redirect `/schedule/{year}` to the homepage — schedule
+data loads via client-side XHR. These 14 programs are `enabled = false` until
+the legacy scraper is built. See [ADR-005](decisions/ADR-005-sidearm-scraper-variants.md).
+
+**GAC program coverage (28 total):**
+- ✅ 14 programs scraped (StatCrew + SideArm New)
+- ⏳ 14 programs pending (SideArm Legacy: ATU, ECU, HSU, SOSU, SAU, SWOSU, UAM + women's)
+
 ## Data Flow
 
 ```
-StatCrew HTML pages
-       │
-       ▼
-packages/pipeline (scrape + normalize)
-       │
-       ▼
-   Postgres (structured tables)
-       │
-       ▼
-apps/api (query + serve JSON)
-       │
-       ▼
-apps/web (render dashboard)
-       │
-       ▼
-   User sees real data
+StatCrew HTML           SideArm New (HTML/API)     SideArm Legacy (XHR)
+     │                          │                          │ (⚠️ pending)
+     └──────────────────────────┴──────────────────────────┘
+                                │
+                                ▼
+              packages/pipeline (scrape + normalize)
+                    │                   │
+                    ▼                   ▼
+              Postgres           data/*.parquet
+           (structured)          (local cache)
+                    │
+                    ▼
+            apps/api (FastAPI)
+                    │
+                    ▼
+            apps/web (Next.js)
+                    │
+                    ▼
+             User sees data
 ```
 
 ## Key Design Principles
