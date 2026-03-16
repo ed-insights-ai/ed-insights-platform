@@ -43,9 +43,12 @@ def _scrape_season(
         try:
             html = fetcher.fetch(gu.url, year, gu.game_num, use_cache=use_cache)
             if school.scraper == "sidearm":
-                result = parse_sidearm_game(html, game_id, gu.url, year)
+                result = parse_sidearm_game(
+                    html, game_id, gu.url, year,
+                    school_abbrev=school.abbreviation, school_name=school.name,
+                )
             else:
-                result = parse_game(html, game_id, gu.url, year)
+                result = parse_game(html, game_id, gu.url, year, school_name=school.name)
             parsed.append(result)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Error parsing game %s: %s", game_id, exc)

@@ -200,10 +200,10 @@ def parse_game_header(html: str) -> dict:
 
 def build_team_abbrev_map(html: str, team_names: list[str]) -> dict[str, str]:
     """Map team abbreviations (e.g. 'HU', 'CBU') to full team names."""
-    abbrev_map: dict[str, str] = {"HU": "Harding"}
+    abbrev_map: dict[str, str] = {}
 
     for full_name in team_names:
-        if not full_name or full_name == "Harding":
+        if not full_name:
             continue
         clean_name = full_name.replace("(", "").replace(")", "").strip()
         words = clean_name.split()
@@ -808,6 +808,7 @@ def parse_game(
     game_id: int,
     source_url: str,
     season_year: int,
+    school_name: str = "",
 ) -> dict:
     """Parse a complete game HTML page into structured data.
 
@@ -854,6 +855,11 @@ def parse_game(
     away_team = score_info.get("team2") or metadata.get("away_team") or "Unknown"
     home_score = score_info.get("team1_score", 0)
     away_score = score_info.get("team2_score", 0)
+
+    # Guard: StatCrew title is "Home vs Away" — if school_name matches away, swap
+    if school_name and school_name.lower() in away_team.lower():
+        home_team, away_team = away_team, home_team
+        home_score, away_score = away_score, home_score
 
     game = Game(
         game_id=game_id,

@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import tomllib
+from pathlib import Path
+
 from src.config import load_schools
+
+SCHOOLS_TOML = Path(__file__).resolve().parent.parent / "config" / "schools.toml"
 
 
 def test_game_id_no_collision_across_schools():
-    """HU (ordinal=1) and HUW (ordinal=2) must produce non-overlapping game_ids."""
+    """HU (ordinal=1) and HUW (ordinal=8) must produce non-overlapping game_ids."""
     schools = load_schools()
     hu = next(s for s in schools if s.abbreviation == "HU")
     huw = next(s for s in schools if s.abbreviation == "HUW")
@@ -20,8 +25,26 @@ def test_game_id_no_collision_across_schools():
     assert hu_id != huw_id
 
 
-def test_ordinals_are_stable_and_positive():
-    """Every school gets a positive ordinal based on schools.toml order."""
+def test_ordinals_are_explicit_and_unique():
+    """Every school has an explicit ordinal in TOML, all unique."""
+    with open(SCHOOLS_TOML, "rb") as f:
+        data = tomllib.load(f)
+
+    ordinals = []
+    for entry in data["schools"]:
+        assert "ordinal" in entry, f"Missing ordinal for {entry['abbreviation']}"
+        ordinals.append(entry["ordinal"])
+
+    assert len(ordinals) == len(set(ordinals)), "Duplicate ordinals found"
+
+
+def test_ordinals_survive_reorder():
+    """Shuffling schools.toml entries doesn't change ordinals."""
     schools = load_schools()
-    ordinals = [s.ordinal for s in schools]
-    assert ordinals == list(range(1, len(schools) + 1))
+    ordinal_map = {s.abbreviation: s.ordinal for s in schools}
+
+    # Verify specific known ordinals that shouldn't change regardless of order
+    assert ordinal_map["HU"] == 1
+    assert ordinal_map["FHSU"] == 2
+    assert ordinal_map["HUW"] == 8
+    assert ordinal_map["SWOSU"] == 14

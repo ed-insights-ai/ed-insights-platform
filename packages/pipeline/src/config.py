@@ -58,7 +58,7 @@ def load_schools(path: str | Path = DEFAULT_CONFIG) -> list[SchoolConfig]:
             data_status=entry.get("data_status", "unverified"),
             notes=entry.get("notes", ""),
             mascot=entry.get("mascot", ""),
-            ordinal=idx,
+            ordinal=entry.get("ordinal", idx),
             gender=entry.get("gender", "men"),
             scraper=entry.get("scraper", "statcrew"),
         )
@@ -68,5 +68,15 @@ def load_schools(path: str | Path = DEFAULT_CONFIG) -> list[SchoolConfig]:
                 f"but has no base_url configured"
             )
         schools.append(school)
+
+    # Validate no duplicate ordinals
+    seen_ordinals: dict[int, str] = {}
+    for s in schools:
+        if s.ordinal in seen_ordinals:
+            raise ValueError(
+                f"Duplicate ordinal {s.ordinal}: '{s.abbreviation}' and "
+                f"'{seen_ordinals[s.ordinal]}'"
+            )
+        seen_ordinals[s.ordinal] = s.abbreviation
 
     return schools

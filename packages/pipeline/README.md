@@ -12,7 +12,20 @@ uv sync
 ## Usage
 
 ```bash
-uv run python -m src
+# Scrape all enabled schools
+uv run scrape --all
+
+# Scrape a single school
+uv run scrape --school HU
+
+# Full pipeline (scrape → load → export → audit)
+uv run pipeline-run --all-enabled
+
+# Load parquets into PostgreSQL (requires Docker)
+uv run load-db
+
+# Run tests
+uv run pytest
 ```
 
 ## Related

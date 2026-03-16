@@ -6,8 +6,12 @@ from pathlib import Path
 
 import pytest
 
+import pandas as pd
+
 from src.sidearm_parser import (
+    _classify_tables,
     _normalize_name,
+    _parse_header_metadata,
     _strip_jersey_prefix,
     parse_sidearm_game,
 )
@@ -194,3 +198,54 @@ class TestParseGame2016:
     def test_team_stats(self, parsed_game_2016):
         team_stats = parsed_game_2016["team_stats"]
         assert len(team_stats) == 2
+
+
+class TestHomeAwayDetection:
+    """Test home/away detection using title 'vs'/'at' keywords."""
+
+    def test_vs_keyword_means_home(self):
+        html = FIXTURE.read_text(encoding="utf-8")
+        metadata = _parse_header_metadata(html)
+        assert metadata["is_home"] is True
+
+    def test_home_away_sidearm_swap(self):
+        """When school is away (title has 'at'), home/away fields are swapped."""
+        html = FIXTURE.read_text(encoding="utf-8")
+        # The fixture title is "Men's Soccer vs Harding" from OBU's site.
+        # If we say the school is Harding (who is away), the parser should
+        # NOT swap because Harding is already listed as away_team.
+        result = parse_sidearm_game(
+            html, game_id=302501, source_url="http://test/6126", season_year=2025,
+            school_abbrev="HU", school_name="Harding",
+        )
+        # Title says "vs" so is_home=True, but school_name="Harding" matches away_team,
+        # so parser should swap: Harding becomes home, OBU becomes away.
+        game = result["game"]
+        assert game.home_team == "Harding"
+        assert game.away_team == "Ouachita Baptist"
+
+    def test_home_away_no_swap_when_correct(self):
+        """When school is already correctly listed as home, no swap occurs."""
+        html = FIXTURE.read_text(encoding="utf-8")
+        # OBU is already listed as home, and title says "vs" (home), so no swap needed.
+        result = parse_sidearm_game(
+            html, game_id=302501, source_url="http://test/6126", season_year=2025,
+            school_abbrev="OBU", school_name="Ouachita Baptist",
+        )
+        game = result["game"]
+        assert game.home_team == "Ouachita Baptist"
+        assert game.away_team == "Harding"
+
+
+class TestCaseInsensitiveClassify:
+    """Column name case variants should all classify correctly."""
+
+    def test_classify_tables_case_insensitive(self):
+        """DataFrames with 'SH', 'Sh', 'sh' variants all classify as player stats."""
+        for variant in ["SH", "Sh", "sh"]:
+            df = pd.DataFrame(
+                [["FW", "10", "Test Player", variant, "2", "1", "0", "90"]],
+                columns=["Pos", "#", "Player", variant, "SOG", "G", "A", "MIN"],
+            )
+            result = _classify_tables([df])
+            assert len(result["player_stats"]) == 1, f"Failed for column variant '{variant}'"

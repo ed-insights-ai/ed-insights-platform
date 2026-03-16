@@ -34,10 +34,10 @@ from src.parser import safe_int
 
 logger = logging.getLogger(__name__)
 
-# Column signatures for table identification
-_PLAYER_COLS = {"Pos", "#", "Player", "SH", "SOG", "G", "A", "MIN"}
-_GOALIE_COLS = {"Position", "#", "Goalie", "Minutes", "GA", "Saves"}
-_SCORING_COLS = {"Time", "Team", "Description"}
+# Column signatures for table identification (all lowercase for case-insensitive matching)
+_PLAYER_COLS = {"pos", "#", "player", "sh", "sog", "g", "a", "min"}
+_GOALIE_COLS = {"position", "#", "goalie", "minutes", "ga", "saves"}
+_SCORING_COLS = {"time", "team", "description"}
 
 
 def _classify_tables(tables: list[pd.DataFrame]) -> dict:
@@ -56,7 +56,9 @@ def _classify_tables(tables: list[pd.DataFrame]) -> dict:
     }
 
     for i, df in enumerate(tables):
-        cols = set(str(c) for c in df.columns)
+        # Lowercase all column names for case-insensitive matching
+        df.columns = [str(c).lower() for c in df.columns]
+        cols = set(df.columns)
 
         if cols >= _PLAYER_COLS and len(result["player_stats"]) < 2:
             result["player_stats"].append(df)
@@ -64,14 +66,14 @@ def _classify_tables(tables: list[pd.DataFrame]) -> dict:
             result["goalie_stats"].append(df)
         elif cols >= _SCORING_COLS and result["scoring_summary"] is None:
             result["scoring_summary"] = df
-        elif "Statistic" in cols and result["team_stats"] is None:
+        elif "statistic" in cols and result["team_stats"] is None:
             result["team_stats"] = df
-        elif "Team" in cols and result["score"] is None and i == 0:
+        elif "team" in cols and result["score"] is None and i == 0:
             result["score"] = df
         elif (
             result["cautions"] is None
             and df.shape[1] == 4
-            and "Type" in cols
+            and "type" in cols
         ):
             result["cautions"] = df
 
@@ -214,8 +216,8 @@ def _parse_player_table(
     is_starter = True
 
     for _, row in df.iterrows():
-        pos_raw = _get_col(row, "Pos", "Position").strip()
-        player_raw = _get_col(row, "Player", "Name").strip()
+        pos_raw = _get_col(row, "pos", "position").strip()
+        player_raw = _get_col(row, "player", "name").strip()
 
         # Detect section headers
         if pos_raw.lower() in {"starters", "substitutes", "goalkeeping"}:
@@ -227,7 +229,7 @@ def _parse_player_table(
         if player_raw.lower() == "totals":
             continue
 
-        jersey_raw = _get_col(row, "#", "No", "Jersey")
+        jersey_raw = _get_col(row, "#", "no", "jersey")
         jersey = safe_int(jersey_raw)
         if jersey == 0 and jersey_raw.strip().lower() in {"", "nan"}:
             continue
@@ -247,11 +249,11 @@ def _parse_player_table(
                 player_name=name,
                 position=position,
                 is_starter=is_starter,
-                minutes=safe_int(_get_col(row, "MIN", "Min", "Minutes", default="0")),
-                shots=safe_int(_get_col(row, "SH", "Shots", "S")),
-                shots_on_goal=safe_int(_get_col(row, "SOG", "Shots on Goal")),
-                goals=safe_int(_get_col(row, "G", "Goals")),
-                assists=safe_int(_get_col(row, "A", "Assists")),
+                minutes=safe_int(_get_col(row, "min", "minutes", default="0")),
+                shots=safe_int(_get_col(row, "sh", "shots", "s")),
+                shots_on_goal=safe_int(_get_col(row, "sog", "shots on goal")),
+                goals=safe_int(_get_col(row, "g", "goals")),
+                assists=safe_int(_get_col(row, "a", "assists")),
             )
         )
 
@@ -350,17 +352,24 @@ def _parse_cautions_table(
 
 
 def _parse_header_metadata(html: str) -> dict:
-    """Extract date and venue from page title/headers."""
-    metadata: dict = {"date": None, "venue": None, "attendance": None}
+    """Extract date, venue, and home/away hint from page title/headers."""
+    metadata: dict = {"date": None, "venue": None, "attendance": None, "is_home": None}
     soup = BeautifulSoup(html, "html.parser")
 
     # Title: "Men's Soccer vs Harding on 10/16/2025 - Box Score - ..."
+    # "vs" → school is home, "at" → school is away
     title_tag = soup.find("title")
     if title_tag:
         title_text = title_tag.get_text(strip=True)
         date_match = re.search(r"on\s+(\d{1,2}/\d{1,2}/\d{4})", title_text)
         if date_match:
             metadata["date"] = date_match.group(1)
+
+        # Detect home/away from "vs" or "at" keyword before opponent name
+        if re.search(r"(?:Soccer|Futbol)\s+vs\.?\s+", title_text, re.IGNORECASE):
+            metadata["is_home"] = True
+        elif re.search(r"(?:Soccer|Futbol)\s+at\s+", title_text, re.IGNORECASE):
+            metadata["is_home"] = False
 
     # Attendance from page text
     text = soup.get_text(" ", strip=True)
@@ -376,6 +385,8 @@ def parse_sidearm_game(
     game_id: int,
     source_url: str,
     season_year: int,
+    school_abbrev: str = "",
+    school_name: str = "",
 ) -> dict:
     """Parse a SideArm box score HTML page into structured data.
 
@@ -397,15 +408,45 @@ def parse_sidearm_game(
     home_abbrev = score_info["home_abbrev"] or ""
     away_abbrev = score_info["away_abbrev"] or ""
 
-    # Build abbreviation → full name map
-    abbrev_to_name: dict[str, str] = {}
+    # Header metadata (date, venue, attendance, is_home hint)
+    metadata = _parse_header_metadata(html)
+
+    # Fix home/away using title "vs"/"at" detection
+    if metadata["is_home"] is False:
+        # School is away — the score table listed school's opponent first (as home)
+        # which is actually correct in this case, but we need to verify:
+        # If the school appears as home_team, swap them
+        school_is_listed_home = (
+            (school_abbrev and school_abbrev.upper() == home_abbrev.upper())
+            or (school_name and school_name.lower() in home_team.lower())
+        )
+        if school_is_listed_home:
+            home_team, away_team = away_team, home_team
+            home_abbrev, away_abbrev = away_abbrev, home_abbrev
+            score_info["home_score"], score_info["away_score"] = (
+                score_info["away_score"],
+                score_info["home_score"],
+            )
+    elif metadata["is_home"] is True:
+        # School is home — if the school appears as away_team, swap them
+        school_is_listed_away = (
+            (school_abbrev and school_abbrev.upper() == away_abbrev.upper())
+            or (school_name and school_name.lower() in away_team.lower())
+        )
+        if school_is_listed_away:
+            home_team, away_team = away_team, home_team
+            home_abbrev, away_abbrev = away_abbrev, home_abbrev
+            score_info["home_score"], score_info["away_score"] = (
+                score_info["away_score"],
+                score_info["home_score"],
+            )
+
+    # Rebuild abbreviation map after potential swap
+    abbrev_to_name = {}
     if home_abbrev:
         abbrev_to_name[home_abbrev] = home_team
     if away_abbrev:
         abbrev_to_name[away_abbrev] = away_team
-
-    # Header metadata (date, venue, attendance)
-    metadata = _parse_header_metadata(html)
 
     # Team stats — identified by 'Statistic' column
     team_stats_raw: dict[str, dict] = {}
