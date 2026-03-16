@@ -117,6 +117,28 @@ export interface PaginatedPlayers {
   offset: number;
 }
 
+export interface FormResult {
+  result: "W" | "L" | "D";
+  game_id: number;
+}
+
+export interface ConferenceStanding {
+  school_id: number;
+  school_name: string;
+  abbreviation: string;
+  gender: string;
+  games_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  goals_for: number;
+  goals_against: number;
+  goal_diff: number;
+  points: number;
+  ppg: number;
+  form: FormResult[];
+}
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -264,5 +286,21 @@ export async function getPlayerLeaderboard(
   } catch (error) {
     console.error("Error fetching player leaderboard:", error);
     return { items: [], total: 0, limit, offset };
+  }
+}
+
+export async function getConferenceStandings(
+  abbr: string,
+  season: number,
+  gender: string = "men"
+): Promise<ConferenceStanding[]> {
+  try {
+    const params = new URLSearchParams({ season: String(season), gender });
+    const res = await fetch(`${API_BASE_URL}/api/conferences/${abbr}/standings?${params}`);
+    if (!res.ok) throw new Error(`Failed to fetch standings: ${res.status}`);
+    return (await res.json()) as ConferenceStanding[];
+  } catch (error) {
+    console.error("Error fetching conference standings:", error);
+    return [];
   }
 }

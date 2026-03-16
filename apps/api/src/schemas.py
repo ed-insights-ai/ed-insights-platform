@@ -135,3 +135,25 @@ class PaginatedPlayers(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class FormResult(BaseModel):
+    result: str  # "W", "L", or "D"
+    game_id: int
+
+
+class ConferenceStanding(BaseModel):
+    school_id: int
+    school_name: str
+    abbreviation: str
+    gender: str
+    games_played: int
+    wins: int
+    losses: int
+    draws: int
+    goals_for: int
+    goals_against: int
+    goal_diff: int
+    points: int
+    ppg: float
+    form: list[FormResult]  # last 5, oldest first
