@@ -333,6 +333,87 @@ export async function getConferenceStandings(
   }
 }
 
+// --- Team Profile ---
+
+export interface TeamProfileGameResult {
+  game_id: number;
+  date: string | null;
+  opponent: string;
+  home_away: string;
+  home_score: number;
+  away_score: number;
+  goals_for: number;
+  goals_against: number;
+  result: string;
+}
+
+export interface TeamProfileTopScorer {
+  player_name: string;
+  goals: number;
+  assists: number;
+  games_played: number;
+  goals_per_game: number;
+}
+
+export interface TeamProfileKPIs {
+  goals_per_game: number;
+  goals_per_game_delta: number;
+  shot_conversion: number;
+  shot_conversion_delta: number;
+  goals_against_per_game: number;
+  goals_against_per_game_delta: number;
+  clean_sheets: number;
+  conf_avg_goals_per_game: number;
+  conf_avg_shot_conversion: number;
+  conf_avg_goals_against_per_game: number;
+}
+
+export interface TeamProfileSeason {
+  year: number;
+  games_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  goals_for: number;
+  goals_against: number;
+  goal_diff: number;
+  points: number;
+  ppg: number;
+  form: FormResult[];
+  conf_rank: number;
+}
+
+export interface TeamProfile {
+  abbreviation: string;
+  name: string;
+  mascot: string;
+  gender: string;
+  conference: string;
+  season: TeamProfileSeason;
+  kpis: TeamProfileKPIs;
+  results_by_game: TeamProfileGameResult[];
+  top_scorers: TeamProfileTopScorer[];
+  available_seasons: number[];
+}
+
+export async function getTeamProfile(
+  abbr: string,
+  season?: number
+): Promise<TeamProfile | null> {
+  try {
+    const params = new URLSearchParams();
+    if (season != null) params.set("season", String(season));
+    const qs = params.toString();
+    const res = await fetch(
+      `${API_BASE_URL}/api/teams/${abbr}/profile${qs ? `?${qs}` : ""}`
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as TeamProfile;
+  } catch {
+    return null;
+  }
+}
+
 // --- Player Profile ---
 
 export interface PlayerProfileCareer {

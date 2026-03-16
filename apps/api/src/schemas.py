@@ -208,6 +208,67 @@ class PlayerProfile(BaseModel):
     radar: Optional[PlayerProfileRadar] = None
 
 
+class TeamProfileGameResult(BaseModel):
+    game_id: int
+    date: Optional[datetime.date] = None
+    opponent: str
+    home_away: str
+    home_score: int
+    away_score: int
+    goals_for: int
+    goals_against: int
+    result: str
+
+
+class TeamProfileTopScorer(BaseModel):
+    player_name: str
+    goals: int
+    assists: int
+    games_played: int
+    goals_per_game: float
+
+
+class TeamProfileKPIs(BaseModel):
+    goals_per_game: float
+    goals_per_game_delta: float
+    shot_conversion: float
+    shot_conversion_delta: float
+    goals_against_per_game: float
+    goals_against_per_game_delta: float
+    clean_sheets: int
+    conf_avg_goals_per_game: float
+    conf_avg_shot_conversion: float
+    conf_avg_goals_against_per_game: float
+
+
+class TeamProfileSeason(BaseModel):
+    year: int
+    games_played: int
+    wins: int
+    losses: int
+    draws: int
+    goals_for: int
+    goals_against: int
+    goal_diff: int
+    points: int
+    ppg: float
+    form: list[FormResult]
+    conf_rank: int
+
+
+class TeamProfile(BaseModel):
+    abbreviation: str
+    name: str
+    mascot: str
+    gender: str
+    conference: str
+    season: TeamProfileSeason
+    kpis: TeamProfileKPIs
+    results_by_game: list[TeamProfileGameResult]
+    top_scorers: list[TeamProfileTopScorer]
+    available_seasons: list[int]
+
+
 class ConferenceAverages(BaseModel):
     conference: str
     gender: str
