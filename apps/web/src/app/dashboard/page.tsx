@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { SchoolSeasonSelector } from "@/components/SchoolSeasonSelector";
-import { ContextualMetricCard, FormBadgeStrip } from "@/components/stats";
+import { ContextualMetricCard, FormBadgeStrip, SmartInsightsCard } from "@/components/stats";
 import { useGender } from "@/context/GenderContext";
 import {
   getGames,
@@ -194,14 +194,8 @@ export default function DashboardPage() {
             <p className="text-xs text-slate-400 mt-2">{season} Season</p>
           </div>
 
-          {/* Row 1 — Smart Insights placeholder (right 1 col) */}
-          <div className="lg:col-span-1 bento-card p-5 bg-teal-50 border-teal-200">
-            <p className="stat-label">SMART INSIGHTS</p>
-            <p className="text-sm text-teal-700 mt-2">
-              Insights powered by real data coming soon. Track scoring streaks,
-              conversion trends, and conference benchmarks.
-            </p>
-          </div>
+          {/* Row 1 — Smart Insights (right 1 col) */}
+          <SmartInsightsCard schoolAbbr={schoolAbbr} season={season} />
 
           {/* Row 2 — KPI Cards (3 cards spanning left 2 cols) */}
           <div className="lg:col-span-2 grid grid-cols-3 gap-4">

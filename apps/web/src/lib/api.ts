@@ -414,6 +414,30 @@ export async function getTeamProfile(
   }
 }
 
+// --- Smart Insights ---
+
+export interface Insight {
+  type: string;
+  priority: number;
+  icon: string;
+  text: string;
+}
+
+export async function getInsights(
+  school: string,
+  season: number
+): Promise<Insight[]> {
+  try {
+    const params = new URLSearchParams({ school, season: String(season) });
+    const res = await fetch(`${API_BASE_URL}/api/insights?${params}`);
+    if (!res.ok) return [];
+    const data = (await res.json()) as { insights: Insight[] };
+    return data.insights;
+  } catch {
+    return [];
+  }
+}
+
 // --- Player Profile ---
 
 export interface PlayerProfileCareer {
