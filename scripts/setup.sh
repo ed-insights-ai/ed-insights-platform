@@ -41,6 +41,16 @@ fi
 
 echo ""
 
+# Symlink .env into apps/web so Next.js dev server picks up env vars
+if [ ! -e "$ROOT/apps/web/.env.local" ]; then
+  ln -sf ../../.env "$ROOT/apps/web/.env.local"
+  echo "Symlinked .env → apps/web/.env.local"
+else
+  echo "apps/web/.env.local already exists, skipping."
+fi
+
+echo ""
+
 # Install web dependencies
 echo "Installing web dependencies..."
 (cd "$ROOT/apps/web" && npm install)
@@ -52,4 +62,6 @@ echo "Installing API dependencies..."
 (cd "$ROOT/apps/api" && uv sync)
 
 echo ""
-printf "${GREEN}Setup complete.${RESET} Run ${GREEN}make up${RESET} to start all services.\n"
+printf "${GREEN}Setup complete.${RESET}\n"
+printf "  ${GREEN}make up${RESET}   — start all services in Docker\n"
+printf "  ${GREEN}make dev${RESET}  — start db + api in Docker, web locally with hot reload\n"

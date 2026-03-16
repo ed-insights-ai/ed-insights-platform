@@ -1,4 +1,4 @@
-.PHONY: up down logs reset ps migrate
+.PHONY: up down logs reset ps migrate dev
 
 up:
 	docker compose up -d
@@ -17,3 +17,7 @@ ps:
 
 migrate:
 	docker compose exec api alembic upgrade head
+
+dev:
+	docker compose up -d db api
+	cd apps/web && npm run dev

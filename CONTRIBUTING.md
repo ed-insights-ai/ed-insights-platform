@@ -39,8 +39,11 @@ chore(pipeline): bump beautifulsoup4 to 4.12
 # One-time setup
 ./scripts/setup.sh
 
-# Start everything
+# Start everything in Docker
 make up
+
+# Or: start db + api in Docker, web locally with hot reload
+make dev
 
 # Verify
 ./scripts/smoke-test.sh
@@ -51,19 +54,7 @@ Services:
 - API docs: http://localhost:8000/docs
 - Postgres: localhost:54321
 
-### Individual components
-
-```bash
-# Web (Next.js)
-cd apps/web
-npm install
-npm run dev
-
-# API (FastAPI)
-cd apps/api
-uv sync
-uv run uvicorn src.main:app --reload --port 8000
-```
+Use `make dev` for frontend work — file changes are reflected instantly without rebuilding containers.
 
 ## When to Write an ADR
 

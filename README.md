@@ -40,26 +40,19 @@ make up
 
 | Target | Description |
 |--------|-------------|
-| `make up` | Start all services in the background |
+| `make up` | Start all services in Docker |
+| `make dev` | Start db + api in Docker, web locally with hot reload |
 | `make down` | Stop all services |
 | `make logs` | Tail logs from all services |
 | `make reset` | Tear down (including volumes) and restart |
 | `make ps` | Show running containers |
 | `make migrate` | Run Alembic migrations inside the API container |
 
-### Local Development (without Docker)
+### Local Development
 
-#### Web App (Next.js)
+For frontend work, use `make dev` — it runs the database and API in Docker while running Next.js locally with hot reload. Changes to files in `apps/web/` are reflected instantly in the browser.
 
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-
-The web app runs on [http://localhost:3000](http://localhost:3000) with routes for `/`, `/about`, `/login`, `/signup`, and `/dashboard`.
-
-#### API (FastAPI)
+For backend-only work:
 
 ```bash
 cd apps/api
