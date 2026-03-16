@@ -9,6 +9,7 @@ import {
   type ColumnDef,
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { SchoolSeasonSelector } from "@/components/SchoolSeasonSelector";
 import { getPlayerLeaderboard } from "@/lib/api";
 import type { PlayerLeaderboard } from "@/lib/api";
@@ -37,6 +38,17 @@ const columns: ColumnDef<PlayerLeaderboard>[] = [
     accessorKey: "player_name",
     header: "Player",
     enableSorting: false,
+    cell: ({ row }) => {
+      const p = row.original;
+      return (
+        <Link
+          href={`/explore/players/${p.school_abbreviation}/${encodeURIComponent(p.player_name)}`}
+          className="hover:text-data-primary hover:underline"
+        >
+          {p.player_name}
+        </Link>
+      );
+    },
   },
   {
     accessorKey: "games_played",

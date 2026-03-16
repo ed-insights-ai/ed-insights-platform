@@ -102,6 +102,7 @@ export interface PlayerLeaderboard {
   player_name: string;
   school_id: number;
   school_name: string;
+  school_abbreviation: string;
   games_played: number;
   total_goals: number;
   total_assists: number;
@@ -329,5 +330,88 @@ export async function getConferenceStandings(
   } catch (error) {
     console.error("Error fetching conference standings:", error);
     return [];
+  }
+}
+
+// --- Player Profile ---
+
+export interface PlayerProfileCareer {
+  seasons: number;
+  games_played: number;
+  goals: number;
+  assists: number;
+  shots: number;
+  shots_on_goal: number;
+}
+
+export interface PlayerProfileSeason {
+  season_year: number;
+  games_played: number;
+  goals: number;
+  assists: number;
+  shots: number;
+  shots_on_goal: number;
+  goals_per_90: number;
+  shot_conversion: number;
+  sog_accuracy: number;
+}
+
+export interface PlayerProfileGameLog {
+  game_id: number;
+  date: string | null;
+  opponent: string;
+  home_away: string;
+  result: string;
+  score: string;
+  goals: number;
+  assists: number;
+  shots: number;
+  shots_on_goal: number;
+  minutes: number;
+  is_starter: boolean;
+}
+
+export interface PlayerProfileConfAverages {
+  season_year: number;
+  goals_per_game: number;
+  shot_conversion: number;
+  sog_accuracy: number;
+  assists_per_game: number;
+  shots_per_game: number;
+}
+
+export interface PlayerProfileRadar {
+  goals_pct: number;
+  assists_pct: number;
+  shots_pct: number;
+  sog_pct: number;
+  shot_conversion_pct: number;
+}
+
+export interface PlayerProfile {
+  player_name: string;
+  school_abbreviation: string;
+  school_name: string;
+  gender: string;
+  career: PlayerProfileCareer;
+  seasons: PlayerProfileSeason[];
+  game_log: PlayerProfileGameLog[];
+  conf_averages: PlayerProfileConfAverages | null;
+  radar: PlayerProfileRadar | null;
+}
+
+export async function getPlayerProfile(
+  school: string,
+  name: string,
+  season?: number
+): Promise<PlayerProfile | null> {
+  try {
+    const params = new URLSearchParams({ school, name });
+    if (season != null) params.set("season", String(season));
+    const res = await fetch(`${API_BASE_URL}/api/players/profile?${params}`);
+    if (!res.ok) return null;
+    return (await res.json()) as PlayerProfile;
+  } catch {
+    return null;
   }
 }

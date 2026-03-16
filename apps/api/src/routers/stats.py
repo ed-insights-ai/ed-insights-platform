@@ -101,6 +101,7 @@ async def player_leaderboard(
         PlayerGameStats.player_name,
         PlayerGameStats.school_id,
         School.name.label("school_name"),
+        School.abbreviation.label("school_abbreviation"),
         func.count(func.distinct(PlayerGameStats.game_id)).label("games_played"),
         func.coalesce(func.sum(PlayerGameStats.goals), 0).label("total_goals"),
         func.coalesce(func.sum(PlayerGameStats.assists), 0).label("total_assists"),
@@ -127,6 +128,7 @@ async def player_leaderboard(
         PlayerGameStats.player_name,
         PlayerGameStats.school_id,
         School.name,
+        School.abbreviation,
     )
 
     # Get total count before pagination
@@ -145,6 +147,7 @@ async def player_leaderboard(
             player_name=r.player_name,
             school_id=r.school_id,
             school_name=r.school_name,
+            school_abbreviation=r.school_abbreviation,
             games_played=r.games_played,
             total_goals=r.total_goals,
             total_assists=r.total_assists,

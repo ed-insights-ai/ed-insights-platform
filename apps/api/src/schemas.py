@@ -115,6 +115,7 @@ class PlayerLeaderboard(BaseModel):
     player_name: str
     school_id: int
     school_name: str
+    school_abbreviation: str
     games_played: int
     total_goals: int
     total_assists: int
@@ -140,6 +141,71 @@ class PaginatedPlayers(BaseModel):
 class FormResult(BaseModel):
     result: str  # "W", "L", or "D"
     game_id: int
+
+
+class PlayerProfileCareer(BaseModel):
+    seasons: int
+    games_played: int
+    goals: int
+    assists: int
+    shots: int
+    shots_on_goal: int
+
+
+class PlayerProfileSeason(BaseModel):
+    season_year: int
+    games_played: int
+    goals: int
+    assists: int
+    shots: int
+    shots_on_goal: int
+    goals_per_90: float
+    shot_conversion: float
+    sog_accuracy: float
+
+
+class PlayerProfileGameLog(BaseModel):
+    game_id: int
+    date: Optional[datetime.date] = None
+    opponent: str
+    home_away: str
+    result: str
+    score: str
+    goals: int
+    assists: int
+    shots: int
+    shots_on_goal: int
+    minutes: int
+    is_starter: bool
+
+
+class PlayerProfileConfAverages(BaseModel):
+    season_year: int
+    goals_per_game: float
+    shot_conversion: float
+    sog_accuracy: float
+    assists_per_game: float
+    shots_per_game: float
+
+
+class PlayerProfileRadar(BaseModel):
+    goals_pct: float
+    assists_pct: float
+    shots_pct: float
+    sog_pct: float
+    shot_conversion_pct: float
+
+
+class PlayerProfile(BaseModel):
+    player_name: str
+    school_abbreviation: str
+    school_name: str
+    gender: str
+    career: PlayerProfileCareer
+    seasons: list[PlayerProfileSeason]
+    game_log: list[PlayerProfileGameLog]
+    conf_averages: Optional[PlayerProfileConfAverages] = None
+    radar: Optional[PlayerProfileRadar] = None
 
 
 class ConferenceAverages(BaseModel):

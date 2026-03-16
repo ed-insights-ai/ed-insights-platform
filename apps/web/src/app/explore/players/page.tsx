@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { useGender } from "@/context/GenderContext";
 import {
   getPlayerLeaderboard,
@@ -237,7 +238,12 @@ export default function ExplorePlayersPage() {
                       {idx + 1}
                     </td>
                     <td className="px-3 py-2 text-left font-medium text-slate-900 whitespace-nowrap">
-                      {p.player_name}
+                      <Link
+                        href={`/explore/players/${p.school_abbreviation}/${encodeURIComponent(p.player_name)}`}
+                        className="hover:text-data-primary hover:underline"
+                      >
+                        {p.player_name}
+                      </Link>
                     </td>
                     <td className="px-3 py-2 text-left text-slate-500 text-sm whitespace-nowrap">
                       {p.school_name}

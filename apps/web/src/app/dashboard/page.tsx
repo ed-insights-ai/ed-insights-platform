@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import {
   LineChart,
@@ -29,6 +30,7 @@ import type {
 
 export default function DashboardPage() {
   const { gender } = useGender();
+  const [schoolAbbr, setSchoolAbbr] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [season, setSeason] = useState(2025);
   const [loading, setLoading] = useState(true);
@@ -64,6 +66,7 @@ export default function DashboardPage() {
 
   const handleSelectionChange = useCallback(
     (abbr: string, yr: number, name: string) => {
+      setSchoolAbbr(abbr);
       setSchoolName(name);
       setSeason(yr);
       fetchData(abbr, yr, name);
@@ -272,7 +275,12 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-600 font-medium truncate mr-2">
                         <span className="text-slate-400 mr-1">{idx + 1}.</span>
-                        {player.player_name}
+                        <Link
+                          href={`/explore/players/${schoolAbbr}/${encodeURIComponent(player.player_name)}`}
+                          className="hover:text-data-primary hover:underline"
+                        >
+                          {player.player_name}
+                        </Link>
                       </span>
                       <span className="shrink-0 text-xs font-semibold text-slate-700">
                         {player.total_goals}G {player.total_assists}A
