@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useGender } from "@/context/GenderContext";
 import { getSchools } from "@/lib/api";
 import type { School } from "@/lib/api";
 
@@ -13,38 +14,47 @@ interface SchoolSeasonSelectorProps {
 export function SchoolSeasonSelector({
   onSelectionChange,
 }: SchoolSeasonSelectorProps) {
+  const { gender } = useGender();
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedSchoolName, setSelectedSchoolName] = useState("");
   const [selectedSeason, setSelectedSeason] = useState(SEASONS[0]);
   const [loading, setLoading] = useState(true);
 
+  // Re-fetch schools when gender changes
   useEffect(() => {
-    getSchools().then((data) => {
+    setLoading(true);
+    getSchools({ gender, conference: "GAC" }).then((data) => {
       setSchools(data);
       if (data.length > 0) {
         setSelectedSchool(data[0].abbreviation);
+        setSelectedSchoolName(data[0].name);
         onSelectionChange(data[0].abbreviation, selectedSeason, data[0].name);
+      } else {
+        setSelectedSchool("");
+        setSelectedSchoolName("");
       }
       setLoading(false);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gender]);
 
   const handleSchoolChange = (abbr: string) => {
     setSelectedSchool(abbr);
     const schoolName = schools.find((s) => s.abbreviation === abbr)?.name ?? abbr;
+    setSelectedSchoolName(schoolName);
     onSelectionChange(abbr, selectedSeason, schoolName);
   };
 
   const handleSeasonChange = (season: number) => {
     setSelectedSeason(season);
-    const schoolName = schools.find((s) => s.abbreviation === selectedSchool)?.name ?? selectedSchool;
-    onSelectionChange(selectedSchool, season, schoolName);
+    onSelectionChange(selectedSchool, season, selectedSchoolName);
   };
 
   if (loading) {
     return (
       <div className="flex gap-3">
+        <div className="h-10 w-16 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
         <div className="h-10 w-40 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
         <div className="h-10 w-32 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
       </div>
@@ -52,7 +62,11 @@ export function SchoolSeasonSelector({
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="inline-flex items-center gap-1 rounded-md bg-surface-muted px-2 py-1.5 text-xs font-semibold text-slate-600">
+        GAC
+      </span>
+
       <select
         value={selectedSchool}
         onChange={(e) => handleSchoolChange(e.target.value)}

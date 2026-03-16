@@ -12,6 +12,8 @@ class SchoolResponse(BaseModel):
     abbreviation: str
     conference: Optional[str] = None
     mascot: Optional[str] = None
+    gender: Optional[str] = None
+    enabled: Optional[bool] = True
 
     model_config = {"from_attributes": True}
 

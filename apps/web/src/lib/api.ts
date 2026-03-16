@@ -4,6 +4,8 @@ export interface School {
   abbreviation: string;
   conference: string | null;
   mascot: string | null;
+  gender: string | null;
+  enabled: boolean | null;
 }
 
 export interface GameSummary {
@@ -118,9 +120,16 @@ export interface PaginatedPlayers {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export async function getSchools(): Promise<School[]> {
+export async function getSchools(params?: {
+  gender?: string;
+  conference?: string;
+}): Promise<School[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/schools`);
+    const query = new URLSearchParams();
+    if (params?.gender) query.set("gender", params.gender);
+    if (params?.conference) query.set("conference", params.conference);
+    const url = `${API_BASE_URL}/api/schools${query.toString() ? `?${query}` : ""}`;
+    const res = await fetch(url);
     if (!res.ok) {
       throw new Error(`Failed to fetch schools: ${res.status}`);
     }
