@@ -21,14 +21,17 @@ analyzing, and visualizing collegiate athletic data.
 ## Quick Start
 
 ```bash
-# 1. Run the setup script (installs deps, creates .env)
-./scripts/setup.sh
+# 1. One-time setup (installs deps, creates .env)
+make setup
 
 # 2. Start all services
 make up
 
-# 3. Wait ~30 seconds, then verify everything works
-./scripts/smoke-test.sh
+# 3. Load data from parquet files into Postgres
+make seed
+
+# 4. Verify everything works
+make check
 
 # Open:
 #   - Frontend:  http://localhost:3000
@@ -38,15 +41,19 @@ make up
 
 ### Make Targets
 
+Run `make help` to see all targets. Key ones:
+
 | Target | Description |
 |--------|-------------|
+| `make setup` | One-time project setup (deps, env, symlinks) |
 | `make up` | Start all services in Docker |
 | `make dev` | Start db + api in Docker, web locally with hot reload |
+| `make seed` | Load parquet data into Postgres |
 | `make down` | Stop all services |
-| `make logs` | Tail logs from all services |
 | `make reset` | Tear down (including volumes) and restart |
-| `make ps` | Show running containers |
-| `make migrate` | Run Alembic migrations inside the API container |
+| `make lint` | Run linters (web + api + pipeline) |
+| `make test` | Run tests (api + pipeline) |
+| `make check` | Run smoke tests against running services |
 
 ### Local Development
 
