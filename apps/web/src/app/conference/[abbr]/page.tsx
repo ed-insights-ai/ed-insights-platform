@@ -45,7 +45,7 @@ export default function ConferencePage() {
 
   const [standings, setStandings] = useState<ConferenceStanding[]>([]);
   const [loading, setLoading] = useState(true);
-  const [season, setSeason] = useState(2025);
+  const [season, setSeason] = useState(2024);
   const [sortKey, setSortKey] = useState<SortKey>("points");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
