@@ -272,12 +272,12 @@ export async function getPlayerLeaderboard(
 ): Promise<PaginatedPlayers> {
   try {
     const params = new URLSearchParams({
-      school,
       season: String(season),
       sort: sortBy,
       limit: String(limit),
       offset: String(offset),
     });
+    if (school) params.set("school", school);
     const res = await fetch(`${API_BASE_URL}/api/stats/players?${params}`);
     if (!res.ok) {
       throw new Error(`Failed to fetch player leaderboard: ${res.status}`);
