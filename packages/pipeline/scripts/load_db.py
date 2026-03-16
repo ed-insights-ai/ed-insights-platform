@@ -49,15 +49,18 @@ def _ensure_school(
     if config:
         cur.execute(
             """
-            INSERT INTO schools (name, abbreviation, conference, mascot)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO schools (name, abbreviation, conference, mascot, gender, enabled)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (abbreviation) DO UPDATE
                 SET name = EXCLUDED.name,
                     conference = EXCLUDED.conference,
-                    mascot = EXCLUDED.mascot
+                    mascot = EXCLUDED.mascot,
+                    gender = EXCLUDED.gender,
+                    enabled = EXCLUDED.enabled
             RETURNING id
             """,
-            (config.name, config.abbreviation, config.conference, config.mascot),
+            (config.name, config.abbreviation, config.conference, config.mascot,
+             config.gender, config.enabled),
         )
     else:
         # No config entry — insert minimal record
@@ -103,8 +106,9 @@ def _load_games(
             """
             INSERT INTO games (game_id, school_id, season_year, source_url,
                                date, venue, attendance, home_team, away_team,
-                               home_score, away_score)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                               home_score, away_score,
+                               is_conference_game, home_conference, away_conference)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (game_id) DO UPDATE
                 SET school_id   = EXCLUDED.school_id,
                     season_year = EXCLUDED.season_year,
@@ -115,7 +119,10 @@ def _load_games(
                     home_team   = EXCLUDED.home_team,
                     away_team   = EXCLUDED.away_team,
                     home_score  = EXCLUDED.home_score,
-                    away_score  = EXCLUDED.away_score
+                    away_score  = EXCLUDED.away_score,
+                    is_conference_game = COALESCE(EXCLUDED.is_conference_game, games.is_conference_game),
+                    home_conference    = COALESCE(EXCLUDED.home_conference, games.home_conference),
+                    away_conference    = COALESCE(EXCLUDED.away_conference, games.away_conference)
             """,
             (
                 int(row["game_id"]),
@@ -129,6 +136,9 @@ def _load_games(
                 row.get("away_team"),
                 _int_or_none(row.get("home_score")),
                 _int_or_none(row.get("away_score")),
+                _bool_or_none(row.get("is_conference_game")),
+                row.get("home_conference"),
+                row.get("away_conference"),
             ),
         )
         count += 1
@@ -335,6 +345,24 @@ def _read_merged_parquets(source: Path, kind: str) -> pd.DataFrame:
     return pd.DataFrame()
 
 
+def backfill_home_conference(conn: psycopg2.extensions.connection) -> int:
+    """Set home_conference from schools.conference for all games where it's NULL."""
+    cur = conn.cursor()
+    cur.execute(
+        """
+        UPDATE games g
+        SET home_conference = s.conference
+        FROM schools s
+        WHERE g.school_id = s.id
+          AND g.home_conference IS NULL
+          AND s.conference IS NOT NULL
+        """
+    )
+    count = cur.rowcount
+    conn.commit()
+    return count
+
+
 def main() -> None:
     """Entry point for ``uv run load-db``."""
     parser = argparse.ArgumentParser(
@@ -446,6 +474,9 @@ def main() -> None:
     console.print(summary)
 
     if conn:
+        n_conf = backfill_home_conference(conn)
+        if n_conf:
+            console.print(f"\n[green]Backfilled home_conference on {n_conf} games.")
         conn.close()
         console.print("\n[bold green]Load complete.")
 

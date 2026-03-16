@@ -17,13 +17,16 @@ dependencies = [
 [project.scripts]
 scrape = "scripts.scrape:main"
 load-db = "scripts.load_db:main"
+export = "scripts.export:main"
+audit = "scripts.audit:main"
+pipeline-run = "scripts.run:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src", "scripts"]
+packages = ["src", "scripts", "pipeline"]
 
 [dependency-groups]
 dev = [
