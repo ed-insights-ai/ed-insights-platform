@@ -2,6 +2,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    DateTime,
     ForeignKey,
     Index,
     Integer,
@@ -41,6 +42,9 @@ class Game(Base):
     away_team = Column(String(255))
     home_score = Column(Integer)
     away_score = Column(Integer)
+    is_conference_game = Column(Boolean)
+    home_conference = Column(String(100))
+    away_conference = Column(String(100))
 
     school = relationship("School", back_populates="games")
     team_stats = relationship("TeamGameStats", back_populates="game")
@@ -48,6 +52,17 @@ class Game(Base):
     events = relationship("GameEvent", back_populates="game")
 
     __table_args__ = (Index("idx_games_school_season", "school_id", "season_year"),)
+
+
+class Opponent(Base):
+    __tablename__ = "opponents"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False, unique=True)
+    abbreviation = Column(String(20))
+    conference = Column(String(100))
+    division = Column(String(10))
+    verified_at = Column(DateTime)
 
 
 class TeamGameStats(Base):

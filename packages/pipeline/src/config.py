@@ -20,6 +20,7 @@ class SchoolConfig:
     base_url: str
     years: list[int] = field(default_factory=list)
     enabled: bool = False
+    data_status: str = "unverified"
     notes: str = ""
     mascot: str = ""
     ordinal: int = 0
@@ -54,6 +55,7 @@ def load_schools(path: str | Path = DEFAULT_CONFIG) -> list[SchoolConfig]:
             base_url=entry.get("base_url", ""),
             years=entry.get("years", []),
             enabled=entry.get("enabled", False),
+            data_status=entry.get("data_status", "unverified"),
             notes=entry.get("notes", ""),
             mascot=entry.get("mascot", ""),
             ordinal=idx,

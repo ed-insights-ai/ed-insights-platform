@@ -26,6 +26,9 @@ class Game:
     away_team: str
     home_score: int
     away_score: int
+    is_conference_game: bool | None = None
+    home_conference: str | None = None
+    away_conference: str | None = None
 
 
 @dataclass
