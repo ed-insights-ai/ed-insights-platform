@@ -40,3 +40,4 @@ What follows from this decision — both good and bad?
 | [004](ADR-004-parquet-files-in-git.md) | Parquet files tracked in git | Accepted |
 | [005](ADR-005-sidearm-scraper-variants.md) | SideArm CMS scraper variant strategy | Accepted |
 | [006](ADR-006-opponent-conference-model.md) | Opponent and conference data model | Accepted |
+| [007](ADR-007-gac-school-membership.md) | GAC soccer school membership — authoritative list | Accepted |

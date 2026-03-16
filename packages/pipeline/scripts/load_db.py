@@ -14,7 +14,7 @@ from rich.table import Table
 
 console = Console()
 
-DEFAULT_DATABASE_URL = "postgresql://postgres:postgres@localhost:54321/postgres"
+DEFAULT_DATABASE_URL = "postgresql://lume@localhost:5432/ed_insights"
 STRUCTURED_DIR = Path("data/structured")
 
 
