@@ -40,7 +40,7 @@ const SEASONS = Array.from({ length: 10 }, (_, i) => 2025 - i);
 
 export default function ConferencePage() {
   const params = useParams();
-  const abbr = (params.abbr as string) ?? "GAC";
+  const abbr = ((params.abbr as string) ?? "GAC").toUpperCase();
   const { gender } = useGender();
 
   const [standings, setStandings] = useState<ConferenceStanding[]>([]);
