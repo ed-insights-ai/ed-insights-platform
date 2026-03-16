@@ -9,6 +9,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -24,6 +25,8 @@ class School(Base):
     abbreviation = Column(String(20), nullable=False, unique=True)
     conference = Column(String(100))
     mascot = Column(String(100))
+    gender = Column(String(10), server_default="men")
+    enabled = Column(Boolean, server_default=sa.text("true"))
 
     games = relationship("Game", back_populates="school")
 
