@@ -29,6 +29,16 @@ export async function middleware(request: NextRequest) {
     },
   );
 
+  // Exchange auth code for session if present (email confirmation redirect)
+  const code = request.nextUrl.searchParams.get("code");
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code);
+    const url = request.nextUrl.clone();
+    url.searchParams.delete("code");
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
