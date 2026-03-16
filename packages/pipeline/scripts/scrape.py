@@ -41,7 +41,7 @@ def _scrape_season(
         game_id = school.ordinal * 1_000_000 + year * 100 + gu.game_num
         html: str | None = None
         try:
-            html = fetcher.fetch(gu.url, year, gu.game_num, use_cache=use_cache)
+            html = fetcher.fetch(gu.url, year, gu.game_num, use_cache=use_cache, school_abbrev=school.abbreviation)
             if school.scraper == "sidearm":
                 result = parse_sidearm_game(
                     html, game_id, gu.url, year,

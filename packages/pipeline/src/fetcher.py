@@ -27,9 +27,14 @@ class GameFetcher:
         """Close the underlying HTTP session."""
         self.session.close()
 
-    def fetch(self, url: str, year: int, game_num: int, *, use_cache: bool = True) -> str:
+    def fetch(
+        self, url: str, year: int, game_num: int, *, use_cache: bool = True, school_abbrev: str = ""
+    ) -> str:
         """Fetch HTML with optional disk caching and polite delay."""
-        year_dir = self.cache_dir / str(year)
+        if school_abbrev:
+            year_dir = self.cache_dir / school_abbrev.lower() / str(year)
+        else:
+            year_dir = self.cache_dir / str(year)
         year_dir.mkdir(parents=True, exist_ok=True)
         cache_path = year_dir / f"game_{game_num:02d}.html"
 
