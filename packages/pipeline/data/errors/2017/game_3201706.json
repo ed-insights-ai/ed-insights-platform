@@ -1,0 +1,9 @@
+{
+  "game_id": 3201706,
+  "season_year": 2017,
+  "error_type": "HTTPError",
+  "error_message": "500 Server Error: Internal Server Error for url: https://obutigers.com/sorry.ashx",
+  "traceback": "Traceback (most recent call last):\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/scripts/scrape.py\", line 44, in _scrape_season\n    html = fetcher.fetch(gu.url, year, gu.game_num, use_cache=use_cache)\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/src/fetcher.py\", line 40, in fetch\n    resp.raise_for_status()\n    ~~~~~~~~~~~~~~~~~~~~~^^\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/.venv/lib/python3.14/site-packages/requests/models.py\", line 1026, in raise_for_status\n    raise HTTPError(http_error_msg, response=self)\nrequests.exceptions.HTTPError: 500 Server Error: Internal Server Error for url: https://obutigers.com/sorry.ashx\n",
+  "timestamp": "2026-03-15T14:31:48.781028",
+  "tables": []
+}

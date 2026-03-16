@@ -1,348 +1,206 @@
 # Ed Insights Platform — School Configuration
-# StatCrew schools use static HTML; SideArm schools use JS-rendered pages.
+# Source of truth: GAC standings API (greatamericanconference.com/services/standings.ashx)
+# Last verified: 2026-03-16
+#
+# GAC Soccer Programs: 7 men's + 7 women's = 14 total
+#
+# scraper values:
+#   statcrew       — static HTML (Harding only)
+#   sidearm        — SideArm New (Nuxt3/Vue, SSR boxscore links)
+#   sidearm_legacy — SideArm Legacy (KnockoutJS SPA, NOT YET IMPLEMENTED)
+#
+# data_status values:
+#   verified   — URL confirmed live, sport confirmed present, scraper confirmed working
+#   unverified — config set but not tested end-to-end
+#   absent     — sport not present on this platform (different data source needed)
 
 # ============================================================
-# GAC full members — men's soccer
-# ============================================================
-
-[[schools]]
-name          = "Harding"
-abbreviation  = "HU"
-conference    = "GAC"
-mascot        = "Bisons"
-gender        = "men"
-prefix        = "hu"
-base_url      = "https://static.hardingsports.com/custompages/msoc/{year}/{prefix}-{num:02d}.htm"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-
-[[schools]]
-name          = "Arkansas Tech"
-abbreviation  = "ATU"
-conference    = "GAC"
-mascot        = "Wonder Boys"
-gender        = "men"
-prefix        = "atu"
-base_url      = "https://arkansastechsports.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "East Central"
-abbreviation  = "ECU"
-conference    = "GAC"
-mascot        = "Tigers"
-gender        = "men"
-prefix        = "ecu"
-base_url      = "https://ecutigers.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Henderson State"
-abbreviation  = "HSU"
-conference    = "GAC"
-mascot        = "Reddies"
-gender        = "men"
-prefix        = "hsu"
-base_url      = "https://hsusports.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Northwestern Oklahoma State"
-abbreviation  = "NWOSU"
-conference    = "GAC"
-mascot        = "Rangers"
-gender        = "men"
-prefix        = "nwosu"
-base_url      = "https://riderangersride.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Oklahoma Baptist"
-abbreviation  = "OKBU"
-conference    = "GAC"
-mascot        = "Bison"
-gender        = "men"
-prefix        = "okbu"
-base_url      = "https://obubison.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Ouachita Baptist"
-abbreviation  = "OBU"
-conference    = "GAC"
-mascot        = "Tigers"
-gender        = "men"
-prefix        = "obu"
-base_url      = "https://obutigers.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southeastern Oklahoma State"
-abbreviation  = "SOSU"
-conference    = "GAC"
-mascot        = "Savage Storm"
-gender        = "men"
-prefix        = "sosu"
-base_url      = "https://gosoutheastern.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southern Arkansas"
-abbreviation  = "SAU"
-conference    = "GAC"
-mascot        = "Muleriders"
-gender        = "men"
-prefix        = "sau"
-base_url      = "https://muleriderathletics.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southern Nazarene"
-abbreviation  = "SNU"
-conference    = "GAC"
-mascot        = "Crimson Storm"
-gender        = "men"
-prefix        = "snu"
-base_url      = "https://snuathletics.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southwestern Oklahoma State"
-abbreviation  = "SWOSU"
-conference    = "GAC"
-mascot        = "Bulldogs"
-gender        = "men"
-prefix        = "swosu"
-base_url      = "https://swosuathletics.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Arkansas-Monticello"
-abbreviation  = "UAM"
-conference    = "GAC"
-mascot        = "Boll Weevils"
-gender        = "men"
-prefix        = "uam"
-base_url      = "https://www.uamsports.com/sports/mens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-# ============================================================
-# GAC full members — women's soccer
+# MEN'S SOCCER — 7 programs
 # ============================================================
 
 [[schools]]
-name          = "Harding (W)"
-abbreviation  = "HUW"
-conference    = "GAC"
-mascot        = "Lady Bisons"
-gender        = "women"
-prefix        = "hu"
-base_url      = "https://static.hardingsports.com/custompages/wsoc/{year}/{prefix}-{num:02d}.htm"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
+name         = "Harding"
+abbreviation = "HU"
+conference   = "GAC"
+mascot       = "Bisons"
+gender       = "men"
+prefix       = "hu"
+base_url     = "https://static.hardingsports.com/custompages/msoc/{year}/{prefix}-{num:02d}.htm"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "statcrew"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Arkansas Tech (W)"
-abbreviation  = "ATUW"
-conference    = "GAC"
-mascot        = "Golden Suns"
-gender        = "women"
-prefix        = "atu"
-base_url      = "https://arkansastechsports.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Fort Hays State"
+abbreviation = "FHSU"
+conference   = "GAC"
+mascot       = "Tigers"
+gender       = "men"
+prefix       = "fhsu"
+base_url     = "https://fhsuathletics.com/sports/mens-soccer"
+years        = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "East Central (W)"
-abbreviation  = "ECUW"
-conference    = "GAC"
-mascot        = "Tigers"
-gender        = "women"
-prefix        = "ecu"
-base_url      = "https://ecutigers.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Newman"
+abbreviation = "NU"
+conference   = "GAC"
+mascot       = "Jets"
+gender       = "men"
+prefix       = "nu"
+base_url     = "https://newmanjets.com/sports/mens-soccer"
+years        = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Henderson State (W)"
-abbreviation  = "HSUW"
-conference    = "GAC"
-mascot        = "Reddies"
-gender        = "women"
-prefix        = "hsu"
-base_url      = "https://hsusports.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Northeastern State"
+abbreviation = "NSU"
+conference   = "GAC"
+mascot       = "RiverHawks"
+gender       = "men"
+prefix       = "nsu"
+base_url     = "https://nsuathletics.com/sports/mens-soccer"
+years        = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm_legacy"
+data_status  = "unverified"
+enabled      = false
+notes        = "SideArm Legacy (KnockoutJS) — schedule/YEAR redirects to SPA homepage. Scraper not yet implemented."
 
 [[schools]]
-name          = "Northwestern Oklahoma State (W)"
-abbreviation  = "NWOSUW"
-conference    = "GAC"
-mascot        = "Rangers"
-gender        = "women"
-prefix        = "nwosu"
-base_url      = "https://riderangersride.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Ouachita Baptist"
+abbreviation = "OBU"
+conference   = "GAC"
+mascot       = "Tigers"
+gender       = "men"
+prefix       = "obu"
+base_url     = "https://obutigers.com/sports/mens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Oklahoma Baptist (W)"
-abbreviation  = "OKBUW"
-conference    = "GAC"
-mascot        = "Bison"
-gender        = "women"
-prefix        = "okbu"
-base_url      = "https://obubison.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Rogers State"
+abbreviation = "RSU"
+conference   = "GAC"
+mascot       = "Hillcats"
+gender       = "men"
+prefix       = "rsu"
+base_url     = "https://rsuhillcats.com/sports/mens-soccer"
+years        = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Ouachita Baptist (W)"
-abbreviation  = "OBUW"
-conference    = "GAC"
-mascot        = "Tigers"
-gender        = "women"
-prefix        = "obu"
-base_url      = "https://obutigers.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southeastern Oklahoma State (W)"
-abbreviation  = "SOSUW"
-conference    = "GAC"
-mascot        = "Savage Storm"
-gender        = "women"
-prefix        = "sosu"
-base_url      = "https://gosoutheastern.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southern Arkansas (W)"
-abbreviation  = "SAUW"
-conference    = "GAC"
-mascot        = "Muleriders"
-gender        = "women"
-prefix        = "sau"
-base_url      = "https://muleriderathletics.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southern Nazarene (W)"
-abbreviation  = "SNUW"
-conference    = "GAC"
-mascot        = "Crimson Storm"
-gender        = "women"
-prefix        = "snu"
-base_url      = "https://snuathletics.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Southwestern Oklahoma State (W)"
-abbreviation  = "SWOSUW"
-conference    = "GAC"
-mascot        = "Bulldogs"
-gender        = "women"
-prefix        = "swosu"
-base_url      = "https://swosuathletics.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
-
-[[schools]]
-name          = "Arkansas-Monticello (W)"
-abbreviation  = "UAMW"
-conference    = "GAC"
-mascot        = "Cotton Blossoms"
-gender        = "women"
-prefix        = "uam"
-base_url      = "https://www.uamsports.com/sports/womens-soccer"
-years         = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Southern Nazarene"
+abbreviation = "SNU"
+conference   = "GAC"
+mascot       = "Crimson Storm"
+gender       = "men"
+prefix       = "snu"
+base_url     = "https://snuathletics.com/sports/mens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 # ============================================================
-# GAC affiliate members — men's soccer only
+# WOMEN'S SOCCER — 7 programs
 # ============================================================
 
 [[schools]]
-name          = "Fort Hays State"
-abbreviation  = "FHSU"
-conference    = "GAC"
-mascot        = "Tigers"
-gender        = "men"
-prefix        = "fhsu"
-base_url      = "https://fhsuathletics.com/sports/mens-soccer"
-years         = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Harding"
+abbreviation = "HUW"
+conference   = "GAC"
+mascot       = "Lady Bisons"
+gender       = "women"
+prefix       = "hu"
+base_url     = "https://static.hardingsports.com/custompages/wsoc/{year}/{prefix}-{num:02d}.htm"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "statcrew"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Newman"
-abbreviation  = "NU"
-conference    = "GAC"
-mascot        = "Jets"
-gender        = "men"
-prefix        = "nu"
-base_url      = "https://newmanjets.com/sports/mens-soccer"
-years         = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "East Central"
+abbreviation = "ECU"
+conference   = "GAC"
+mascot       = "Tigers"
+gender       = "women"
+prefix       = "ecu"
+base_url     = "https://ecutigers.com/sports/womens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Northeastern State"
-abbreviation  = "NSU"
-conference    = "GAC"
-mascot        = "RiverHawks"
-gender        = "men"
-prefix        = "nsu"
-base_url      = "https://nsuathletics.com/sports/mens-soccer"
-years         = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Northwestern Oklahoma State"
+abbreviation = "NWOSU"
+conference   = "GAC"
+mascot       = "Rangers"
+gender       = "women"
+prefix       = "nwosu"
+base_url     = "https://riderangersride.com/sports/womens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
 
 [[schools]]
-name          = "Rogers State"
-abbreviation  = "RSU"
-conference    = "GAC"
-mascot        = "Hillcats"
-gender        = "men"
-prefix        = "rsu"
-base_url      = "https://rsuhillcats.com/sports/mens-soccer"
-years         = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
-enabled       = true
-scraper       = "sidearm"
+name         = "Oklahoma Baptist"
+abbreviation = "OKBU"
+conference   = "GAC"
+mascot       = "Bison"
+gender       = "women"
+prefix       = "okbu"
+base_url     = "https://obubison.com/sports/womens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
+
+[[schools]]
+name         = "Ouachita Baptist"
+abbreviation = "OBUW"
+conference   = "GAC"
+mascot       = "Tigers"
+gender       = "women"
+prefix       = "obu"
+base_url     = "https://obutigers.com/sports/womens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
+
+[[schools]]
+name         = "Southern Nazarene"
+abbreviation = "SNUW"
+conference   = "GAC"
+mascot       = "Crimson Storm"
+gender       = "women"
+prefix       = "snu"
+base_url     = "https://snuathletics.com/sports/womens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true
+
+[[schools]]
+name         = "Southwestern Oklahoma State"
+abbreviation = "SWOSU"
+conference   = "GAC"
+mascot       = "Bulldogs"
+gender       = "women"
+prefix       = "swosu"
+base_url     = "https://swosuathletics.com/sports/womens-soccer"
+years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+scraper      = "sidearm"
+data_status  = "verified"
+enabled      = true

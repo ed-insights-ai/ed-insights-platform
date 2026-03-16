@@ -1,0 +1,224 @@
+{
+  "game_id": 3202114,
+  "season_year": 2021,
+  "error_type": "IndexError",
+  "error_message": "single positional indexer is out-of-bounds",
+  "traceback": "Traceback (most recent call last):\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/scripts/scrape.py\", line 46, in _scrape_season\n    result = parse_sidearm_game(html, game_id, gu.url, year)\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/src/sidearm_parser.py\", line 358, in parse_sidearm_game\n    home_players = _parse_player_table(tables[4], home_team, game_id, season_year)\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/src/sidearm_parser.py\", line 196, in _parse_player_table\n    minutes=safe_int(row.iloc[7]),\n                     ~~~~~~~~^^^\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/.venv/lib/python3.14/site-packages/pandas/core/indexing.py\", line 1207, in __getitem__\n    return self._getitem_axis(maybe_callable, axis=axis)\n           ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/.venv/lib/python3.14/site-packages/pandas/core/indexing.py\", line 1773, in _getitem_axis\n    self._validate_integer(key, axis)\n    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^\n  File \"/Users/lume/source/ed-insights-platform/packages/pipeline/.venv/lib/python3.14/site-packages/pandas/core/indexing.py\", line 1706, in _validate_integer\n    raise IndexError(\"single positional indexer is out-of-bounds\")\nIndexError: single positional indexer is out-of-bounds\n",
+  "timestamp": "2026-03-15T14:33:11.030601",
+  "tables": [
+    {
+      "index": 0,
+      "shape": [
+        2,
+        4
+      ],
+      "columns": [
+        "Team",
+        "1",
+        "2",
+        "Total  F"
+      ],
+      "first_row": [
+        "Winner  Fort Hays St.  FHS",
+        "3",
+        "3",
+        "6"
+      ]
+    },
+    {
+      "index": 1,
+      "shape": [
+        6,
+        3
+      ],
+      "columns": [
+        "Time",
+        "Team",
+        "Description"
+      ],
+      "first_row": [
+        "20:49",
+        "FHS",
+        "Blake Arndt (8)  GOAL by FHS Arndt, Blake."
+      ]
+    },
+    {
+      "index": 2,
+      "shape": [
+        13,
+        4
+      ],
+      "columns": [
+        "Statistic",
+        "1",
+        "2",
+        "T"
+      ],
+      "first_row": [
+        "Shots",
+        "Shots",
+        "Shots",
+        "Shots"
+      ]
+    },
+    {
+      "index": 3,
+      "shape": [
+        23,
+        8
+      ],
+      "columns": [
+        "Pos",
+        "#",
+        "Player",
+        "SH",
+        "SOG",
+        "G",
+        "A",
+        "MIN"
+      ],
+      "first_row": [
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters"
+      ]
+    },
+    {
+      "index": 4,
+      "shape": [
+        3,
+        6
+      ],
+      "columns": [
+        "Position",
+        "#",
+        "Goalie",
+        "Minutes",
+        "GA",
+        "Saves"
+      ],
+      "first_row": [
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping"
+      ]
+    },
+    {
+      "index": 5,
+      "shape": [
+        21,
+        8
+      ],
+      "columns": [
+        "Pos",
+        "#",
+        "Player",
+        "SH",
+        "SOG",
+        "G",
+        "A",
+        "MIN"
+      ],
+      "first_row": [
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters",
+        "Starters"
+      ]
+    },
+    {
+      "index": 6,
+      "shape": [
+        3,
+        6
+      ],
+      "columns": [
+        "Position",
+        "#",
+        "Goalie",
+        "Minutes",
+        "GA",
+        "Saves"
+      ],
+      "first_row": [
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping",
+        "Goalkeeping"
+      ]
+    },
+    {
+      "index": 7,
+      "shape": [
+        41,
+        9
+      ],
+      "columns": [
+        "Clock",
+        "FHS - Play Description",
+        "Visiting Team Score",
+        "Team Logo",
+        "Home Team Score",
+        "OUA - Play Description",
+        "Score",
+        "Team Indicator",
+        "Play"
+      ],
+      "first_row": [
+        "00:00",
+        "nan",
+        "nan",
+        "nan",
+        "nan",
+        "Atilano, Armani at goalie for Ouachita",
+        "nan",
+        "nan",
+        "Atilano, Armani at goalie for Ouachita"
+      ]
+    },
+    {
+      "index": 8,
+      "shape": [
+        55,
+        9
+      ],
+      "columns": [
+        "Clock",
+        "FHS - Play Description",
+        "Visiting Team Score",
+        "Team Logo",
+        "Home Team Score",
+        "OUA - Play Description",
+        "Score",
+        "Team Indicator",
+        "Play"
+      ],
+      "first_row": [
+        "45:00",
+        "nan",
+        "nan",
+        "nan",
+        "nan",
+        "Start of 2nd period [45:00].",
+        "nan",
+        "nan",
+        "Start of 2nd period [45:00]."
+      ]
+    }
+  ],
+  "table_count": 9
+}
