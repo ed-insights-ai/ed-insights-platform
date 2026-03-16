@@ -289,6 +289,33 @@ export async function getPlayerLeaderboard(
   }
 }
 
+export interface ConferenceAverages {
+  conference: string;
+  gender: string;
+  season: number;
+  schools_count: number;
+  avg_goals_per_game: number;
+  avg_shot_conversion: number;
+  avg_clean_sheet_pct: number;
+  avg_shots_per_game: number;
+  avg_sog_per_game: number;
+}
+
+export async function getConferenceAverages(
+  abbr: string,
+  season: number,
+  gender: string = "men"
+): Promise<ConferenceAverages | null> {
+  try {
+    const params = new URLSearchParams({ season: String(season), gender });
+    const res = await fetch(`${API_BASE_URL}/api/conferences/${abbr}/averages?${params}`);
+    if (!res.ok) return null;
+    return (await res.json()) as ConferenceAverages;
+  } catch {
+    return null;
+  }
+}
+
 export async function getConferenceStandings(
   abbr: string,
   season: number,

@@ -142,6 +142,18 @@ class FormResult(BaseModel):
     game_id: int
 
 
+class ConferenceAverages(BaseModel):
+    conference: str
+    gender: str
+    season: int
+    schools_count: int
+    avg_goals_per_game: float
+    avg_shot_conversion: float
+    avg_clean_sheet_pct: float
+    avg_shots_per_game: float
+    avg_sog_per_game: float
+
+
 class ConferenceStanding(BaseModel):
     school_id: int
     school_name: str

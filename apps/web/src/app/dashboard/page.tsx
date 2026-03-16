@@ -13,18 +13,22 @@ import {
 } from "recharts";
 import { SchoolSeasonSelector } from "@/components/SchoolSeasonSelector";
 import { ContextualMetricCard, FormBadgeStrip } from "@/components/stats";
+import { useGender } from "@/context/GenderContext";
 import {
   getGames,
   getTeamStats,
   getPlayerLeaderboard,
+  getConferenceAverages,
 } from "@/lib/api";
 import type {
   GameSummary,
   TeamStatsAggregation,
   PlayerLeaderboard,
+  ConferenceAverages,
 } from "@/lib/api";
 
 export default function DashboardPage() {
+  const { gender } = useGender();
   const [schoolName, setSchoolName] = useState("");
   const [season, setSeason] = useState(2025);
   const [loading, setLoading] = useState(true);
@@ -33,27 +37,30 @@ export default function DashboardPage() {
   const [teamStats, setTeamStats] = useState<TeamStatsAggregation | null>(null);
   const [allGames, setAllGames] = useState<GameSummary[]>([]);
   const [topPerformers, setTopPerformers] = useState<PlayerLeaderboard[]>([]);
+  const [confAvg, setConfAvg] = useState<ConferenceAverages | null>(null);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fetchData = useCallback(async (abbr: string, yr: number, _name: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [gamesRes, statsRes, topPerformersRes] = await Promise.all([
+      const [gamesRes, statsRes, topPerformersRes, confAvgRes] = await Promise.all([
         getGames(abbr, yr, 100, 0),
         getTeamStats(abbr, yr),
         getPlayerLeaderboard(abbr, yr, "goals", 5, 0),
+        getConferenceAverages("GAC", yr, gender),
       ]);
 
       setTeamStats(statsRes.length > 0 ? statsRes[0] : null);
       setAllGames(gamesRes.items);
       setTopPerformers(topPerformersRes.items.slice(0, 5));
+      setConfAvg(confAvgRes);
     } catch {
       setError("Failed to load dashboard data. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [gender]);
 
   const handleSelectionChange = useCallback(
     (abbr: string, yr: number, name: string) => {
@@ -122,6 +129,19 @@ export default function DashboardPage() {
       };
     });
 
+  // Conference average deltas
+  const goalsPerGameDelta = confAvg
+    ? parseFloat((goalsPerGame - confAvg.avg_goals_per_game).toFixed(2))
+    : undefined;
+
+  const shotConvDelta = confAvg
+    ? parseFloat((shotConversion - confAvg.avg_shot_conversion).toFixed(1))
+    : undefined;
+
+  const cleanSheetPctDelta = confAvg && gamesPlayed > 0
+    ? parseFloat(((cleanSheets / gamesPlayed * 100) - confAvg.avg_clean_sheet_pct).toFixed(1))
+    : undefined;
+
   // Top contributors max goals for progress bar
   const maxGoals = topPerformers.length > 0 ? topPerformers[0].total_goals : 1;
 
@@ -182,19 +202,26 @@ export default function DashboardPage() {
 
           {/* Row 2 — KPI Cards (3 cards spanning left 2 cols) */}
           <div className="lg:col-span-2 grid grid-cols-3 gap-4">
-            {/* TODO: wire conference avg delta when /api/conferences/{abbr}/standings lands */}
             <ContextualMetricCard
               label="Goals / Game"
               value={goalsPerGame.toFixed(2)}
+              delta={goalsPerGameDelta}
+              deltaUnit=""
               baseline="vs Conference Avg"
             />
             <ContextualMetricCard
               label="Shot Conversion"
               value={`${shotConversion.toFixed(1)}%`}
+              delta={shotConvDelta}
+              deltaUnit="%"
+              baseline="vs Conference Avg"
             />
             <ContextualMetricCard
               label="Clean Sheets"
               value={cleanSheets}
+              delta={cleanSheetPctDelta}
+              deltaUnit="%"
+              baseline="vs Conference Avg"
             />
           </div>
 
