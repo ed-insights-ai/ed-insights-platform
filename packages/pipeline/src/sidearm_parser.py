@@ -195,19 +195,27 @@ def _parse_team_stats_table(df: pd.DataFrame) -> dict[str, dict]:
     return stats
 
 
+def _get_col(row: pd.Series, *names: str, default: str = "") -> str:
+    """Return the value of the first matching column name, or default."""
+    for name in names:
+        if name in row.index:
+            return str(row[name])
+    return default
+
+
 def _parse_player_table(
     df: pd.DataFrame,
     team_name: str,
     game_id: int,
     season_year: int,
 ) -> list[PlayerGameStats]:
-    """Parse a SideArm player stats table (tables 4 or 6)."""
+    """Parse a SideArm player stats table — uses column names, not positional index."""
     players: list[PlayerGameStats] = []
     is_starter = True
 
     for _, row in df.iterrows():
-        pos_raw = str(row.iloc[0]).strip()
-        player_raw = str(row.iloc[2]).strip()
+        pos_raw = _get_col(row, "Pos", "Position").strip()
+        player_raw = _get_col(row, "Player", "Name").strip()
 
         # Detect section headers
         if pos_raw.lower() in {"starters", "substitutes", "goalkeeping"}:
@@ -219,8 +227,9 @@ def _parse_player_table(
         if player_raw.lower() == "totals":
             continue
 
-        jersey = safe_int(row.iloc[1])
-        if jersey == 0 and str(row.iloc[1]).strip().lower() in {"", "nan"}:
+        jersey_raw = _get_col(row, "#", "No", "Jersey")
+        jersey = safe_int(jersey_raw)
+        if jersey == 0 and jersey_raw.strip().lower() in {"", "nan"}:
             continue
 
         # Strip jersey prefix from player name: "3 Lovoy, James" → "Lovoy, James"
@@ -238,11 +247,11 @@ def _parse_player_table(
                 player_name=name,
                 position=position,
                 is_starter=is_starter,
-                minutes=safe_int(row.iloc[7]),
-                shots=safe_int(row.iloc[3]),
-                shots_on_goal=safe_int(row.iloc[4]),
-                goals=safe_int(row.iloc[5]),
-                assists=safe_int(row.iloc[6]),
+                minutes=safe_int(_get_col(row, "MIN", "Min", "Minutes", default="0")),
+                shots=safe_int(_get_col(row, "SH", "Shots", "S")),
+                shots_on_goal=safe_int(_get_col(row, "SOG", "Shots on Goal")),
+                goals=safe_int(_get_col(row, "G", "Goals")),
+                assists=safe_int(_get_col(row, "A", "Assists")),
             )
         )
 
