@@ -23,6 +23,7 @@ class SchoolConfig:
     notes: str = ""
     mascot: str = ""
     ordinal: int = 0
+    gender: str = "men"
     scraper: str = "statcrew"
 
     def build_game_url(self, year: int, game_num: int) -> str:
@@ -56,6 +57,7 @@ def load_schools(path: str | Path = DEFAULT_CONFIG) -> list[SchoolConfig]:
             notes=entry.get("notes", ""),
             mascot=entry.get("mascot", ""),
             ordinal=idx,
+            gender=entry.get("gender", "men"),
             scraper=entry.get("scraper", "statcrew"),
         )
         if school.enabled and not school.base_url:
