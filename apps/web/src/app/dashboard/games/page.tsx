@@ -1,248 +1,275 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, Calendar, MapPin, Trophy } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { SchoolSeasonSelector } from "@/components/SchoolSeasonSelector";
+import { useGender } from "@/context/GenderContext";
 import { getGames } from "@/lib/api";
-import type { GameSummary, PaginatedGames } from "@/lib/api";
-import { Button } from "@/components/ui/button";
+import type { GameSummary } from "@/lib/api";
 
-const PAGE_SIZE = 20;
+type VenueFilter = "All" | "Home" | "Away";
+type ResultFilter = "All" | "W" | "L" | "D";
 
 function getResult(
   game: GameSummary,
   schoolName: string
-): { label: string; color: string } | null {
+): "W" | "L" | "D" | null {
   if (game.home_score == null || game.away_score == null) return null;
-
   const isHome =
     game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
   const schoolScore = isHome ? game.home_score : game.away_score;
   const opponentScore = isHome ? game.away_score : game.home_score;
-
-  if (schoolScore > opponentScore)
-    return { label: "W", color: "bg-green-100 text-green-800" };
-  if (schoolScore < opponentScore)
-    return { label: "L", color: "bg-red-100 text-red-800" };
-  return { label: "D", color: "bg-yellow-100 text-yellow-800" };
+  if (schoolScore > opponentScore) return "W";
+  if (schoolScore < opponentScore) return "L";
+  return "D";
 }
 
-function getOpponent(game: GameSummary, schoolName: string): string {
-  const isHome =
-    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
-  const opponent = isHome ? game.away_team : game.home_team;
-  const prefix = isHome ? "vs" : "@";
-  return `${prefix} ${opponent ?? "Unknown"}`;
-}
-
-function getScoreDisplay(game: GameSummary): string {
-  if (game.home_score == null || game.away_score == null) return "—";
-  return `${game.home_score} – ${game.away_score}`;
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "TBD";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+function isHome(game: GameSummary, schoolName: string): boolean {
+  return (
+    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false
+  );
 }
 
 export default function GamesPage() {
-  const [data, setData] = useState<PaginatedGames | null>(null);
-  const [allGames, setAllGames] = useState<GameSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  useGender(); // read from context per spec
   const [school, setSchool] = useState("");
   const [schoolName, setSchoolName] = useState("");
-  const [season, setSeason] = useState(0);
-  const [page, setPage] = useState(0);
+  const [season, setSeason] = useState(2025);
+  const [games, setGames] = useState<GameSummary[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchGames = useCallback(
-    async (abbr: string, yr: number, pg: number, refreshAll: boolean) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const requests: Promise<PaginatedGames>[] = [
-          getGames(abbr, yr, PAGE_SIZE, pg * PAGE_SIZE),
-        ];
-        if (refreshAll) {
-          requests.push(getGames(abbr, yr, 100, 0));
-        }
-        const [pageResult, allResult] = await Promise.all(requests);
-        setData(pageResult);
-        if (allResult) setAllGames(allResult.items);
-      } catch {
-        setError("Failed to load games. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const [venueFilter, setVenueFilter] = useState<VenueFilter>("All");
+  const [resultFilter, setResultFilter] = useState<ResultFilter>("All");
+
+  const fetchGames = useCallback(async (abbr: string, yr: number) => {
+    setLoading(true);
+    try {
+      const res = await getGames(abbr, yr, 100, 0);
+      const sorted = [...res.items].sort((a, b) =>
+        (a.date ?? "").localeCompare(b.date ?? "")
+      );
+      setGames(sorted);
+    } catch {
+      setGames([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const handleSelectionChange = useCallback(
     (abbr: string, yr: number, name: string) => {
       setSchool(abbr);
       setSchoolName(name);
       setSeason(yr);
-      setPage(0);
-      fetchGames(abbr, yr, 0, true);
+      setVenueFilter("All");
+      setResultFilter("All");
+      fetchGames(abbr, yr);
     },
     [fetchGames]
   );
 
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      setPage(newPage);
-      fetchGames(school, season, newPage, false);
-    },
-    [school, season, fetchGames]
-  );
+  // Summary stats
+  const summary = useMemo(() => {
+    const s = { w: 0, l: 0, d: 0, hw: 0, hl: 0, hd: 0, aw: 0, al: 0, ad: 0 };
+    for (const game of games) {
+      const r = getResult(game, schoolName);
+      if (!r) continue;
+      const home = isHome(game, schoolName);
+      if (r === "W") { s.w++; if (home) s.hw++; else s.aw++; }
+      else if (r === "L") { s.l++; if (home) s.hl++; else s.al++; }
+      else { s.d++; if (home) s.hd++; else s.ad++; }
+    }
+    return s;
+  }, [games, schoolName]);
 
-  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 0;
-
-  // Compute full season record from all games
-  const record = { w: 0, l: 0, d: 0 };
-  for (const game of allGames) {
-    const r = getResult(game, schoolName);
-    if (r?.label === "W") record.w++;
-    else if (r?.label === "L") record.l++;
-    else if (r?.label === "D") record.d++;
-  }
+  // Filtered games
+  const filteredGames = useMemo(() => {
+    return games.filter((game) => {
+      if (venueFilter !== "All") {
+        const home = isHome(game, schoolName);
+        if (venueFilter === "Home" && !home) return false;
+        if (venueFilter === "Away" && home) return false;
+      }
+      if (resultFilter !== "All") {
+        const r = getResult(game, schoolName);
+        if (r !== resultFilter) return false;
+      }
+      return true;
+    });
+  }, [games, schoolName, venueFilter, resultFilter]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-primary-900">Games</h2>
-        <p className="text-muted-foreground">
-          Browse game results by school and season
-        </p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-primary-900">
+            Schedule &amp; Results
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Full season timeline
+          </p>
+        </div>
+        <SchoolSeasonSelector onSelectionChange={handleSelectionChange} />
       </div>
 
-      <SchoolSeasonSelector onSelectionChange={handleSelectionChange} />
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {loading && (
+      {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-3 text-muted-foreground">Loading games...</span>
+          <span className="ml-3 text-muted-foreground">Loading schedule...</span>
         </div>
-      )}
-
-      {!loading && !error && data && (
+      ) : !school ? (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-muted-foreground">
+            Select a school above to view their schedule.
+          </p>
+        </div>
+      ) : games.length === 0 ? (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-muted-foreground">
+            No games found for this selection.
+          </p>
+        </div>
+      ) : (
         <>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 rounded-xl border bg-card px-4 py-3">
-              <Trophy className="h-5 w-5 text-primary-900" />
-              <span className="text-sm font-semibold text-primary-900">
-                Season Record:
-              </span>
-              <span className="text-sm font-bold text-green-700">
-                {record.w}W
-              </span>
-              <span className="text-sm text-muted-foreground">–</span>
-              <span className="text-sm font-bold text-red-700">
-                {record.l}L
-              </span>
-              <span className="text-sm text-muted-foreground">–</span>
-              <span className="text-sm font-bold text-yellow-700">
-                {record.d}D
-              </span>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {data.total} game{data.total !== 1 ? "s" : ""} total
-            </span>
+          {/* Summary strip */}
+          <div className="bento-card p-4 flex flex-wrap gap-4">
+            <SummaryBlock label="Wins" value={String(summary.w)} />
+            <SummaryBlock label="Losses" value={String(summary.l)} />
+            <SummaryBlock label="Draws" value={String(summary.d)} />
+            <SummaryBlock
+              label="Home"
+              value={`${summary.hw}W-${summary.hl}L-${summary.hd}D`}
+            />
+            <SummaryBlock
+              label="Away"
+              value={`${summary.aw}W-${summary.al}L-${summary.ad}D`}
+            />
           </div>
 
-          {data.items.length === 0 ? (
-            <div className="rounded-xl border bg-card p-12 text-center">
-              <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-lg font-medium text-primary-900">
-                No games found
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Try selecting a different school or season.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {data.items.map((game) => {
-                const result = getResult(game, schoolName);
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <FilterGroup
+              options={["All", "Home", "Away"] as VenueFilter[]}
+              active={venueFilter}
+              onChange={setVenueFilter}
+            />
+            <FilterGroup
+              options={["All", "W", "L", "D"] as ResultFilter[]}
+              active={resultFilter}
+              onChange={setResultFilter}
+            />
+          </div>
+
+          {/* Timeline table */}
+          <div className="bento-card p-5">
+            <p className="stat-label mb-4">{season} SEASON</p>
+            <div className="divide-y">
+              {filteredGames.map((game) => {
+                const r = getResult(game, schoolName);
+                const home = isHome(game, schoolName);
+                const opponent = home ? game.away_team : game.home_team;
+                const dateStr = game.date
+                  ? new Date(game.date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "TBD";
+
                 return (
                   <Link
                     key={game.game_id}
                     href={`/dashboard/games/${game.game_id}`}
-                    className="group rounded-xl border bg-card p-4 transition-shadow hover:shadow-md"
+                    className="flex items-center gap-3 py-3 px-2 hover:bg-surface-muted cursor-pointer transition-colors"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {formatDate(game.date)}
-                      </div>
-                      {result && (
-                        <span
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${result.color}`}
-                        >
-                          {result.label}
-                        </span>
-                      )}
-                    </div>
+                    {/* Date */}
+                    <span className="text-sm text-slate-500 w-28 shrink-0">
+                      {dateStr}
+                    </span>
 
-                    <p className="mt-2 text-base font-semibold text-primary-900 group-hover:text-primary-700">
-                      {getOpponent(game, schoolName)}
-                    </p>
+                    {/* Result badge */}
+                    <span
+                      className={`w-8 h-8 rounded-md font-bold text-xs flex items-center justify-center shrink-0 ${
+                        r === "W"
+                          ? "bg-emerald-500 text-white"
+                          : r === "L"
+                            ? "bg-rose-500 text-white"
+                            : r === "D"
+                              ? "bg-amber-500 text-white"
+                              : "bg-slate-100 text-slate-400"
+                      }`}
+                    >
+                      {r ?? "–"}
+                    </span>
 
-                    <p className="mt-1 text-xl font-bold text-primary-900">
-                      {getScoreDisplay(game)}
-                    </p>
+                    {/* H/A badge */}
+                    <span
+                      className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${
+                        home
+                          ? "bg-data-primary/10 text-data-primary"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {home ? "H" : "A"}
+                    </span>
 
-                    {game.venue && (
-                      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <MapPin className="h-3.5 w-3.5" />
-                        <span className="truncate">{game.venue}</span>
-                      </div>
-                    )}
+                    {/* Opponent */}
+                    <span className="text-sm font-medium text-slate-700 truncate flex-1">
+                      {opponent ?? "Unknown"}
+                    </span>
+
+                    {/* Score */}
+                    <span className="tabular-nums font-bold text-sm text-slate-900 shrink-0">
+                      {game.home_score != null && game.away_score != null
+                        ? `${game.home_score} – ${game.away_score}`
+                        : "—"}
+                    </span>
                   </Link>
                 );
               })}
             </div>
-          )}
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 0}
-                onClick={() => handlePageChange(page - 1)}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page + 1} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages - 1}
-                onClick={() => handlePageChange(page + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          </div>
         </>
       )}
+    </div>
+  );
+}
+
+function SummaryBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bento-card px-4 py-3 min-w-[80px]">
+      <p className="stat-label">{label}</p>
+      <p className="stat-value text-lg">{value}</p>
+    </div>
+  );
+}
+
+function FilterGroup<T extends string>({
+  options,
+  active,
+  onChange,
+}: {
+  options: T[];
+  active: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-lg border overflow-hidden">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onChange(opt)}
+          className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+            active === opt
+              ? "bg-data-primary text-white"
+              : "bg-white text-slate-600 hover:bg-surface-muted"
+          }`}
+        >
+          {opt}
+        </button>
+      ))}
     </div>
   );
 }
