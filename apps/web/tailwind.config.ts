@@ -73,6 +73,20 @@ const config: Config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        data: {
+          primary: "#0D9488",
+          opponent: "#F97316",
+          positive: "#10B981",
+          negative: "#F43F5E",
+          neutral: "#F59E0B",
+        },
+        brand: {
+          primary: "#0F172A",
+          accent: "#EA580C",
+        },
+        "app-bg": "#F8FAFC",
+        "card-bg": "#FFFFFF",
+        "surface-muted": "#F1F5F9",
       },
       borderRadius: {
         lg: "var(--radius)",
