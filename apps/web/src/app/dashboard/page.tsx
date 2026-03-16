@@ -1,17 +1,18 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import {
-  Loader2,
-  Trophy,
-  Calendar,
-  Users,
-  Target,
-  Crosshair,
-} from "lucide-react";
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { SchoolSeasonSelector } from "@/components/SchoolSeasonSelector";
-import { DashboardStats } from "@/components/DashboardStats";
+import { ContextualMetricCard, FormBadgeStrip } from "@/components/stats";
 import {
   getGames,
   getTeamStats,
@@ -23,123 +24,30 @@ import type {
   PlayerLeaderboard,
 } from "@/lib/api";
 
-interface PerGameData {
-  label: string;
-  goalsFor: number;
-  goalsAgainst: number;
-}
-
-function getResult(
-  game: GameSummary,
-  schoolName: string
-): { label: string; color: string } | null {
-  if (game.home_score == null || game.away_score == null) return null;
-  const isHome =
-    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
-  const schoolScore = isHome ? game.home_score : game.away_score;
-  const opponentScore = isHome ? game.away_score : game.home_score;
-  if (schoolScore > opponentScore)
-    return { label: "W", color: "bg-green-100 text-green-800" };
-  if (schoolScore < opponentScore)
-    return { label: "L", color: "bg-red-100 text-red-800" };
-  return { label: "D", color: "bg-yellow-100 text-yellow-800" };
-}
-
-function getOpponent(game: GameSummary, schoolName: string): string {
-  const isHome =
-    game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
-  const opponent = isHome ? game.away_team : game.home_team;
-  const prefix = isHome ? "vs" : "@";
-  return `${prefix} ${opponent ?? "Unknown"}`;
-}
-
-function getScoreDisplay(game: GameSummary): string {
-  if (game.home_score == null || game.away_score == null) return "—";
-  return `${game.home_score} – ${game.away_score}`;
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "TBD";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-}
-
 export default function DashboardPage() {
-  const [school, setSchool] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [season, setSeason] = useState(2025);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [teamStats, setTeamStats] = useState<TeamStatsAggregation | null>(null);
-  const [recentGames, setRecentGames] = useState<GameSummary[]>([]);
   const [allGames, setAllGames] = useState<GameSummary[]>([]);
   const [topPerformers, setTopPerformers] = useState<PlayerLeaderboard[]>([]);
 
-  // Data for DashboardStats charts
-  const [chartTopPlayers, setChartTopPlayers] = useState<
-    { player: string; goals: number }[]
-  >([]);
-  const [chartGamePerformance, setChartGamePerformance] = useState<
-    PerGameData[]
-  >([]);
-
-  const fetchData = useCallback(async (abbr: string, yr: number, name: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const fetchData = useCallback(async (abbr: string, yr: number, _name: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [gamesRes, statsRes, playersRes, topPerformersRes] =
-        await Promise.all([
-          getGames(abbr, yr, 100, 0),
-          getTeamStats(abbr, yr),
-          getPlayerLeaderboard(abbr, yr, "goals", 5, 0),
-          getPlayerLeaderboard(abbr, yr, "goals", 3, 0),
-        ]);
+      const [gamesRes, statsRes, topPerformersRes] = await Promise.all([
+        getGames(abbr, yr, 100, 0),
+        getTeamStats(abbr, yr),
+        getPlayerLeaderboard(abbr, yr, "goals", 5, 0),
+      ]);
 
-      // Team stats
       setTeamStats(statsRes.length > 0 ? statsRes[0] : null);
-
-      // All games for record calculation
       setAllGames(gamesRes.items);
-
-      // Recent games (last 5 by date descending)
-      const sorted = [...gamesRes.items].sort(
-        (a, b) => (b.date ?? "").localeCompare(a.date ?? "")
-      );
-      setRecentGames(sorted.slice(0, 5));
-
-      // Top 3 performers
-      setTopPerformers(topPerformersRes.items.slice(0, 3));
-
-      // Chart data for DashboardStats
-      setChartTopPlayers(
-        playersRes.items.map((p) => ({
-          player: p.player_name,
-          goals: p.total_goals,
-        }))
-      );
-
-      const perGame: PerGameData[] = gamesRes.items
-        .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
-        .slice(0, 20)
-        .map((g, i) => {
-          const isHome =
-            g.home_team?.toLowerCase().includes(name.toLowerCase()) ?? false;
-          return {
-            label: g.date
-              ? new Date(g.date).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
-              : `G${i + 1}`,
-            goalsFor: (isHome ? g.home_score : g.away_score) ?? 0,
-            goalsAgainst: (isHome ? g.away_score : g.home_score) ?? 0,
-          };
-        });
-      setChartGamePerformance(perGame);
+      setTopPerformers(topPerformersRes.items.slice(0, 5));
     } catch {
       setError("Failed to load dashboard data. Please try again.");
     } finally {
@@ -149,7 +57,6 @@ export default function DashboardPage() {
 
   const handleSelectionChange = useCallback(
     (abbr: string, yr: number, name: string) => {
-      setSchool(abbr);
       setSchoolName(name);
       setSeason(yr);
       fetchData(abbr, yr, name);
@@ -157,29 +64,80 @@ export default function DashboardPage() {
     [fetchData]
   );
 
-  // Compute W-L-D record
+  // --- Computed values ---
+
+  // W-L-D record
   const record = { w: 0, l: 0, d: 0 };
   for (const game of allGames) {
-    const r = getResult(game, schoolName);
-    if (r?.label === "W") record.w++;
-    else if (r?.label === "L") record.l++;
-    else if (r?.label === "D") record.d++;
+    if (game.home_score == null || game.away_score == null) continue;
+    const isHome = game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
+    const schoolScore = isHome ? game.home_score : game.away_score;
+    const opponentScore = isHome ? game.away_score : game.home_score;
+    if (schoolScore > opponentScore) record.w++;
+    else if (schoolScore < opponentScore) record.l++;
+    else record.d++;
   }
+
+  // KPI metrics
+  const gamesPlayed = teamStats?.games_played ?? 0;
+  const totalGoals = teamStats?.total_goals ?? 0;
+  const totalShots = teamStats?.total_shots ?? 0;
+  const goalsPerGame = gamesPlayed > 0 ? totalGoals / gamesPlayed : 0;
+  const shotConversion = totalShots > 0 ? (totalGoals / totalShots) * 100 : 0;
+
+  // Clean sheets: games where opponent scored 0
+  const cleanSheets = allGames.filter((game) => {
+    if (game.home_score == null || game.away_score == null) return false;
+    const isHome = game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
+    const opponentScore = isHome ? game.away_score : game.home_score;
+    return opponentScore === 0;
+  }).length;
+
+  // Form badges (last 5 completed games)
+  const formResults = [...allGames]
+    .filter((g) => g.date != null && g.home_score != null && g.away_score != null)
+    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+    .slice(-5)
+    .map((game) => {
+      const isHome = game.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
+      const schoolScore = isHome ? game.home_score! : game.away_score!;
+      const opponentScore = isHome ? game.away_score! : game.home_score!;
+      const result: "W" | "L" | "D" =
+        schoolScore > opponentScore ? "W" : schoolScore < opponentScore ? "L" : "D";
+      return { result, gameId: game.game_id };
+    });
+
+  // Season trend chart data
+  const trendData = [...allGames]
+    .filter((g) => g.date != null && g.home_score != null && g.away_score != null)
+    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""))
+    .map((g, i) => {
+      const isHome = g.home_team?.toLowerCase().includes(schoolName.toLowerCase()) ?? false;
+      return {
+        label: g.date
+          ? new Date(g.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : `G${i + 1}`,
+        gf: isHome ? (g.home_score ?? 0) : (g.away_score ?? 0),
+        ga: isHome ? (g.away_score ?? 0) : (g.home_score ?? 0),
+      };
+    });
+
+  // Top contributors max goals for progress bar
+  const maxGoals = topPerformers.length > 0 ? topPerformers[0].total_goals : 1;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* Header row with compact selector */}
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-primary-900">War Room</h2>
-          <p className="text-muted-foreground">
-            Your team at a glance
-          </p>
+          <p className="text-muted-foreground text-sm">Your team at a glance</p>
         </div>
         <SchoolSeasonSelector onSelectionChange={handleSelectionChange} />
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -189,180 +147,128 @@ export default function DashboardPage() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           <span className="ml-3 text-muted-foreground">Loading dashboard...</span>
         </div>
+      ) : !schoolName ? (
+        <div className="flex items-center justify-center py-16">
+          <p className="text-muted-foreground">
+            Select a school and season above to load the War Room.
+          </p>
+        </div>
       ) : (
-        <>
-          {/* Quick Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold text-primary-900 dark:text-white">
-                {teamStats?.games_played ?? 0}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Games Played
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Row 1 — Season Record (left 2 cols) */}
+          <div className="lg:col-span-2 bento-card p-5">
+            <p className="stat-label">SEASON RECORD</p>
+            <p className="text-3xl font-extrabold tabular-nums text-slate-900 mt-1">
+              <span className="text-data-positive">{record.w}</span>
+              {" – "}
+              <span className="text-data-negative">{record.l}</span>
+              {" – "}
+              <span className="text-data-neutral">{record.d}</span>
+            </p>
+            <div className="mt-3">
+              <FormBadgeStrip results={formResults} />
             </div>
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Target className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold text-primary-900 dark:text-white">
-                {teamStats?.total_goals ?? 0}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Total Goals
-              </div>
-            </div>
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Trophy className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold text-primary-900 dark:text-white">
-                <span className="text-green-700">{record.w}W</span>
-                {" – "}
-                <span className="text-red-700">{record.l}L</span>
-                {" – "}
-                <span className="text-yellow-700">{record.d}D</span>
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Season Record
-              </div>
-            </div>
-            <div className="rounded-xl border bg-card p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Crosshair className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-2xl font-bold text-primary-900 dark:text-white">
-                {teamStats?.total_shots ?? 0}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                Total Shots
-              </div>
-            </div>
+            <p className="text-xs text-slate-400 mt-2">{season} Season</p>
           </div>
 
-          {/* Recent Games + Top Performers */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Recent Games Feed */}
-            <div className="lg:col-span-2 rounded-xl border bg-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-primary-900 dark:text-white">
-                  Recent Games
-                </h3>
-                <Link
-                  href="/dashboard/games"
-                  className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  View all
-                </Link>
-              </div>
-              {recentGames.length > 0 ? (
-                <div className="space-y-3">
-                  {recentGames.map((game) => {
-                    const result = getResult(game, schoolName);
-                    return (
-                      <Link
-                        key={game.game_id}
-                        href={`/dashboard/games/${game.game_id}`}
-                        className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          {result && (
-                            <span
-                              className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${result.color}`}
-                            >
-                              {result.label}
-                            </span>
-                          )}
-                          <div>
-                            <p className="text-sm font-semibold text-primary-900 dark:text-white">
-                              {getOpponent(game, schoolName)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDate(game.date)}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-base font-bold text-primary-900 dark:text-white">
-                          {getScoreDisplay(game)}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  No recent games for this selection.
-                </p>
-              )}
-            </div>
+          {/* Row 1 — Smart Insights placeholder (right 1 col) */}
+          <div className="lg:col-span-1 bento-card p-5 bg-teal-50 border-teal-200">
+            <p className="stat-label">SMART INSIGHTS</p>
+            <p className="text-sm text-teal-700 mt-2">
+              Insights powered by real data coming soon. Track scoring streaks,
+              conversion trends, and conference benchmarks.
+            </p>
+          </div>
 
-            {/* Top Performers */}
-            <div className="rounded-xl border bg-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-primary-900 dark:text-white">
-                  Top Performers
-                </h3>
-                <Link
-                  href="/dashboard/players"
-                  className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-                >
-                  View all
-                </Link>
-              </div>
-              {topPerformers.length > 0 ? (
-                <div className="space-y-3">
-                  {topPerformers.map((player, idx) => (
-                    <div
-                      key={player.player_name}
-                      className="flex items-center gap-3 rounded-lg border p-3"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-900 dark:bg-primary-900 dark:text-primary-100">
-                        {idx + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-primary-900 dark:text-white truncate">
-                          {player.player_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {player.games_played} games
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-sm font-bold text-primary-900 dark:text-white">
-                            {player.total_goals}G
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {player.total_assists}A
-                          </span>
-                        </div>
-                      </div>
+          {/* Row 2 — KPI Cards (3 cards spanning left 2 cols) */}
+          <div className="lg:col-span-2 grid grid-cols-3 gap-4">
+            {/* TODO: wire conference avg delta when /api/conferences/{abbr}/standings lands */}
+            <ContextualMetricCard
+              label="Goals / Game"
+              value={goalsPerGame.toFixed(2)}
+              baseline="vs Conference Avg"
+            />
+            <ContextualMetricCard
+              label="Shot Conversion"
+              value={`${shotConversion.toFixed(1)}%`}
+            />
+            <ContextualMetricCard
+              label="Clean Sheets"
+              value={cleanSheets}
+            />
+          </div>
+
+          {/* Row 2 right — intentionally empty (insights card spans from row 1) */}
+
+          {/* Row 3 — Season Trend (left 2 cols) */}
+          <div className="lg:col-span-2 bento-card p-5">
+            <p className="stat-label mb-3">SEASON TREND</p>
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={trendData}>
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                  <YAxis width={24} tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="gf"
+                    stroke="#0D9488"
+                    strokeWidth={2}
+                    dot={{ fill: "#0D9488", r: 3 }}
+                    name="Goals For"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="ga"
+                    stroke="#F97316"
+                    strokeWidth={2}
+                    dot={{ fill: "#F97316", r: 3 }}
+                    name="Goals Against"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No game data available.
+              </p>
+            )}
+          </div>
+
+          {/* Row 3 — Top Contributors (right 1 col) */}
+          <div className="lg:col-span-1 bento-card p-5">
+            <p className="stat-label mb-3">TOP CONTRIBUTORS</p>
+            {topPerformers.length > 0 ? (
+              <div className="space-y-3">
+                {topPerformers.map((player, idx) => (
+                  <div key={player.player_name}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 font-medium truncate mr-2">
+                        <span className="text-slate-400 mr-1">{idx + 1}.</span>
+                        {player.player_name}
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-slate-700">
+                        {player.total_goals}G {player.total_assists}A
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">
-                  No player data for this selection.
-                </p>
-              )}
-            </div>
+                    <div className="mt-1 bg-slate-100 rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full bg-data-primary"
+                        style={{
+                          width: `${maxGoals > 0 ? (player.total_goals / maxGoals) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No player data available.
+              </p>
+            )}
           </div>
-
-          {/* Season Analytics Charts */}
-          <DashboardStats
-            school={school}
-            season={season}
-            loading={loading}
-            error={error}
-            topPlayers={chartTopPlayers}
-            gamePerformance={chartGamePerformance}
-            teamStats={teamStats}
-          />
-        </>
+        </div>
       )}
     </div>
   );
