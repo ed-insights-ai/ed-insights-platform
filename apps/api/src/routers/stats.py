@@ -37,10 +37,14 @@ async def team_stats(
         .join(Game, TeamGameStats.game_id == Game.game_id)
         .where(
             # Only include the school's own team row, not the opponent's.
-            TeamGameStats.team
+            # Each game has two rows: is_home=True (home team) and is_home=False (away team).
+            # Select the row where is_home matches whether the school actually played at home.
+            # school is home when home_team contains school name (case-insensitive).
+            # Use a subquery scalar expression: is_home == (home_team ILIKE '%{name}%')
+            TeamGameStats.is_home
             == case(
-                (TeamGameStats.is_home == True, Game.home_team),  # noqa: E712
-                else_=Game.away_team,
+                (Game.home_team.ilike("%" + School.name + "%"), True),
+                else_=False,
             )
         )
     )
