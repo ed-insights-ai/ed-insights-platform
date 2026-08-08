@@ -43,8 +43,14 @@ ed-insights-platform/
 - **API URL:** `postgresql+asyncpg://lume@localhost:5432/ed_insights`
 
 ### Data
-- 18 schools (13 men's + 5 women's GAC soccer programs + NSU disabled)
-- 2,852 games, 103,621 player stats, 27,238 events, 5,704 team stats
+- 14 school rows (7 men's + 7 women's GAC soccer programs; NSU is `enabled=false` and has
+  0 games, so 13 programmes carry data)
+- 2,140 games, 77,586 player stats, 22,754 events, 4,280 team stats
+
+(The previous figures — 18 schools / 2,852 games / 103,621 player stats / 27,238 events /
+5,704 team stats — predate migration 005 and match the stale merged parquet export
+`data/structured/all/games.parquet`, which still carries 712 rows from retired school
+ordinals. Verify counts against Postgres, not against `data/*.parquet`.)
 - Loaded from `packages/pipeline/data/structured/` parquet files
 - Reload: `cd packages/pipeline && DATABASE_URL="postgresql://lume@localhost:5432/ed_insights" uv run load-db`
 
