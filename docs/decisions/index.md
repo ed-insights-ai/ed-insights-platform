@@ -41,3 +41,4 @@ What follows from this decision — both good and bad?
 | [005](ADR-005-sidearm-scraper-variants.md) | SideArm CMS scraper variant strategy | Accepted |
 | [006](ADR-006-opponent-conference-model.md) | Opponent and conference data model | Accepted |
 | [007](ADR-007-gac-school-membership.md) | GAC soccer school membership — authoritative list | Accepted |
+| [008](ADR-008-touchline-keelson-rib.md) | Touchline — a Keelson rib as the season intelligence layer | Proposed |
