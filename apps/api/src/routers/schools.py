@@ -12,10 +12,12 @@ router = APIRouter(prefix="/api")
 @router.get("/schools", response_model=list[SchoolResponse])
 async def list_schools(
     gender: str | None = Query(None, description="Filter by gender: 'men' or 'women'"),
-    conference: str | None = Query(None, description="Filter by conference abbreviation e.g. 'GAC'"),
+    conference: str | None = Query(
+        None, description="Filter by conference abbreviation e.g. 'GAC'"
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> list[School]:
-    stmt = select(School).where(School.enabled == True)
+    stmt = select(School).where(School.enabled.is_(True))
     if gender:
         stmt = stmt.where(School.gender == gender)
     if conference:

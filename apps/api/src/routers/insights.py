@@ -7,7 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, case, and_
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -30,9 +30,7 @@ class InsightsResponse(BaseModel):
 # --------------- helpers ---------------
 
 
-async def _resolve_school(
-    db: AsyncSession, abbr: str
-) -> tuple[int, str] | None:
+async def _resolve_school(db: AsyncSession, abbr: str) -> tuple[int, str] | None:
     """Return (school_id, school_name) or None."""
     row = (
         await db.execute(
@@ -42,9 +40,7 @@ async def _resolve_school(
     return (row[0], row[1]) if row else None
 
 
-async def _completed_games(
-    db: AsyncSession, school_id: int, season: int
-) -> list[Game]:
+async def _completed_games(db: AsyncSession, school_id: int, season: int) -> list[Game]:
     """Return completed games ordered by date descending."""
     result = await db.execute(
         select(Game)

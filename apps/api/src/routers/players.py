@@ -39,7 +39,9 @@ async def player_profile(
         .limit(1)
     )
     if not exists.scalars().first():
-        raise HTTPException(status_code=404, detail=f"Player '{name}' not found at {school}")
+        raise HTTPException(
+            status_code=404, detail=f"Player '{name}' not found at {school}"
+        )
 
     # Per-season aggregation
     season_stmt = (
@@ -49,7 +51,9 @@ async def player_profile(
             func.coalesce(func.sum(PlayerGameStats.goals), 0).label("goals"),
             func.coalesce(func.sum(PlayerGameStats.assists), 0).label("assists"),
             func.coalesce(func.sum(PlayerGameStats.shots), 0).label("shots"),
-            func.coalesce(func.sum(PlayerGameStats.shots_on_goal), 0).label("shots_on_goal"),
+            func.coalesce(func.sum(PlayerGameStats.shots_on_goal), 0).label(
+                "shots_on_goal"
+            ),
             func.coalesce(func.sum(PlayerGameStats.minutes), 0).label("minutes"),
         )
         .join(Game, PlayerGameStats.game_id == Game.game_id)
@@ -202,9 +206,15 @@ async def player_profile(
             conf_averages = PlayerProfileConfAverages(
                 season_year=season,
                 goals_per_game=round(total_goals / total_gp, 2) if total_gp > 0 else 0,
-                shot_conversion=round(total_goals / total_shots * 100, 1) if total_shots > 0 else 0,
-                sog_accuracy=round(total_sog / total_shots * 100, 1) if total_shots > 0 else 0,
-                assists_per_game=round(total_assists / total_gp, 2) if total_gp > 0 else 0,
+                shot_conversion=round(total_goals / total_shots * 100, 1)
+                if total_shots > 0
+                else 0,
+                sog_accuracy=round(total_sog / total_shots * 100, 1)
+                if total_shots > 0
+                else 0,
+                assists_per_game=round(total_assists / total_gp, 2)
+                if total_gp > 0
+                else 0,
                 shots_per_game=round(total_shots / total_gp, 1) if total_gp > 0 else 0,
             )
 
@@ -276,7 +286,9 @@ async def player_profile(
 
                 radar = PlayerProfileRadar(
                     goals_pct=percentile(metrics["goals"], player_metrics["goals"]),
-                    assists_pct=percentile(metrics["assists"], player_metrics["assists"]),
+                    assists_pct=percentile(
+                        metrics["assists"], player_metrics["assists"]
+                    ),
                     shots_pct=percentile(metrics["shots"], player_metrics["shots"]),
                     sog_pct=percentile(metrics["sog"], player_metrics["sog"]),
                     shot_conversion_pct=percentile(
