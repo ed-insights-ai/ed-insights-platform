@@ -2,9 +2,10 @@
 
 *Plain-language status. Updated as things land — last updated 8 August 2026.*
 
-For the task list see [ROADMAP.md](ROADMAP.md). For the design see
-[docs/specs/touchline-rib.md](docs/specs/touchline-rib.md). This page is the one to read
-first if you have been away.
+This page is the one to read first if you have been away. For the task list see
+[ROADMAP.md](ROADMAP.md); for the pitch — the thesis, the board mockups, the nine open forks
+and what we chose not to build — see [docs/BRIEF.md](docs/BRIEF.md); for the design see
+[docs/specs/touchline-rib.md](docs/specs/touchline-rib.md).
 
 ---
 

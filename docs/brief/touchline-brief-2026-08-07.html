@@ -1,0 +1,1551 @@
+<title>Touchline — a Keelson rib for the 2026 GAC season</title>
+<style>
+/* ============================================================
+   TOUCHLINE DESIGN BRIEF
+   Palette inherited from ed-insights-platform/docs/UI_DESIGN.md
+   teal = us · orange = opponent · green/amber/rose = state
+   ============================================================ */
+
+:root {
+  /* ground + ink — slate-biased neutrals, from the project's own tokens */
+  --ground:      #F8FAFC;
+  --card:        #FFFFFF;
+  --card-2:      #F1F5F9;
+  --border:      #E2E8F0;
+  --border-firm: #CBD5E1;
+  --ink:         #0F172A;
+  --ink-strong:  #020617;
+  --muted:       #64748B;
+  --dim:         #94A3B8;
+
+  /* the two load-bearing accents */
+  --us:          #0D9488;
+  --us-soft:     #CCFBF1;
+  --them:        #EA580C;   /* light mode: validator passes at 3:1+ */
+  --them-soft:   #FFEDD5;
+
+  /* semantic state — separate from accent */
+  --good:        #059669;
+  --good-soft:   #D1FAE5;
+  --warn:        #B45309;
+  --warn-soft:   #FEF3C7;
+  --crit:        #E11D48;
+  --crit-soft:   #FFE4E6;
+
+  --shadow: 0 1px 2px rgb(15 23 42 / .05), 0 1px 3px rgb(15 23 42 / .05);
+  --shadow-lift: 0 4px 6px -1px rgb(15 23 42 / .07), 0 2px 4px -2px rgb(15 23 42 / .05);
+
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  --measure: 67ch;
+  --wide: 1180px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #020617;
+    --card:        #0F172A;
+    --card-2:      #1E293B;
+    --border:      #1E293B;
+    --border-firm: #334155;
+    --ink:         #E2E8F0;
+    --ink-strong:  #F8FAFC;
+    --muted:       #94A3B8;
+    --dim:         #64748B;
+
+    --us:          #14B8A6;
+    --us-soft:     #134E4A;
+    --them:        #F97316;   /* dark mode: validator passes all four checks */
+    --them-soft:   #7C2D12;
+
+    --good:        #10B981;
+    --good-soft:   #064E3B;
+    --warn:        #F59E0B;
+    --warn-soft:   #78350F;
+    --crit:        #F43F5E;
+    --crit-soft:   #881337;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 1px 3px rgb(0 0 0 / .3);
+    --shadow-lift: 0 4px 6px -1px rgb(0 0 0 / .5), 0 2px 4px -2px rgb(0 0 0 / .4);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:      #020617;
+  --card:        #0F172A;
+  --card-2:      #1E293B;
+  --border:      #1E293B;
+  --border-firm: #334155;
+  --ink:         #E2E8F0;
+  --ink-strong:  #F8FAFC;
+  --muted:       #94A3B8;
+  --dim:         #64748B;
+
+  --us:          #14B8A6;
+  --us-soft:     #134E4A;
+  --them:        #F97316;
+  --them-soft:   #7C2D12;
+
+  --good:        #10B981;
+  --good-soft:   #064E3B;
+  --warn:        #F59E0B;
+  --warn-soft:   #78350F;
+  --crit:        #F43F5E;
+  --crit-soft:   #881337;
+
+  --shadow: 0 1px 2px rgb(0 0 0 / .4), 0 1px 3px rgb(0 0 0 / .3);
+  --shadow-lift: 0 4px 6px -1px rgb(0 0 0 / .5), 0 2px 4px -2px rgb(0 0 0 / .4);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- layout skeleton ---------- */
+.wrap { max-width: var(--wide); margin: 0 auto; padding: 0 24px; }
+.col  { max-width: var(--measure); margin-left: auto; margin-right: auto; }
+
+section { padding: 0 0 4px; }
+.band { padding: 56px 0; border-top: 1px solid var(--border); }
+.band:first-of-type { border-top: none; }
+
+.stack   { display: flex; flex-direction: column; gap: 20px; }
+.stack-s { display: flex; flex-direction: column; gap: 12px; }
+.stack-l { display: flex; flex-direction: column; gap: 36px; }
+
+/* ---------- type ---------- */
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; letter-spacing: -.02em; }
+h1 { font-size: clamp(2.6rem, 6.5vw, 4.4rem); font-weight: 800; line-height: .98; letter-spacing: -.04em; }
+h2 { font-size: clamp(1.65rem, 3.4vw, 2.25rem); font-weight: 800; line-height: 1.1; letter-spacing: -.032em; }
+h3 { font-size: 1.16rem; font-weight: 700; line-height: 1.3; letter-spacing: -.015em; }
+h4 { font-size: .95rem; font-weight: 700; }
+p  { margin: 0; }
+p + p { margin-top: 1em; }
+a  { color: var(--us); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--us); outline-offset: 3px; border-radius: 3px; }
+
+.eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--muted);
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  display: block;
+}
+.eyebrow.tight { border-bottom: none; padding-bottom: 0; }
+.lede { font-size: 1.16rem; line-height: 1.55; color: var(--ink); }
+.dek  { color: var(--muted); }
+strong, b { font-weight: 650; color: var(--ink-strong); }
+em { font-style: italic; }
+
+code, .m { font-family: var(--mono); font-size: .84em; font-variant-numeric: tabular-nums; }
+code {
+  background: var(--card-2); border: 1px solid var(--border);
+  padding: .08em .38em; border-radius: 4px; color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.cite { font-family: var(--mono); font-size: .78em; color: var(--dim); overflow-wrap: anywhere; }
+
+/* ---------- masthead ---------- */
+.masthead { padding: 64px 0 52px; }
+.mast-rule { height: 3px; background: var(--ink-strong); margin-bottom: 18px; }
+.mast-meta {
+  display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 26px;
+}
+.mast-meta .hot { color: var(--them); font-weight: 600; }
+.wordmark { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.wordmark .tick { width: 14px; height: 14px; border-radius: 50%; background: var(--us); flex: none; align-self: center; }
+.mast-sub { margin-top: 22px; font-size: 1.22rem; line-height: 1.5; color: var(--ink); max-width: 60ch; }
+.mast-sub .k { color: var(--us); font-weight: 650; }
+
+.countdown {
+  margin-top: 30px; display: flex; gap: 0; border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; background: var(--card); box-shadow: var(--shadow);
+  max-width: 620px;
+}
+.cd-cell { flex: 1; padding: 13px 16px; border-left: 1px solid var(--border); }
+.cd-cell:first-child { border-left: none; }
+.cd-k { font-size: 10px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.cd-v { font-size: 1.35rem; font-weight: 800; letter-spacing: -.02em; margin-top: 2px; }
+.cd-v.accent { color: var(--them); }
+.cd-n { font-size: 11.5px; color: var(--dim); font-family: var(--mono); }
+
+/* ---------- generic card ---------- */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow);
+}
+.card-flush { padding: 0; overflow: hidden; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+
+/* ---------- pills / badges ---------- */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  background: var(--card-2); color: var(--muted); border: 1px solid var(--border);
+}
+.pill.ok   { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.pill.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.pill.crit { background: var(--crit-soft); color: var(--crit); border-color: transparent; }
+.pill.us   { background: var(--us-soft);   color: var(--us);   border-color: transparent; }
+.pill.them { background: var(--them-soft); color: var(--them); border-color: transparent; }
+
+.formstrip { display: inline-flex; gap: 3px; }
+.fb {
+  width: 15px; height: 15px; border-radius: 3px; display: inline-grid; place-items: center;
+  font-size: 9px; font-weight: 800; color: #fff; line-height: 1;
+}
+.fb.w { background: var(--good); }
+.fb.d { background: var(--warn); }
+.fb.l { background: var(--crit); }
+
+.delta { font-family: var(--mono); font-size: .82em; font-weight: 700; }
+.delta.up   { color: var(--good); }
+.delta.down { color: var(--crit); }
+.delta.flat { color: var(--dim); }
+
+/* ---------- the board mock chrome ---------- */
+.board {
+  background: var(--card); border: 1px solid var(--border-firm);
+  border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-lift);
+}
+.board-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 11px 16px; background: var(--card-2); border-bottom: 1px solid var(--border);
+}
+.board-glyph { font-size: 13px; color: var(--us); line-height: 1; }
+.board-title {
+  font-size: 11px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-strong);
+}
+.board-head .spacer { flex: 1 1 auto; }
+.board-chip { font-family: var(--mono); font-size: 10.5px; color: var(--muted); letter-spacing: .03em; }
+.board-body { padding: 16px; }
+.board-sec { padding: 14px 16px; border-top: 1px solid var(--border); }
+.board-sec:first-child { border-top: none; }
+.sec-label {
+  font-size: 10px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px;
+}
+.board-caption {
+  font-family: var(--mono); font-size: 10.5px; line-height: 1.55; color: var(--dim);
+  padding: 10px 16px; border-top: 1px dashed var(--border); background: var(--card-2);
+}
+
+/* stat tiles */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 2px; background: var(--border); border-radius: 8px; overflow: hidden; }
+.tile { background: var(--card); padding: 10px 12px; }
+.tile-k { font-size: 9.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.tile-v { font-size: 1.32rem; font-weight: 800; letter-spacing: -.025em; margin-top: 1px; line-height: 1.15; }
+.tile-s { font-size: 11px; color: var(--dim); font-family: var(--mono); line-height: 1.4; }
+.tile-v.us { color: var(--us); }
+
+/* delta rows */
+.drow { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; font-size: .92rem; }
+.drow .g { flex: none; width: 15px; text-align: center; color: var(--muted); font-size: 11px; }
+.drow .t { flex: 1; }
+.drow .r { font-family: var(--mono); font-size: 11px; color: var(--dim); flex: none; }
+
+/* tables */
+.tbl-scroll { overflow-x: auto; }
+table.b { width: 100%; border-collapse: collapse; font-size: .88rem; }
+table.b th {
+  text-align: left; font-size: 9.5px; font-weight: 800; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--muted); padding: 0 8px 7px; white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+table.b td { padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+table.b tr:last-child td { border-bottom: none; }
+table.b td.num, table.b th.num { text-align: right; font-family: var(--mono); font-size: .84rem; }
+table.b tr.mine td { background: var(--us-soft); }
+table.b tr.mine td:first-child { box-shadow: inset 3px 0 0 var(--us); }
+table.b tr.mine td.team { color: var(--us); font-weight: 700; }
+.posdot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 7px; vertical-align: middle; }
+.posdot.in { background: var(--good); }
+.posdot.out { background: var(--border-firm); }
+tr.cutline td { padding: 0; border: none; }
+.cutrule {
+  display: flex; align-items: center; gap: 10px; padding: 5px 8px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--good);
+}
+.cutrule::before, .cutrule::after { content: ""; height: 1px; background: var(--good); opacity: .45; flex: 1; }
+
+/* odds bars */
+.bars { display: flex; flex-direction: column; gap: 7px; }
+.bar { display: grid; grid-template-columns: minmax(96px, 148px) 1fr 42px; gap: 12px; align-items: center; font-size: .86rem; }
+.bar .lbl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .trk { height: 9px; border-radius: 3px; background: var(--card-2); overflow: hidden; }
+.bar .fil { height: 100%; border-radius: 3px; }
+.bar .val { font-family: var(--mono); font-size: .82rem; text-align: right; font-weight: 600; }
+.bar.mine .lbl { color: var(--us); font-weight: 700; }
+
+/* check rows */
+.check { display: grid; grid-template-columns: 20px 1fr; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border); }
+.check:first-of-type { border-top: none; }
+.check .mark { font-size: 13px; line-height: 1.5; text-align: center; }
+.check .name { font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.check .msg { font-size: .89rem; margin-top: 1px; }
+.check .ev { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 4px; line-height: 1.5; padding-left: 10px; border-left: 2px solid var(--border); }
+.ok-t   { color: var(--good); } .warn-t { color: var(--warn); } .crit-t { color: var(--crit); }
+
+/* ---------- broadsheet mock ---------- */
+.sheet {
+  background: var(--card); border: 1px solid var(--border-firm); border-radius: 12px;
+  overflow: hidden; box-shadow: var(--shadow-lift);
+}
+.sheet-in { padding: 26px 28px; }
+.sheet-eyebrow {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); padding-bottom: 10px; border-bottom: 1px solid var(--ink-strong);
+}
+.sheet-hed { font-size: clamp(1.7rem, 3.6vw, 2.5rem); font-weight: 800; letter-spacing: -.035em; line-height: 1.03; margin: 16px 0 12px; }
+.sheet-bluf { max-width: 62ch; color: var(--ink); }
+.movement { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 22px 0 4px; }
+.mv { border: 1px solid var(--border); border-radius: 7px; padding: 8px 4px; text-align: center; background: var(--card); }
+.mv.moved { background: var(--card-2); border-color: var(--border-firm); }
+.mv .ab { font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+.mv .ps { font-size: 1.15rem; font-weight: 800; line-height: 1.2; }
+.mv .dl { font-family: var(--mono); font-size: 10.5px; font-weight: 700; }
+.stories { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 22px; }
+.story { padding-left: 12px; border-left: 3px solid var(--border-firm); }
+.story.good { border-left-color: var(--good); }
+.story.warn { border-left-color: var(--warn); }
+.story.info { border-left-color: var(--us); }
+.story h4 { font-size: .95rem; margin-bottom: 5px; }
+.story p { font-size: .86rem; line-height: 1.5; color: var(--muted); }
+.story .attr { display: block; margin-top: 6px; font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+.sheet-foot { padding: 12px 28px; background: var(--card-2); border-top: 1px solid var(--border); font-family: var(--mono); font-size: 10.5px; color: var(--dim); line-height: 1.6; }
+
+/* ---------- arch diagram ---------- */
+.flow { display: flex; flex-direction: column; gap: 0; }
+.node {
+  border: 1px solid var(--border); border-radius: 10px; padding: 13px 17px;
+  background: var(--card); box-shadow: var(--shadow);
+}
+.node .nk { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.node .nv { font-weight: 650; margin-top: 2px; }
+.node .nn { font-family: var(--mono); font-size: 11.5px; color: var(--dim); margin-top: 3px; line-height: 1.5; }
+.node.hero { border: 2px solid var(--us); background: var(--card); }
+.node.hero .nk { color: var(--us); }
+.node.exist { background: var(--card-2); border-style: dashed; }
+.arrow { display: grid; place-items: center; padding: 7px 0; color: var(--border-firm); font-size: 15px; line-height: 1; }
+.arrow span { font-family: var(--mono); font-size: 10.5px; color: var(--dim); letter-spacing: .04em; }
+.fanout { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+
+/* ---------- clocks ---------- */
+.clock { display: grid; grid-template-columns: 34px 1fr; gap: 14px; padding: 15px 0; border-top: 1px solid var(--border); }
+.clock:first-child { border-top: none; }
+.clock .badge {
+  width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 13px; font-weight: 700; background: var(--card-2); color: var(--muted);
+}
+.clock.live .badge { background: var(--us-soft); color: var(--us); }
+
+/* ---------- phases ---------- */
+.phase { display: grid; grid-template-columns: 62px 1fr; gap: 18px; padding: 17px 0; border-top: 1px solid var(--border); }
+.phase:first-of-type { border-top: none; }
+.phase .pid { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--muted); padding-top: 2px; }
+.phase.ship .pid { color: var(--us); }
+.phase.ship { background: linear-gradient(90deg, var(--us-soft), transparent 62%); border-radius: 8px; padding-left: 12px; margin-left: -12px; }
+.phase .pd { font-family: var(--mono); font-size: 11px; color: var(--dim); margin-top: 4px; }
+
+/* ---------- Q&A ---------- */
+.q { padding: 20px 0; border-top: 1px solid var(--border); }
+.q:first-of-type { border-top: none; }
+.q .qh { display: flex; gap: 10px; align-items: baseline; }
+.q .qn { font-family: var(--mono); font-size: 12px; color: var(--dim); flex: none; padding-top: 2px; }
+.q .qb { margin-top: 8px; color: var(--muted); font-size: .95rem; }
+.q .rec { margin-top: 10px; padding: 9px 13px; background: var(--card-2); border-left: 3px solid var(--us); border-radius: 0 6px 6px 0; font-size: .9rem; }
+.q .rec b { color: var(--us); }
+
+/* ---------- chat ---------- */
+.chat { display: flex; flex-direction: column; gap: 14px; }
+.turn { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.ask {
+  font-weight: 600; padding: 10px 15px; background: var(--card-2);
+  border-radius: 12px 12px 12px 3px; align-self: start; max-width: 46ch; font-size: .95rem;
+}
+.ans { padding-left: 15px; border-left: 2px solid var(--us); font-size: .92rem; color: var(--muted); }
+.ans .tool { font-family: var(--mono); font-size: 11px; color: var(--us); display: block; margin-bottom: 3px; }
+.ans b { color: var(--ink-strong); }
+
+/* ---------- misc ---------- */
+.rejected { display: grid; grid-template-columns: 22px 1fr; gap: 12px; padding: 13px 0; border-top: 1px solid var(--border); }
+.rejected:first-of-type { border-top: none; }
+.rejected .x { color: var(--crit); font-family: var(--mono); font-weight: 700; text-align: center; }
+.rejected h4 { font-size: .95rem; margin-bottom: 3px; }
+.rejected p { font-size: .88rem; color: var(--muted); line-height: 1.55; }
+
+.swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.sw { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card); }
+.sw .chip { height: 42px; }
+.sw .meta { padding: 7px 10px; }
+.sw .n { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.sw .h { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+
+.note {
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--muted);
+  padding: 11px 15px; border: 1px dashed var(--border-firm); border-radius: 8px; background: var(--card-2);
+}
+
+footer { padding: 46px 0 64px; border-top: 3px solid var(--ink-strong); }
+
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .movement { grid-template-columns: repeat(4, 1fr); }
+  .phase { grid-template-columns: 1fr; gap: 6px; }
+  .bar { grid-template-columns: minmax(80px, 110px) 1fr 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="wrap">
+
+<!-- ══════════════════════ MASTHEAD ══════════════════════ -->
+<header class="masthead">
+  <div class="mast-rule"></div>
+  <div class="mast-meta">
+    <span>Design brief · v1 for review</span>
+    <span>Ed Insights × Keelson</span>
+    <span class="hot">20 days to first whistle</span>
+  </div>
+
+  <div class="wordmark">
+    <span class="tick"></span>
+    <h1>Touchline</h1>
+  </div>
+
+  <p class="mast-sub">
+    A Keelson rib that gives an amnesiac dataset a <span class="k">memory</span>. Every refresh
+    writes an immutable observation; every board and every chat answer is the diff between two
+    of them. By November the season is a bound volume instead of a dashboard that forgot.
+  </p>
+
+  <div class="countdown">
+    <div class="cd-cell">
+      <div class="cd-k">Today</div>
+      <div class="cd-v">Aug 7</div>
+      <div class="cd-n">preseason</div>
+    </div>
+    <div class="cd-cell">
+      <div class="cd-k">First whistle</div>
+      <div class="cd-v accent">Aug 27</div>
+      <div class="cd-n">D2 non-conf</div>
+    </div>
+    <div class="cd-cell">
+      <div class="cd-k">GAC play</div>
+      <div class="cd-v">Sep 12</div>
+      <div class="cd-n">conference</div>
+    </div>
+    <div class="cd-cell">
+      <div class="cd-k">v1 target</div>
+      <div class="cd-v" style="color:var(--us)">Aug 21</div>
+      <div class="cd-n">6 days slack</div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════ THE SITUATION ══════════════════════ -->
+<section class="band">
+  <div class="col stack">
+    <span class="eyebrow">Where we are</span>
+    <h2>You already built the hard part. It just can't remember anything.</h2>
+    <p class="lede">
+      <code>ed-insights-platform</code> is a working scraper, a 2,140-game Postgres database with
+      103k player-game rows and 22k parsed match events, a FastAPI service over it, and a Next.js
+      app with a genuinely good design system behind it. The plan document even has a
+      <strong>Phase 5 — AI</strong>: LLM-generated insights, a text-to-SQL chat panel, match
+      predictions. It sits behind four phases of frontend work.
+    </p>
+    <p>
+      A Keelson rib isn't a detour from that plan. It's Phase 5 arriving first, through a door
+      that's already built — because Keelson already has the chat, the scheduler, the provider
+      routing, the persistence and the browser UI. What it doesn't have is anything that knows
+      about soccer.
+    </p>
+    <p>
+      But before designing anything pretty, fifteen agents went and read the code and queried your
+      live database. What they found reorders the whole plan.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ THE DEFECTS ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:26px">
+    <span class="eyebrow">What we verified</span>
+    <h2>The data is lying to you in five named, reproducible ways.</h2>
+    <p>
+      Every one of these was confirmed against <code>ed_insights</code> on localhost, not inferred.
+      A prettier dashboard over this is a downgrade.
+    </p>
+  </div>
+
+  <div class="col">
+    <div class="card card-flush">
+      <div class="board-sec">
+        <div class="check">
+          <div class="mark crit-t">✕</div>
+          <div>
+            <div class="name crit-t">Season labels are wrong</div>
+            <div class="msg">Two program-seasons, <strong>42 rows</strong> — FHSU's stored 2020 holds 24 games dated 2025, OBU's holds 18 more.</div>
+            <div class="ev">Cause: <code>sidearm_discovery.py:42</code> fetches <code>/schedule/{year}</code> with no assertion. When that year's page is absent the site quietly serves the current season. Every source_url on those rows contains <code>/stats/2025/</code>. Fix is a three-line path assertion.</div>
+          </div>
+        </div>
+        <div class="check">
+          <div class="mark warn-t">⚠</div>
+          <div>
+            <div class="name warn-t">Matches are double-counted</div>
+            <div class="msg"><strong>176 duplicate</strong> (date, home, away) groups — one fixture scraped from both schools becomes two rows.</div>
+            <div class="ev">Every conference aggregate built on the base tables is inflated. Nothing in the schema prevents it; there is no canonical match key.</div>
+          </div>
+        </div>
+        <div class="check">
+          <div class="mark crit-t">✕</div>
+          <div>
+            <div class="name crit-t">School identification fails open, inverting results</div>
+            <div class="msg">A <em>match failure</em> is silently indistinguishable from "we are the away team" — so the opponent's score is read as the school's own.</div>
+            <div class="ev"><code>conferences.py:69</code> and <code>teams.py:79</code> both do <code>is_home = _matches_pattern(g.home_team, pattern)</code> with no third branch. <strong>164 scored games</strong> where the pattern matches neither team slot: OKBU 150/191, SWOSU 6/188, NWOSU 4/163, SNUW 2/171, OBU 1/173, SNU 1/179. <code>_ilike_pattern</code> (duplicated at <code>conferences.py:14-21</code> and <code>teams.py:14</code>) reduces "Oklahoma Baptist" to <code>%Oklahoma%</code>, missing the 104 home games stored as "Okla. Baptist". Filed as issue #15.</div>
+          </div>
+        </div>
+        <div class="check">
+          <div class="mark warn-t">⚠</div>
+          <div>
+            <div class="name warn-t">Conference play is unmarked</div>
+            <div class="msg"><code>is_conference_game</code> is <strong>NULL for all 2,140 rows</strong>.</div>
+            <div class="ev">So <code>/api/conferences/{abbr}/standings</code> has no conference filter anywhere (<code>conferences.py:55-59</code>) and returns an <em>overall</em> record labelled "standings".</div>
+          </div>
+        </div>
+        <div class="check">
+          <div class="mark warn-t">⚠</div>
+          <div>
+            <div class="name warn-t">Red cards are invisible outside Harding</div>
+            <div class="msg">All <strong>43 red-card rows</strong> in the database are HU (41) and HUW (2).</div>
+            <div class="ev">Cause: <code>sidearm_parser.py:339-348</code> hardcodes <code>yellow_card</code> for every caution row at the eleven SideArm programs. Any discipline view is structurally blind for 11 of 13 schools.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col stack" style="margin-top:28px">
+    <p>
+      And a sixth, which is the structural one and the reason this brief exists:
+      <code>scripts/load_db.py:186-201</code> <strong>DELETEs then re-INSERTs</strong> every child
+      row per <code>game_id</code> on each load. Last week's numbers are physically gone. The
+      database can only ever tell you what is true right now.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ THE BET ══════════════════════ -->
+<section class="band">
+  <div class="col stack">
+    <span class="eyebrow">The bet</span>
+    <h2>Give the data a time axis, and everything else falls out of it.</h2>
+    <p class="lede">
+      Touchline writes one immutable <strong>Observation</strong> JSON per refresh — the canonical
+      table, per-team aggregates, per-player season lines, a <code>game_id → fingerprint</code> map,
+      and provenance, plus <strong>full per-match box lines</strong>. Roughly 2 MB per observation, ~55 MB for a season. <em>(Corrected 8 Aug: this paragraph originally described the thin ledger — ~200 KB, ~6 MB a season — which D-01 rejected, because it cannot answer &ldquo;what did we think that shot count was on Sep 6&rdquo; and limits the score-mutation check to scores only.)</em>
+    </p>
+    <p>That single decision makes four things true that are impossible today:</p>
+  </div>
+
+  <div class="col" style="margin-top:20px">
+    <div class="grid2">
+      <div class="card">
+        <div class="tile-k" style="color:var(--us)">Delta becomes computable</div>
+        <p style="font-size:.92rem;margin-top:6px;color:var(--muted)">"What moved since Saturday" is a diff between two files, not a query. Always true, because nothing wrote it.</p>
+      </div>
+      <div class="card">
+        <div class="tile-k" style="color:var(--us)">Trust becomes computable</div>
+        <p style="font-size:.92rem;margin-top:6px;color:var(--muted)">Four of the nine integrity checks compare two observations: did a game_id change identity, did a final score mutate, did a program lose matches, is the feed stale.</p>
+      </div>
+      <div class="card">
+        <div class="tile-k" style="color:var(--us)">Time travel is free</div>
+        <p style="font-size:.92rem;margin-top:6px;color:var(--muted)">"Show me the table as it stood on September 6th" is just reading an older file — form strips and all.</p>
+      </div>
+      <div class="card">
+        <div class="tile-k" style="color:var(--us)">Narration gets cheap and gated</div>
+        <p style="font-size:.92rem;margin-top:6px;color:var(--muted)">A watermark gate reads the diff before spending a turn. A quiet Tuesday costs zero tokens and the boards still render.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col stack" style="margin-top:26px">
+    <p>
+      Every board becomes a pure function of files on disk — fast, deterministic, testable, offline,
+      and instantly recomposable. No board ever touches Postgres. Exactly one thing does, once per
+      refresh: <code>bin/observe.ts</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ ARCHITECTURE ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:26px">
+    <span class="eyebrow">How it fits together</span>
+    <h2>One way, left to right. Nothing reads backwards.</h2>
+  </div>
+
+  <div class="col">
+    <div class="flow">
+      <div class="node exist">
+        <div class="nk">Exists · unchanged</div>
+        <div class="nv">13 school athletics sites → the scraper</div>
+        <div class="nn">uv run scrape --year 2026 --no-cache · SideArm SSR + StatCrew</div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="node exist">
+        <div class="nk">Exists · unchanged</div>
+        <div class="nv">parquet → merge → Postgres <code>ed_insights</code></div>
+        <div class="nn">system of record for DETAIL · read once per refresh</div>
+      </div>
+      <div class="arrow"><span>bin/observe.ts — the only scheduled reader of Postgres ↓</span></div>
+      <div class="node hero">
+        <div class="nk">New · the spine</div>
+        <div class="nv">The Observation Ledger</div>
+        <div class="nn">&lt;dataHome&gt;/observations/2026-09-13T06-04-11Z.json · append-only, immutable<br>+ canon.json (identity) · pages/ (published HTML) · watermark.json</div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="fanout">
+        <div class="node">
+          <div class="nk">Heartbeat</div>
+          <div class="nv">6 board collectors</div>
+          <div class="nn">read files only · no LLM, no DB, no network · zero tokens</div>
+        </div>
+        <div class="node">
+          <div class="nk">In-process</div>
+          <div class="nv">12 rib tools</div>
+          <div class="nn">chat · workflow prompt nodes · POST /api/mcp</div>
+        </div>
+        <div class="node">
+          <div class="nk">Gated turns</div>
+          <div class="nv">HTML page builders</div>
+          <div class="nn">deterministic layout, generated prose only</div>
+        </div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="node">
+        <div class="nk">Keelson</div>
+        <div class="nv">Two surfaces: <strong>Season</strong> and <strong>Press Box</strong></div>
+        <div class="nn">snapshot bus → WebSocket fan-out → the SPA · plus a full-width sandboxed drawer for HTML pages</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col" style="margin-top:22px">
+    <div class="note">
+      The existing FastAPI service and Next.js app keep running and are <strong>left alone</strong>.
+      Every board row carries an <code>href</code> to <code>localhost:3000/explore/teams/{abbr}</code>,
+      so the two compose instead of competing. The bridge the other direction is also already open —
+      <code>isAllowedOrigin</code> (<code>server-context.ts:13-23</code>) checks hostname only, never
+      port, so port 3000 already passes both CORS and the WebSocket upgrade gate. The Next app could
+      subscribe to the same snapshot keys any day you decide it's worth it.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ SURFACES ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:14px">
+    <span class="eyebrow">What it looks like</span>
+    <h2>Rendered in Keelson's own board vocabulary — no React, no second app.</h2>
+    <p>
+      These are real mockups at the fidelity the rib can actually produce. Teal is Harding and only
+      Harding; orange is the opponent; green / amber / rose are win / draw / loss. That contract
+      comes straight from <code>docs/UI_DESIGN.md</code> and survives the port intact.
+    </p>
+  </div>
+  <div class="col" style="margin-bottom:30px">
+    <div class="note">
+      <strong>Illustrative data.</strong> The 2026 season hasn't kicked off. Scores, names and odds
+      below are placeholders shaped like real GAC output — the structure is the proposal, not the numbers.
+    </div>
+  </div>
+
+  <!-- ---------- MATCHDAY ---------- -->
+  <div style="margin-bottom:40px">
+    <div class="board">
+      <div class="board-head">
+        <span class="board-glyph">◉</span>
+        <span class="board-title">Matchday</span>
+        <span class="pill ok">Sat · 3 GAC fixtures</span>
+        <span class="spacer"></span>
+        <span class="board-chip">GAC MEN'S · 2026 · MW 7 · obs 09-13T06:04</span>
+        <span class="formstrip">
+          <span class="fb w">W</span><span class="fb w">W</span><span class="fb w">W</span><span class="fb w">W</span><span class="fb d">D</span><span class="fb l">L</span><span class="fb l">L</span>
+        </span>
+      </div>
+
+      <div class="board-sec">
+        <div class="tiles">
+          <div class="tile"><div class="tile-k">Record</div><div class="tile-v">4-1-2</div><div class="tile-s">all comp</div></div>
+          <div class="tile"><div class="tile-k">GAC</div><div class="tile-v us">2-0-1</div><div class="tile-s">2nd of 7 ▲1</div></div>
+          <div class="tile"><div class="tile-k">GF / GA</div><div class="tile-v">11–6</div><div class="tile-s">+5 · 3 CS</div></div>
+          <div class="tile"><div class="tile-k">PPG</div><div class="tile-v">1.86</div><div class="tile-s">conf 2.33</div></div>
+          <div class="tile"><div class="tile-k">Next</div><div class="tile-v">SNU</div><div class="tile-s">Sat 7:00 · home</div></div>
+        </div>
+      </div>
+
+      <div class="board-sec">
+        <div class="sec-label">Since you last looked</div>
+        <div class="drow"><span class="g">⚽</span><span class="t">Three results landed</span><span class="r">Sat–Sun</span></div>
+        <div class="drow"><span class="g" style="color:var(--good)">↗</span><span class="t">Harding moved <strong>3rd → 2nd</strong></span><span class="r">+3 pts</span></div>
+        <div class="drow"><span class="g">⚽</span><span class="t">Ramos scored twice and leads the boot race</span><span class="r">7 goals</span></div>
+        <div class="drow"><span class="g" style="color:var(--us)">◈</span><span class="t">Top-four odds <strong>61% → 78%</strong></span><span class="r">+17</span></div>
+      </div>
+
+      <div class="board-sec" style="display:grid;grid-template-columns:1.4fr 1fr;gap:26px">
+        <div>
+          <div class="sec-label">Last time out</div>
+          <div class="stack-s">
+            <div style="font-size:.9rem">
+              <div><strong style="color:var(--us)">Harding 3–1 Rogers State</strong></div>
+              <div class="cite">Sat · Searcy · 12' Ramos (Okafor) · 34' Ramos · 61' Kelly · 78' RSU Vargas</div>
+            </div>
+            <div style="font-size:.9rem">
+              <div><strong>SNU 2–2 Newman</strong></div>
+              <div class="cite">Sat · Bethany · 08' Osei · 55' Osei · 22' Pike · 71' Reyes</div>
+            </div>
+            <div style="font-size:.9rem">
+              <div><strong>FHSU 0–1 Ouachita Baptist</strong></div>
+              <div class="cite">Sun · Hays · 67' Okafor</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-label">Next three</div>
+          <div class="stack-s">
+            <div style="font-size:.9rem"><strong>① Sat Sep 19 · SNU (H)</strong><div class="cite">3-2-1 · beat you 2–1 in Oct</div></div>
+            <div style="font-size:.9rem"><strong>② Wed Sep 23 · NU (A)</strong><div class="cite">1-4-1 · conceding late</div></div>
+            <div style="font-size:.9rem"><strong>③ Sat Sep 26 · OBU (H)</strong><div class="cite">4-1-1 · unbeaten in 5</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="board-sec" style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="pill us">↗ Read the Dispatch</span>
+        <span class="pill">↻ Pull box scores</span>
+        <span class="pill">✦ Ask</span>
+      </div>
+    </div>
+    <p class="cite" style="margin-top:9px">
+      Fold this panel and the record still reads 4-1-2 in the header strip. That's the point — the
+      board header carries the story even collapsed.
+    </p>
+  </div>
+
+  <!-- ---------- THE TABLE ---------- -->
+  <div style="margin-bottom:40px">
+    <div class="board">
+      <div class="board-head">
+        <span class="board-glyph" style="color:var(--muted)">▦</span>
+        <span class="board-title">The Table</span>
+        <span class="spacer"></span>
+        <span class="board-chip">cadence 15m</span>
+      </div>
+      <div class="board-body">
+        <p style="font-size:.98rem;font-weight:650;margin-bottom:12px">
+          Harding sit 2nd, three points off SNU with a game in hand
+        </p>
+        <div class="tbl-scroll">
+          <table class="b">
+            <thead>
+              <tr>
+                <th>#</th><th>Team</th>
+                <th class="num">GP</th><th class="num">W</th><th class="num">D</th><th class="num">L</th>
+                <th class="num">GF</th><th class="num">GA</th><th class="num">GD</th><th class="num">Pts</th>
+                <th>Form</th><th class="num">Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="posdot in"></span>1</td><td class="team">Southern Nazarene</td>
+                <td class="num">7</td><td class="num">5</td><td class="num">1</td><td class="num">1</td>
+                <td class="num">14</td><td class="num">6</td><td class="num" style="color:var(--good)">+8</td><td class="num"><strong>16</strong></td>
+                <td><span class="formstrip"><span class="fb w">W</span><span class="fb w">W</span><span class="fb d">D</span><span class="fb w">W</span><span class="fb w">W</span></span></td>
+                <td class="num delta flat">—</td>
+              </tr>
+              <tr class="mine">
+                <td><span class="posdot in"></span>2</td><td class="team">Harding</td>
+                <td class="num">6</td><td class="num">4</td><td class="num">1</td><td class="num">1</td>
+                <td class="num">11</td><td class="num">6</td><td class="num" style="color:var(--good)">+5</td><td class="num"><strong>13</strong></td>
+                <td><span class="formstrip"><span class="fb w">W</span><span class="fb w">W</span><span class="fb d">D</span><span class="fb l">L</span><span class="fb w">W</span></span></td>
+                <td class="num delta up">▲2</td>
+              </tr>
+              <tr>
+                <td><span class="posdot in"></span>3</td><td class="team">Ouachita Baptist</td>
+                <td class="num">7</td><td class="num">4</td><td class="num">0</td><td class="num">3</td>
+                <td class="num">10</td><td class="num">9</td><td class="num" style="color:var(--good)">+1</td><td class="num"><strong>12</strong></td>
+                <td><span class="formstrip"><span class="fb w">W</span><span class="fb l">L</span><span class="fb w">W</span><span class="fb w">W</span><span class="fb l">L</span></span></td>
+                <td class="num delta down">▼1</td>
+              </tr>
+              <tr>
+                <td><span class="posdot in"></span>4</td><td class="team">Rogers State</td>
+                <td class="num">7</td><td class="num">3</td><td class="num">2</td><td class="num">2</td>
+                <td class="num">9</td><td class="num">8</td><td class="num" style="color:var(--good)">+1</td><td class="num"><strong>11</strong></td>
+                <td><span class="formstrip"><span class="fb d">D</span><span class="fb w">W</span><span class="fb l">L</span><span class="fb d">D</span><span class="fb w">W</span></span></td>
+                <td class="num delta flat">—</td>
+              </tr>
+              <tr class="cutline"><td colspan="12"><div class="cutrule">top four make the GAC tournament</div></td></tr>
+              <tr>
+                <td><span class="posdot out"></span>5</td><td>Fort Hays State</td>
+                <td class="num">6</td><td class="num">2</td><td class="num">1</td><td class="num">3</td>
+                <td class="num">7</td><td class="num">10</td><td class="num" style="color:var(--crit)">−3</td><td class="num"><strong>7</strong></td>
+                <td><span class="formstrip"><span class="fb l">L</span><span class="fb d">D</span><span class="fb l">L</span><span class="fb w">W</span><span class="fb l">L</span></span></td>
+                <td class="num delta down">▼1</td>
+              </tr>
+              <tr>
+                <td><span class="posdot out"></span>6</td><td>Newman</td>
+                <td class="num">7</td><td class="num">1</td><td class="num">2</td><td class="num">4</td>
+                <td class="num">6</td><td class="num">13</td><td class="num" style="color:var(--crit)">−7</td><td class="num"><strong>5</strong></td>
+                <td><span class="formstrip"><span class="fb l">L</span><span class="fb l">L</span><span class="fb d">D</span><span class="fb l">L</span><span class="fb d">D</span></span></td>
+                <td class="num delta flat">—</td>
+              </tr>
+              <tr>
+                <td><span class="posdot out"></span>7</td>
+                <td>Northeastern St. <span class="pill" style="margin-left:5px">via opponents</span></td>
+                <td class="num">6</td><td class="num">1</td><td class="num">1</td><td class="num">4</td>
+                <td class="num">5</td><td class="num">11</td><td class="num" style="color:var(--crit)">−6</td><td class="num"><strong>4</strong></td>
+                <td><span class="formstrip"><span class="fb l">L</span><span class="fb w">W</span><span class="fb l">L</span><span class="fb l">L</span><span class="fb d">D</span></span></td>
+                <td class="num delta flat">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="board-caption">
+        Conference only · 61 matches deduped from 74 scraped records · NSU reconstructed from
+        opponents' box scores · 2 box scores unpublished · Δ vs obs-2026-09-06T06-02
+      </div>
+    </div>
+    <p class="cite" style="margin-top:9px">
+      Seven programs, not six. <code>schools.toml</code> declares seven men's GAC members; NSU is
+      <code>enabled=false</code> only because their site is a KnockoutJS SPA with no scraper. But every
+      box score records <em>both</em> rosters — so their conference record is recoverable from the six
+      schools they played, and the row says so rather than omitting a real member.
+    </p>
+  </div>
+
+  <!-- ---------- RACE ---------- -->
+  <div style="margin-bottom:40px">
+    <div class="board">
+      <div class="board-head">
+        <span class="board-glyph" style="color:var(--them)">◈</span>
+        <span class="board-title">Race to the Tournament</span>
+        <span class="pill">7 matchweeks left</span>
+        <span class="spacer"></span>
+        <span class="board-chip">50,000 seasons · shrunk Poisson rates</span>
+      </div>
+
+      <div class="board-sec">
+        <div class="sec-label">Odds to reach the GAC tournament (top four)</div>
+        <div class="bars">
+          <div class="bar"><span class="lbl">Southern Nazarene</span><span class="trk"><span class="fil" style="width:97%;background:var(--good)"></span></span><span class="val">97%</span></div>
+          <div class="bar mine"><span class="lbl">Harding</span><span class="trk"><span class="fil" style="width:78%;background:var(--us)"></span></span><span class="val">78%</span></div>
+          <div class="bar"><span class="lbl">Ouachita Baptist</span><span class="trk"><span class="fil" style="width:61%;background:var(--good)"></span></span><span class="val">61%</span></div>
+          <div class="bar"><span class="lbl">Rogers State</span><span class="trk"><span class="fil" style="width:44%;background:var(--warn)"></span></span><span class="val">44%</span></div>
+          <div class="bar"><span class="lbl">Fort Hays State</span><span class="trk"><span class="fil" style="width:19%;background:var(--crit)"></span></span><span class="val">19%</span></div>
+          <div class="bar"><span class="lbl">Newman</span><span class="trk"><span class="fil" style="width:6%;background:var(--crit)"></span></span><span class="val">6%</span></div>
+          <div class="bar"><span class="lbl">Northeastern St.</span><span class="trk"><span class="fil" style="width:3%;background:var(--crit)"></span></span><span class="val">3%</span></div>
+        </div>
+      </div>
+
+      <div class="board-sec">
+        <div class="tiles">
+          <div class="tile"><div class="tile-k">Top four</div><div class="tile-v us">78%</div><div class="tile-s"><span class="delta up">▲</span> was 61% last Sunday</div></div>
+          <div class="tile"><div class="tile-k">Modal seed</div><div class="tile-v">2nd</div><div class="tile-s">38% · 1st @ 24%</div></div>
+          <div class="tile"><div class="tile-k">Title odds</div><div class="tile-v">21%</div><div class="tile-s"><span class="delta up">▲ +9</span> since Sat</div></div>
+        </div>
+      </div>
+
+      <div class="board-sec">
+        <div class="sec-label">The four results that matter most</div>
+        <div class="tbl-scroll">
+          <table class="b">
+            <thead><tr><th>Date</th><th>Match</th><th class="num">Swing</th><th>Whose</th></tr></thead>
+            <tbody>
+              <tr><td>Oct 17</td><td>SNU at Rogers State</td><td class="num"><strong>14 pts</strong></td><td><span class="pill them">not yours</span></td></tr>
+              <tr><td>Oct 10</td><td style="color:var(--us);font-weight:650">Harding v Ouachita Baptist</td><td class="num">11 pts</td><td><span class="pill us">yours</span></td></tr>
+              <tr><td>Oct 24</td><td>Ouachita Baptist at FHSU</td><td class="num">9 pts</td><td><span class="pill them">not yours</span></td></tr>
+              <tr><td>Nov 01</td><td style="color:var(--us);font-weight:650">Harding at Southern Nazarene</td><td class="num">8 pts</td><td><span class="pill us">yours</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="board-caption">
+        Swing = |P(top four | home win) − P(top four | away win)| over 50,000 simulated remainders.
+        Odds history appended once per observation, so "was 61% last Sunday" means last Sunday.
+      </div>
+    </div>
+    <p class="cite" style="margin-top:9px">
+      The biggest game left on Harding's schedule isn't on Harding's schedule. That's the reason to
+      open the tab on a Sunday morning, and nothing in the existing stack can compute it.
+    </p>
+  </div>
+
+  <!-- ---------- FEED HEALTH ---------- -->
+  <div style="margin-bottom:40px">
+    <div class="board">
+      <div class="board-head">
+        <span class="board-glyph" style="color:var(--warn)">⌁</span>
+        <span class="board-title">Feed Health</span>
+        <span class="pill crit">1 alarm · 2 warn</span>
+        <span class="spacer"></span>
+        <span class="board-chip">Press Box · published by every refresh run</span>
+      </div>
+
+      <div class="board-sec">
+        <div class="tiles">
+          <div class="tile"><div class="tile-k">Last pull</div><div class="tile-v">41m</div><div class="tile-s" style="color:var(--good)">✓ fresh</div></div>
+          <div class="tile"><div class="tile-k">Matches</div><div class="tile-v">63<span style="font-size:.9rem;color:var(--dim)"> / 68</span></div><div class="tile-s">conference 38</div></div>
+          <div class="tile"><div class="tile-k">Missing box</div><div class="tile-v" style="color:var(--warn)">2</div><div class="tile-s">unpublished</div></div>
+          <div class="tile"><div class="tile-k">Parse fails</div><div class="tile-v">0<span style="font-size:.9rem;color:var(--dim)"> new</span></div><div class="tile-s">34 historical</div></div>
+        </div>
+      </div>
+
+      <div class="board-sec">
+        <div class="sec-label">The nine checks</div>
+        <div class="check"><div class="mark ok-t">✓</div><div><div class="name ok-t">Freshness</div><div class="msg">observed 41m ago · 11 new matches</div></div></div>
+        <div class="check"><div class="mark crit-t">✕</div><div><div class="name crit-t">Season label</div><div class="msg">FHSU 2020 holds 24 games dated 2025</div><div class="ev">sidearm_discovery.py:42 · remedy: assert /stats/{year}/ in every discovered path (3 lines)</div></div></div>
+        <div class="check"><div class="mark warn-t">⚠</div><div><div class="name warn-t">Match duplication</div><div class="msg">176 groups · 180 extra rows · handled by canon</div></div></div>
+        <div class="check"><div class="mark ok-t">✓</div><div><div class="name ok-t">Game-id stability</div><div class="msg">0 ids changed identity since 09-06</div><div class="ev">watches sidearm_discovery.py:73-75 enumerate() drift</div></div></div>
+        <div class="check"><div class="mark warn-t">⚠</div><div><div class="name warn-t">Score mutation</div><div class="msg">1 final score moved: 1–1 → 2–1</div><div class="ev">the frozen-cache signature · fetcher.py:35-42</div></div></div>
+        <div class="check"><div class="mark ok-t">✓</div><div><div class="name ok-t">Row monotonicity</div><div class="msg">no program lost matches · SNU +2</div></div></div>
+        <div class="check"><div class="mark ok-t">✓</div><div><div class="name ok-t">Canon coverage</div><div class="msg">193 strings → 14 programs + 47 opponents</div></div></div>
+        <div class="check"><div class="mark warn-t">⚠</div><div><div class="name warn-t">Conference flagging</div><div class="msg">is_conference_game NULL 2140 / 2140</div><div class="ev">canon derives 619 conference matches instead</div></div></div>
+        <div class="check"><div class="mark ok-t">✓</div><div><div class="name ok-t">Parse failures</div><div class="msg">34 in data/errors · 0 new · oldest 2019</div></div></div>
+      </div>
+      <div class="board-caption">
+        Four of these nine compare two observations, not one database — they cannot exist without the ledger.
+      </div>
+    </div>
+    <p class="cite" style="margin-top:9px">
+      <strong>This is the first board shipped</strong>, before anything pretty. On a dataset with this
+      many named defects, the panel that says which numbers are lying — and cites the line that broke
+      them — is the highest value-per-hour work available.
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════ THE DISPATCH ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:26px">
+    <span class="eyebrow">The weekly artifact</span>
+    <h2>And on Sunday morning, a broadsheet.</h2>
+    <p>
+      Boards are for glancing. Once a week the rib publishes a dated, versioned HTML page into
+      Keelson's full-width drawer — the thing you'd actually send someone. The layout is a
+      <em>deterministic function</em> of the ledger; only the prose is generated, and it's slotted
+      into a fixed scaffold so the archive stays a series instead of being silently redesigned every week.
+    </p>
+  </div>
+
+  <div class="sheet">
+    <div class="sheet-in">
+      <div class="sheet-eyebrow">GAC Men's Soccer · Matchweek 7 · September 13, 2026</div>
+      <h3 class="sheet-hed">Harding win the late one and close to three</h3>
+      <p class="sheet-bluf">
+        Three results landed and only one of them was close. Harding's <strong>3–1</strong> over
+        Rogers State — two of the three after the hour — moves them <strong>second on 13 points</strong>
+        with a game in hand on SNU.
+      </p>
+
+      <div class="movement">
+        <div class="mv"><div class="ab">SNU</div><div class="ps">1</div><div class="dl" style="color:var(--dim)">—</div></div>
+        <div class="mv moved"><div class="ab" style="color:var(--us)">HU</div><div class="ps" style="color:var(--us)">2</div><div class="dl" style="color:var(--good)">▲2</div></div>
+        <div class="mv moved"><div class="ab">OBU</div><div class="ps">3</div><div class="dl" style="color:var(--crit)">▼1</div></div>
+        <div class="mv"><div class="ab">RSU</div><div class="ps">4</div><div class="dl" style="color:var(--dim)">—</div></div>
+        <div class="mv moved"><div class="ab">FHSU</div><div class="ps">5</div><div class="dl" style="color:var(--crit)">▼1</div></div>
+        <div class="mv"><div class="ab">NU</div><div class="ps">6</div><div class="dl" style="color:var(--dim)">—</div></div>
+        <div class="mv"><div class="ab">NSU</div><div class="ps">7</div><div class="dl" style="color:var(--dim)">—</div></div>
+      </div>
+      <div class="cite" style="margin-top:6px">Filled tiles moved this week — the turbulence is the signature image.</div>
+
+      <div style="margin-top:28px">
+        <div class="sec-label">The season arc — cumulative conference points, all seven</div>
+        <div class="tbl-scroll">
+          <svg viewBox="0 0 1100 290" width="100%" style="min-width:640px;display:block" role="img" aria-label="Line chart of cumulative conference points by matchweek for all seven GAC men's programs, with Harding highlighted in teal in second place on 13 points behind Southern Nazarene on 16.">
+            <!-- unplayed future -->
+            <rect x="517.7" y="18" width="530" height="222" fill="currentColor" opacity=".035"/>
+            <!-- matchweek gridlines -->
+            <g stroke="currentColor" opacity=".1" stroke-width="1">
+              <line x1="70" y1="18" x2="70" y2="240"/><line x1="144.6" y1="18" x2="144.6" y2="240"/>
+              <line x1="219.2" y1="18" x2="219.2" y2="240"/><line x1="293.8" y1="18" x2="293.8" y2="240"/>
+              <line x1="368.5" y1="18" x2="368.5" y2="240"/><line x1="443.1" y1="18" x2="443.1" y2="240"/>
+              <line x1="517.7" y1="18" x2="517.7" y2="240"/><line x1="592.3" y1="18" x2="592.3" y2="240"/>
+              <line x1="666.9" y1="18" x2="666.9" y2="240"/><line x1="741.5" y1="18" x2="741.5" y2="240"/>
+              <line x1="816.2" y1="18" x2="816.2" y2="240"/><line x1="890.8" y1="18" x2="890.8" y2="240"/>
+              <line x1="965.4" y1="18" x2="965.4" y2="240"/><line x1="1040" y1="18" x2="1040" y2="240"/>
+            </g>
+            <line x1="70" y1="240" x2="1040" y2="240" stroke="currentColor" opacity=".28" stroke-width="1"/>
+            <!-- top four cutline -->
+            <line x1="70" y1="111.7" x2="1040" y2="111.7" stroke="#10B981" stroke-width="1.2" stroke-dasharray="5 5" opacity=".7"/>
+            <text x="1035" y="105" text-anchor="end" font-family="ui-monospace, monospace" font-size="11" fill="#10B981" opacity=".95">top-four cutline · 11 pts</text>
+
+            <!-- the field, muted -->
+            <g fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity=".5">
+              <path d="M70,205 L144.6,205 L219.2,170 L293.8,135 L368.5,100 L443.1,100 L517.7,100" stroke="currentColor"/>
+              <path d="M70,240 L144.6,205 L219.2,193.3 L293.8,158.3 L368.5,146.7 L443.1,111.7 L517.7,111.7" stroke="currentColor"/>
+              <path d="M70,205 L144.6,193.3 L219.2,193.3 L293.8,193.3 L368.5,158.3 L443.1,158.3 L517.7,158.3" stroke="currentColor"/>
+              <path d="M70,240 L144.6,228.3 L219.2,216.7 L293.8,216.7 L368.5,181.7 L443.1,181.7 L517.7,181.7" stroke="currentColor"/>
+              <path d="M70,228.3 L144.6,228.3 L219.2,228.3 L293.8,193.3 L368.5,193.3 L443.1,193.3 L517.7,193.3" stroke="currentColor"/>
+            </g>
+            <!-- leader -->
+            <path d="M70,205 L144.6,170 L219.2,135 L293.8,123.3 L368.5,88.3 L443.1,53.3 L517.7,53.3"
+                  fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" opacity=".85"/>
+            <circle cx="517.7" cy="53.3" r="4" fill="currentColor" opacity=".85"/>
+            <!-- HARDING — the one identity hue -->
+            <path d="M70,228.3 L144.6,193.3 L219.2,158.3 L293.8,158.3 L368.5,123.3 L443.1,88.3 L517.7,88.3"
+                  fill="none" stroke="#0D9488" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="517.7" cy="88.3" r="5" fill="#0D9488"/>
+
+            <!-- direct end labels, top four only -->
+            <g font-family="ui-monospace, monospace" font-size="12">
+              <text x="528" y="57" fill="currentColor" opacity=".8" font-weight="600">SNU 16</text>
+              <text x="530" y="92" fill="#0D9488" font-weight="700">HARDING 13</text>
+              <text x="528" y="104" fill="currentColor" opacity=".55">OBU 12</text>
+              <text x="528" y="116" fill="currentColor" opacity=".55">RSU 11</text>
+              <text x="528" y="162" fill="currentColor" opacity=".45">FHSU 7</text>
+              <text x="528" y="186" fill="currentColor" opacity=".45">NU 5</text>
+              <text x="528" y="197" fill="currentColor" opacity=".45">NSU 4</text>
+            </g>
+            <!-- axes -->
+            <g font-family="ui-monospace, monospace" font-size="11" fill="currentColor" opacity=".45">
+              <text x="52" y="244" text-anchor="end">0</text>
+              <text x="52" y="127" text-anchor="end">10</text>
+              <text x="52" y="34" text-anchor="end">18</text>
+              <text x="70" y="262" text-anchor="middle">1</text>
+              <text x="219.2" y="262" text-anchor="middle">3</text>
+              <text x="368.5" y="262" text-anchor="middle">5</text>
+              <text x="517.7" y="262" text-anchor="middle" font-weight="700" opacity=".9">7</text>
+              <text x="666.9" y="262" text-anchor="middle">9</text>
+              <text x="816.2" y="262" text-anchor="middle">11</text>
+              <text x="965.4" y="262" text-anchor="middle">13</text>
+              <text x="555" y="282" font-size="10.5" opacity=".8">matchweek → · everything right of 7 is unplayed</text>
+            </g>
+          </svg>
+        </div>
+        <p class="cite" style="margin-top:6px">
+          Here teal survives, because HTML pages can use literal hex. On a Keelson <em>board</em> chart
+          it can't — see the honest break below.
+        </p>
+      </div>
+
+      <div class="stories">
+        <div class="story good">
+          <h4>The late habit</h4>
+          <p>Five of eleven Harding goals now come after the 75th; last year the split was even.
+            <span class="attr">— 5 of 11, from 22,754 parsed clocks</span></p>
+        </div>
+        <div class="story warn">
+          <h4>SNU's cushion</h4>
+          <p>Three clear with a game more played. Their remaining four are all at home.
+            <span class="attr">— 16 pts, 4 home fixtures left</span></p>
+        </div>
+        <div class="story info">
+          <h4>The Oct 17 problem</h4>
+          <p>The biggest game left on Harding's schedule isn't on it: SNU at Rogers State swings top-four odds 14 points.
+            <span class="attr">— 50,000 sims, swing 14.2</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      obs-2026-09-13T06-04 · 74 scraped records → 63 canonical matches · 2 box scores unpublished ·
+      NSU via opponents · no possession, passing, or shot-location data exists
+    </div>
+  </div>
+
+  <div class="col" style="margin-top:24px">
+    <div class="note">
+      <strong>The render gate.</strong> Fifteen lines of regex refuse to publish prose containing
+      <code>xG</code>, <code>possession</code>, <code>pass</code> or <code>foul</code> tokens — because
+      <code>team_game_stats</code> has exactly ten columns and none of them are those. The author node's
+      tool whitelist grants only Touchline tools, which at the SDK level also strips Read/Glob/Grep so
+      the turn can't wander. Confident, well-phrased, wrong prose is the most likely failure of an
+      LLM narrator, and it's the cheapest one to prevent.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CHAT ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:24px">
+    <span class="eyebrow">And then you can just ask</span>
+    <h2>Twelve tools, one registration, three places to reach them.</h2>
+    <p>
+      Registering the tools once makes them available in the Keelson composer, inside workflow prompt
+      nodes, and over <code>POST /api/mcp</code> to Claude Code, Copilot or Codex. Ten of the twelve
+      are read-only, so they reach MCP by default.
+    </p>
+  </div>
+
+  <div class="col">
+    <div class="chat">
+      <div class="turn">
+        <div class="ask">What changed since last Sunday?</div>
+        <div class="ans"><span class="tool">touchline_diff · no arguments</span>
+          Eleven new matches. Harding up two places to 2nd. SNU's PPG nearly doubled across four matches.
+          <b>One already-final score mutated</b> on game 12202607 (1–1 → 2–1). Zero new parse failures.
+          The FHSU season-label alarm is still open.</div>
+      </div>
+      <div class="turn">
+        <div class="ask">What if we beat Southern Nazarene next week?</div>
+        <div class="ans"><span class="tool">touchline_race · assume: ["HU&gt;SNU"]</span>
+          Top four <b>78% → 91%</b>. Title <b>21% → 34%</b>. Magic number 5 → 2. Re-run over 50,000
+          remainders conditioned on that result.</div>
+      </div>
+      <div class="turn">
+        <div class="ask">Why does the old dashboard say Oklahoma Baptist has a losing record when your table has them 3rd?</div>
+        <div class="ans"><span class="tool">touchline_integrity → canon coverage</span>
+          Because 104 of their home games are stored as "Okla. Baptist", and <code>_ilike_pattern</code>
+          at <code>conferences.py:14-21</code> reduces "Oklahoma Baptist" to <code>%Oklahoma%</code>, which
+          misses every one. For those 104 matches <b>the API reads the away score as theirs and inverts
+          the result.</b></div>
+      </div>
+      <div class="turn">
+        <div class="ask">When do we score?</div>
+        <div class="ans"><span class="tool">touchline_clock · scope: team</span>
+          Five of your eleven goals have come after the 75th minute, and you've conceded nothing in that
+          window all season. Conference-wide the second half carries <b>3,746 goals to the first half's
+          3,003</b>, so the skew is real but yours is extreme.</div>
+      </div>
+      <div class="turn">
+        <div class="ask">Show me the table as it stood on September 6th.</div>
+        <div class="ans"><span class="tool">touchline_table · asOf: obs-2026-09-06T06-02</span>
+          Rendered exactly, form strips and all, with the Δ against the observation before it.
+          <b>The database cannot answer this at any price</b> — those rows were deleted on the next load.</div>
+      </div>
+      <div class="turn">
+        <div class="ask">Scout Rogers State for me.</div>
+        <div class="ans"><span class="tool">/scout RSU → touchline-scout workflow</span>
+          Four parallel nodes gather form, ten seasons of head-to-head, goal-timing shape, and their three
+          most dangerous contributors — then it publishes an HTML brief into the drawer, ending with a
+          mandatory <b>"what the data cannot see"</b> block.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ SCHEDULING ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:24px">
+    <span class="eyebrow">The requirement you actually asked about</span>
+    <h2>Keelson has no cron. Here's what it does have.</h2>
+    <p>
+      There is no <code>schedule:</code>, <code>cron:</code> or <code>every:</code> field anywhere in the
+      workflow YAML schema, and no <code>keelson schedule</code> command. A repo-wide grep for cron
+      returns two incidental hits. So scheduled freshness has to be assembled from three real clocks —
+      and one obvious-looking seam is a trap.
+    </p>
+  </div>
+
+  <div class="col">
+    <div class="card">
+      <div class="clock live">
+        <div class="badge">A</div>
+        <div>
+          <h4>The harness heartbeat <span class="pill ok" style="margin-left:6px">used</span></h4>
+          <p style="font-size:.92rem;color:var(--muted);margin-top:3px">
+            A 30-second tick in <code>apps/server/src/scheduler.ts</code> re-runs any bound producer with a
+            <code>cadenceMs</code>. Slows 6× when no browser tab is subscribed. Always fires with empty
+            inputs and <code>KEELSON_HOME</code> as cwd.
+          </p>
+          <p class="cite" style="margin-top:5px">→ Drives the six cheap board collectors. They need neither inputs nor a cwd — they read files.</p>
+        </div>
+      </div>
+      <div class="clock live">
+        <div class="badge">B</div>
+        <div>
+          <h4>A rib-held wall clock <span class="pill ok" style="margin-left:6px">used</span></h4>
+          <p style="font-size:.92rem;color:var(--muted);margin-top:3px">
+            <code>setInterval(60_000).unref()</code> in the rib, evaluating a slot table against local time —
+            Sun 06:00, Wed 06:00, Sat 22:00, Fri 16:00 check-only, plus a matchday 20:00–23:59 window every
+            30 minutes. Persists <code>last-fired.json</code> so a restart neither double-fires nor skips.
+            Calls <code>ctx.refreshWorkflow('touchline-refresh')</code>.
+          </p>
+          <p class="cite" style="margin-top:5px">→ The only in-process way to get time-of-day. Unblessed territory, but chamber and squad both hold timers.</p>
+        </div>
+      </div>
+      <div class="clock live">
+        <div class="badge">C</div>
+        <div>
+          <h4>A launchd fallback <span class="pill ok" style="margin-left:6px">used</span></h4>
+          <p style="font-size:.92rem;color:var(--muted);margin-top:3px">
+            <code>keelson workflow run touchline-refresh --no-watch --json --base-url http://127.0.0.1:7878</code>.
+            The <code>--base-url</code> forces it through the running server, so it publishes the bound key
+            exactly like [B]. Exit codes are a stable contract.
+          </p>
+          <p class="cite" style="margin-top:5px">→ Belt and suspenders, because a laptop sleeps. Ship alongside the timer, not instead of it.</p>
+        </div>
+      </div>
+      <div class="clock">
+        <div class="badge" style="background:var(--crit-soft);color:var(--crit)">✕</div>
+        <div>
+          <h4><code>ctx.runWorkflow</code> <span class="pill crit" style="margin-left:6px">the trap</span></h4>
+          <p style="font-size:.92rem;color:var(--muted);margin-top:3px">
+            It's the only seam that accepts a <code>cwd</code>, so two of the three design proposals chose it.
+            It writes <strong>no run row</strong>, fires <strong>no run event</strong>, and — the finding
+            neither critique caught — does <strong>not publish to a bound snapshot key</strong>, because
+            bindings are keyed by definition <em>object identity</em> and <code>runDefinition</code> parses a
+            fresh object. A refresh through it reaches the database and never reaches the screen.
+          </p>
+          <p class="cite" style="margin-top:5px">→ cwd was never load-bearing anyway: every bash node already <code>cd</code>s into the checkout.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col" style="margin-top:22px">
+    <div class="note">
+      <strong>Two landmines in the ingest DAG, both of which look completely innocuous.</strong><br>
+      ① The merge step must pass the <em>full historical year list</em>, never <code>[2026]</code> —
+      <code>merge_all_seasons</code> OVERWRITES <code>all/*.parquet</code> with only the years given, so a
+      routine Saturday-night scrape would destroy the ten-season archive.<br>
+      ② The scrape node needs an explicit <code>timeout: 900000</code> — the subprocess default is five
+      minutes and 13 schools × ~20 matches × 0.5s politeness lands well past it. Without the override,
+      every matchday window silently half-completes.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ CADENCE ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:22px">
+    <span class="eyebrow">The season, week by week</span>
+    <h2>Four modes, switched by reading the fixture calendar.</h2>
+  </div>
+  <div class="col">
+    <div class="grid2">
+      <div class="card">
+        <span class="pill">Preseason · now → Aug 26</span>
+        <p style="margin-top:9px;font-size:.93rem">
+          One 06:00 daily pull that mostly discovers nothing — which is exactly what you want it doing
+          before it matters. <strong>The work that counts:</strong> <code>schools.toml</code> has no 2026
+          entry for any program, so <code>--year 2026</code> is doing all the work with no validation
+          behind it. Every one of the thirteen schedule pages needs a manual dry run before Aug 27.
+        </p>
+      </div>
+      <div class="card">
+        <span class="pill">Weekdays in season</span>
+        <p style="margin-top:9px;font-size:.93rem">
+          One 06:00 pull Sun and Wed. Boards tick on cadence but the data doesn't move, so the
+          identical-content skip means "updated 2 days ago" is honest rather than restamped. The Dispatch
+          fingerprint gate reads clean and no turn is bought. <strong>A quiet Tuesday costs zero tokens.</strong>
+        </p>
+      </div>
+      <div class="card" style="border-color:var(--us)">
+        <span class="pill us">Matchday · Wed & Sat</span>
+        <p style="margin-top:9px;font-size:.93rem">
+          At 20:00 the wall clock notices fixtures dated today and polls every 30 minutes, always
+          <code>--no-cache</code>. Within ~30 minutes of a final whistle the score is in the header, the
+          table has re-sorted with a new Δ, form badges shifted, odds moved, and the slate card flipped
+          from fixture to result. <strong>Nobody clicks anything.</strong> This is the moment the design exists for.
+        </p>
+      </div>
+      <div class="card">
+        <span class="pill">Sunday 07:00 · November</span>
+        <p style="margin-top:9px;font-size:.93rem">
+          The dispatch runs if — and only if — the watermark says something landed and the fingerprint says
+          the table moved. In November the Race board flips to a clinch/eliminate grid, then a bracket.
+          By December the Press Box holds ~24 observations, 14 dispatches, ~130 match pages, and a
+          staircase chart of the season's scraping. Flat steps and all.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ BUILD ORDER ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:22px">
+    <span class="eyebrow">Build order</span>
+    <h2>Eighteen days to v1, six days of slack before kickoff.</h2>
+    <p>Correctness first, beauty second. Deliberately. <em>(Corrected 8 Aug: the sequence below still holds, the duration does not. The correctness work expanded once the <strong>instruments themselves</strong> turned out to need repair before they could grade anything — 19 of the 21 integrity checks reported &ldquo;all clear&rdquo; when they could not run at all.)</em></p>
+  </div>
+
+  <div class="col">
+    <div class="phase">
+      <div class="pid">P0</div>
+      <div>
+        <h4>The canon and the first observation</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">Copy the workiq package skeleton verbatim. Build the identity map keyed on <em>abbreviation</em>, never name — the live <code>schools</code> table has two rows literally named "Harding". Write the first immutable observation.</p>
+        <div class="pd">Aug 8–10 · ~2.5 days · nothing renders yet</div>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="pid">P1</div>
+      <div>
+        <h4>Feed Health — the first board</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">All nine integrity checks with evidence and file:line. Within five days of starting, you know exactly which of your numbers are lying and why. <strong>If the project stopped here it would still have delivered the most important thing.</strong></p>
+        <div class="pd">Aug 10–12 · ~2 days</div>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="pid">P2</div>
+      <div>
+        <h4>The Table and The Slate</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">Two bound collectors, the Season surface, the in-process Matchday composer. First visible payoff of the structural bet: a real Δ against a real prior observation.</p>
+        <div class="pd">Aug 12–15 · ~2.5 days</div>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="pid">P3</div>
+      <div>
+        <h4>The refresh DAG and the wall clock</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">The full seven-node ingest, the timer, the launchd plist, the season-label assertion. <strong>Must be validated against a real 2026 schedule page before Aug 27</strong> — a SideArm site serving 2025 instead of an empty page reproduces the FHSU corruption on day one.</p>
+        <div class="pd">Aug 15–18 · ~3 days · two dry runs against live sites</div>
+      </div>
+    </div>
+    <div class="phase ship">
+      <div class="pid">P4 ◆</div>
+      <div>
+        <h4>The tools and chat &nbsp;<span class="pill us">v1 ships</span></h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">All twelve tools, the slash commands, two named agents. Chat in Keelson, in workflow nodes, and over MCP from one registration. <strong>v1 is: correct data, a trustworthy health panel, three live boards, scheduled refresh, and a season you can ask about.</strong></p>
+        <div class="pd">Aug 18–21 · ~2.5 days · six days before kickoff</div>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="pid">P5</div>
+      <div>
+        <h4>The Match Page and the Dispatch</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">Deterministic HTML builders, the publish seam, the render gate, the cost gates. Ships <em>after</em> kickoff on purpose — it benefits most from a month of trustworthy data underneath it.</p>
+        <div class="pd">Week of Aug 24, into September · ~4 days</div>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="pid">P6</div>
+      <div>
+        <h4>The Race</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">The Monte Carlo, once conference play has produced enough matches for shrunk rates to mean anything. This is the fun.</p>
+        <div class="pd">Late Sep / early Oct · ~3 days</div>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="pid">P7–8</div>
+      <div>
+        <h4>Form, the clock, per-team panels, then post-season</h4>
+        <p style="font-size:.92rem;color:var(--muted);margin-top:3px">Goal-timing segments over the 22,754 event rows no endpoint has ever aggregated. Then bracket mode, a season-in-review page, and finally the deferred correctness work — implementing the legacy scraper so NSU stops being reconstructed.</p>
+        <div class="pd">October → November</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ DEBATE ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:22px">
+    <span class="eyebrow">The debate agenda</span>
+    <h2>Nine real forks. These are the ones where I could argue either side.</h2>
+  </div>
+
+  <div class="col">
+    <div class="q">
+      <div class="qh"><span class="qn">01</span><h3>Fat ledger or thin?</h3></div>
+      <p class="qb">The spec stores derived season state plus a fingerprint map — ~200 KB per observation, 6 MB a season, and collectors stay fast. <strong>Settled 8 Aug: fat won.</strong> But then "show me the Sep 6 table" works while "what did we think that match's shot count was on Sep 6" doesn't, and score-mutation only catches <em>scores</em>, not silent shot-count corrections. Full box lines would be ~2 MB per observation, ~55 MB a season.</p>
+      <div class="rec"><b>Lean:</b> go fat. 55 MB is nothing, and the checks you can't imagine yet are the ones you'll want in October.</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">02</span><h3>Is the Dispatch really P5?</h3></div>
+      <p class="qb">The phasing puts correctness, boards, scheduling and chat ahead of any designed page — on the theory that an LLM narrator over inverted records is worse than no narrator. The counter-argument, made well by one of the three proposals: the broadsheet is what decides whether this feels like a product or a dashboard, and a product nobody enjoys opening dies regardless of correctness.</p>
+      <div class="rec"><b>The tiebreaker:</b> would you rather have a correct table on Aug 27 or a beautiful page on Sep 10?</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">03</span><h3>Patch the pipeline, or route around it?</h3></div>
+      <p class="qb">The design routes around every bug — the merge node calls storage functions directly, the canon collapses duplicates, Feed Health <em>reports</em> the red-card mislabel rather than fixing it. That keeps the rib self-contained. But four of these are genuinely one-line fixes upstream, and fixing them makes the rib simpler <em>and</em> repairs the Next.js app for free.</p>
+      <div class="rec"><b>Lean:</b> fix the season assertion and the merge gates upstream (they're destructive), route around the rest.</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">04</span><h3>Men's only, a hidden mode toggle, or double every region?</h3></div>
+      <p class="qb">A surface declares static region keys, so <code>rib:touchline:table</code> is men's <em>or</em> women's, never both. Not academic: <em>every</em> school carrying the identity defect is a women's program — OKBU 150/191, SWOSU 6/188, NWOSU 4/163, SNUW 2/171 — against one stray game each for OBU and SNU on the men's side. Deferring women's soccer defers the defect; it does not avoid it.</p>
+      <div class="rec"><b>Lean:</b> men's only for 2026, decided out loud. A hidden mode toggle means the boards silently mean something different depending on a setting you can't see.</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">05</span><h3>Is the in-process wall-clock timer worth its risk?</h3></div>
+      <p class="qb">It runs inside the Keelson server process and shells out to <code>uv run</code> in a git checkout on a timer. Nothing in the rib contract forbids it and both chamber and squad hold timers — but nothing in Keelson tests that path either, and a bug there is a bug in the harness. Pure launchd is OS-supervised and one file, but gives up matchday awareness: a plist can't read the fixture calendar and decide it should poll tonight.</p>
+      <div class="rec"><b>Lean:</b> both from day one. They converge on the same code path, so the fallback costs almost nothing.</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">06</span><h3>Seven programs or six?</h3></div>
+      <p class="qb">Reconstructing NSU from opponents' box scores is genuinely lossy — their conference record is exact, but any match against a non-GAC opponent nobody else played is invisible, so their <em>overall</em> record isn't recoverable. A conference-only table is honest; an overall table with NSU in it isn't.</p>
+      <div class="rec"><b>Lean:</b> seven, conference scope only, with the badge. Publishing a six-team table as a conference table is exactly the error we convict the existing product of.</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">07</span><h3>Should the narrator exist at all in v1?</h3></div>
+      <p class="qb">The "since you last looked" register is <em>deterministic</em> — computed from the diff, always true, zero tokens. Only the Dispatch's read is generated. There's a real case for shipping only the deterministic register all season: the delta lines are the part that tells you something you didn't know, and the prose mostly restates them at greater length.</p>
+      <div class="rec"><b>The honest question:</b> what is the narrator adding that the diff isn't?</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">08</span><h3>Do we ever build a <code>/touchline</code> tree in the Next.js app?</h3></div>
+      <p class="qb">The bridge is already free — port 3000 passes CORS and the WS gate today. The things a board genuinely can't do are real: sparklines inside table rows, a 9-axis radar, a URL per entity you can text someone. But the port is ~1,600 lines of <code>BoardView</code> + <code>ChartSection</code> to render the same payload in a second chrome.</p>
+      <div class="rec"><b>Lean:</b> defer. It costs nothing to decide in November, when there's a season's worth of data worth a second chrome.</div>
+    </div>
+
+    <div class="q">
+      <div class="qh"><span class="qn">09</span><h3>What happens to orphaned game_ids?</h3></div>
+      <p class="qb">When a late-published box score reshuffles <code>enumerate()</code> order, old rows stay in Postgres as phantom fixtures. The canon stops boards double-counting and the stability check alarms — but anything reading base tables outside the canon still picks them up, and by November that's dozens. A sweeper is destructive in someone else's database; a soft-delete column is an alembic ownership problem.</p>
+      <div class="rec"><b>Lean:</b> hash the boxscore URL id upstream (~30 lines) so they never appear. Everything else is cleanup after the fact.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ REJECTED ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:20px">
+    <span class="eyebrow">Considered and rejected</span>
+    <h2>What we decided not to build, and why.</h2>
+    <p>Three independent design proposals were generated from different angles, each adversarially verified against the real code. All three landed on the same name. These are the ideas that lost.</p>
+  </div>
+
+  <div class="col">
+    <div class="rejected">
+      <div class="x">✕</div>
+      <div>
+        <h4>The hybrid — rib plus a new <code>/touchline</code> route tree</h4>
+        <p>Genuinely the closest call; it scored identically on feasibility, ambition and delight, and had the best reconnaissance in the bake-off. Rejected on one number: <code>BoardView.tsx</code> is 1,308 lines plus a 337-line hand-rolled chart section plus ~200 lines of region chrome. Its own risk section budgeted "roughly 400 lines" — a 4× underestimate of the one deliverable it correctly identified as load-bearing. And deferring costs nothing, because the bridge is already open.</p>
+      </div>
+    </div>
+    <div class="rejected">
+      <div class="x">✕</div>
+      <div>
+        <h4>A cron entry and more Next.js pages — the do-nothing-new option</h4>
+        <p>Gets you fresher wrong data. Worse, the naive version doesn't even work: <code>pipeline-run --school HU --year 2026</code> is a silent no-op at the database layer, because <code>scrape.py:103</code> skips the merge for a single year and <code>load_db.py:274-280</code> then reads the stale <code>all/</code> directory forever. You'd get a job that appears to succeed nightly and updates nothing.</p>
+      </div>
+    </div>
+    <div class="rejected">
+      <div class="x">✕</div>
+      <div>
+        <h4>Database views as the correctness layer</h4>
+        <p>You cannot create a view named <code>games</code> while the table <code>games</code> exists, and <code>Game.__tablename__ = "games"</code>. Reading views would mean editing <code>models.py</code> plus every query body. And creating objects in a database whose alembic head DELETEs every row from all five data tables is an ownership hazard a rib shouldn't take.</p>
+      </div>
+    </div>
+    <div class="rejected">
+      <div class="x">✕</div>
+      <div>
+        <h4>Workflow nodes that publish snapshots</h4>
+        <p>All three proposals had a bash node "publish to the snapshot key". A bash node is a <em>subprocess</em> — no snapshot manager, no rib context, no module state. Replaced with an in-process write-seam tool named in the prompt node's tool whitelist, which is exactly how chamber does it.</p>
+      </div>
+    </div>
+    <div class="rejected">
+      <div class="x">✕</div>
+      <div>
+        <h4>An LLM-authored HTML page</h4>
+        <p>A 262 KB page can't round-trip through a tool result, and re-authoring one per tick would silently redesign it every week — the archive would stop being a series. The pages are deterministic functions of the ledger; only the prose is generated, slotted into a fixed scaffold.</p>
+      </div>
+    </div>
+    <div class="rejected">
+      <div class="x">✕</div>
+      <div>
+        <h4>A starting-XI section with eleven seats</h4>
+        <p>The failure mode is backwards. 3,556 team-games flag exactly 11 starters, <strong>674 flag more</strong> (up to 22), and only 45 flag fewer. A section designed for eleven would render eighteen. Replaced: cap at 11 by minutes and surface the overflow as a warning badge — catching the defect that actually occurs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ PALETTE ══════════════════════ -->
+<section class="band">
+  <div class="col stack" style="margin-bottom:20px">
+    <span class="eyebrow">The visual contract</span>
+    <h2>Your palette carries over literally. Except in one place.</h2>
+    <p>
+      Keelson's own <code>validateCategoricalPalette</code> was run against the Ed Insights hexes.
+      Dark <code>[#0D9488, #F97316]</code> passes all four checks — lightness band, chroma floor,
+      colorblind separation (ΔE 59.4 protan), surface contrast. Light mode warns on
+      <code>#F97316</code> at 2.80:1 on white; swapping to <code>brand-accent #EA580C</code> passes.
+      That's the only adjustment.
+    </p>
+  </div>
+
+  <div class="col">
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#0D9488"></div><div class="meta"><div class="n" style="color:#0D9488">us</div><div class="h">#0D9488 · both modes</div></div></div>
+      <div class="sw"><div class="chip" style="background:#F97316"></div><div class="meta"><div class="n" style="color:#F97316">them · dark</div><div class="h">#F97316 · all pass</div></div></div>
+      <div class="sw"><div class="chip" style="background:#EA580C"></div><div class="meta"><div class="n" style="color:#EA580C">them · light</div><div class="h">#EA580C · all pass</div></div></div>
+      <div class="sw"><div class="chip" style="background:#10B981"></div><div class="meta"><div class="n" style="color:#059669">win</div><div class="h">#10B981</div></div></div>
+      <div class="sw"><div class="chip" style="background:#F59E0B"></div><div class="meta"><div class="n" style="color:#B45309">draw</div><div class="h">#F59E0B</div></div></div>
+      <div class="sw"><div class="chip" style="background:#F43F5E"></div><div class="meta"><div class="n" style="color:#E11D48">loss</div><div class="h">#F43F5E</div></div></div>
+    </div>
+  </div>
+
+  <div class="col" style="margin-top:22px">
+    <div class="note">
+      <strong>The one honest break.</strong> Keelson board <em>charts</em> use a fixed series ramp —
+      violet, gold, blue, rust, green, pink — assigned strictly by array index, never cycled, hard-capped
+      at six series. So pinning Harding to slot 1 paints it <strong>violet</strong> on the one board that
+      has a chart, while every other board paints it teal. The mitigation: give the tracked team slot 1 and
+      direct-label its endpoint, fold the seventh program into the caption, and put the real teal season-arc
+      in the Dispatch HTML where literal hex is available. Say it out loud rather than pretending the port
+      is lossless.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════ THE REAL RISK ══════════════════════ -->
+<section class="band">
+  <div class="col stack">
+    <span class="eyebrow">The risk that matters</span>
+    <h2>Nobody opens it.</h2>
+    <p class="lede">
+      Every other risk in this brief has a mitigation with a line number attached. This one doesn't.
+      The whole design points at it: the "since you last looked" register exists precisely so that opening
+      the tab on a Sunday morning immediately says something you didn't already know.
+    </p>
+    <p>
+      So here's the falsifiable failure condition, offered up front rather than discovered in December:
+      <strong>if that register is ever empty on a Monday in October, the system failed at its actual job.</strong>
+      That's measurable. Judge it by that, not by whether the charts are pretty.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <div class="col">
+    <div class="mast-meta" style="margin-bottom:14px">
+      <span>Touchline · design brief v1</span>
+      <span>for review &amp; debate</span>
+    </div>
+    <div class="note" style="margin-bottom:22px">
+      <strong>Corrected after publication.</strong> A reusable integrity checker
+      (<code>.keelson/workflows/data-integrity.yml</code>) was then built and run against the live
+      database, and it disproved two figures this brief originally carried. The identity defect is
+      <strong>164 games, 150 of them OKBU</strong> — not five schools at the rates first reported;
+      FHSU and RSU are unaffected.</p>
+    <p style="margin-top:.6rem"><strong>Corrected again, 8 August 2026.</strong> Two adversarial audits and a live re-measurement disproved more. <strong>The storage layer does corrupt:</strong> the per-season parquets hold 22,782 event rows against 22,754 in Postgres — 28 real events, one of them a goal, destroyed at load. The re-parse reproduces <strong>2,005 of 2,140</strong> games exactly, not 2,140, and it re-parses with the same parser that wrote the rows, so it cannot detect a consistent parser bug. The cross-source corroboration is <strong>not</strong> &ldquo;two unrelated websites&rdquo; for most pairs — roughly 454 of 593 are SideArm&nbsp;&times;&nbsp;SideArm, one platform and one parser; the genuinely independent evidence is the 139 pairs involving Harding. The 176 duplicate groups are gender-blind: gender-aware it is 138 now and 98 once the phantoms go, and all 39 &ldquo;score disagreements&rdquo; are legitimate men&rsquo;s-vs-women&rsquo;s fixtures. Red cards converge at <strong>158</strong>, not 166 — 8 of those markers sit in the phantom cache directories being deleted. And women&rsquo;s soccer is no longer deferred: it is the larger and cleaner half. The corrected, maintained version of this brief lives at <code>docs/BRIEF.md</code> in the repository. And season mislabelling covers <strong>two</strong>
+      program-seasons, not one: OBU 2020 holds 18 more wrong-year games than anyone had counted.
+      The duplication figure (176 groups) held. Corrections are in
+      <code>ADR-008</code> and <code>docs/specs/touchline-rib.md</code>.
+    </div>
+    <p class="cite">
+      Produced by fifteen agents reading <code>ed-insights-platform</code>, <code>edinsights-sports-ui</code>,
+      <code>keelson</code>, and the chamber / squad / workiq / osdu ribs — then three independent design
+      proposals, each adversarially verified against the real source, the running Keelson server on :7878,
+      and the live <code>ed_insights</code> Postgres. Every file:line in this document was checked, not inferred.
+      Match data shown in the mockups is illustrative; the 2026 season has not started.
+    </p>
+  </div>
+</footer>
+
+</div>
