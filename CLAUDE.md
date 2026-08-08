@@ -109,6 +109,30 @@ keelson workflow run ground-truth   --project ed-insights-platform  # re-parse c
 keelson workflow run bead-work      --project ed-insights-platform  # claim next bead → draft PR
 ```
 
+## Audit before you trust
+
+Plans and acceptance criteria on this project get an adversarial pass before anyone
+executes them — a subagent prompted to *break* the thing, with database access so its
+findings carry evidence rather than opinion, and its load-bearing claims re-verified
+before acting.
+
+This is not ceremony. An audit of the 64-issue repair plan returned 14 findings, four of
+them damaging, after several rounds of ordinary verification had missed all four.
+
+**The failure mode it exists to catch:** *a rule that looks obviously right, where nobody
+asked what legitimate data it excludes.* Two real instances so far —
+
+- `extract(year from date) != season_year` as a phantom-row detector condemns **79
+  legitimate games**: nine programmes played their COVID season in spring 2021, correctly
+  filed under `season_year=2020`. The right predicate is
+  `NOT IN (season_year, season_year + 1)`, which returns exactly the 42 real phantoms.
+- A canonical match key on `(date, sorted institution pair)` without **gender** collapses
+  **40 genuinely distinct fixtures** — a men's and a women's match, same date, same two
+  schools — and 39 of the 40 carry different scores.
+
+Acceptance criteria are where this hides, because they read as self-evidently correct.
+Audit them specifically. Ask of every predicate: *what valid row does this throw away?*
+
 ## Rules
 
 - Polecats stay in their assigned component directory.
