@@ -78,19 +78,44 @@ nodes:
       # NOT `GROUPS` — that is a readonly bash builtin array (the caller's gids).
       # Assigning to it is silently ignored and $GROUPS expands to a gid (20 on
       # macOS/staff), which reads as a plausible count. Cost us a wrong number once.
-      DUPGROUPS=$(Q "SELECT count(*) FROM (SELECT date, home_team, away_team FROM games WHERE date IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1) d")
-      EXTRA=$(Q "SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) AS n FROM games WHERE date IS NOT NULL GROUP BY date, home_team, away_team HAVING count(*) > 1) d")
-      DISAGREE=$(Q "SELECT count(*) FROM (SELECT date, home_team, away_team FROM games WHERE date IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1 AND (count(DISTINCT home_score) > 1 OR count(DISTINCT away_score) > 1)) d")
+      # GENDER IS PART OF THE KEY. A men's and a women's fixture on the same date
+      # between the same two schools are two DIFFERENT matches, and 40 such pairs
+      # exist here (CROSSGENDER below counts them live). The old key was
+      # (date,home_team,away_team) with no gender axis, so it merged every one of
+      # them and then read their naturally differing scores as corruption: it
+      # reported 39 "duplicate groups disagreeing on score" and raised an ALARM on
+      # all 39. Gender-aware that number is 0 — the alarm was 100% false positives,
+      # and it inverted the actual good news (no real score disagreement anywhere)
+      # into the file's loudest verdict. s.gender is safe to key on: it is non-NULL
+      # for all 2,140 rows and every row corroborates it against its own source_url
+      # (1,803 via the mens-soccer/womens-soccer segment, 337 via Harding's
+      # msoc/wsoc convention), with zero disagreements under either convention.
+      DUPGROUPS=$(Q "SELECT count(*) FROM (SELECT g.date, g.home_team, g.away_team, s.gender FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*) > 1) d")
+      EXTRA=$(Q "SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) AS n FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY g.date, g.home_team, g.away_team, s.gender HAVING count(*) > 1) d")
+      DISAGREE=$(Q "SELECT count(*) FROM (SELECT g.date, g.home_team, g.away_team, s.gender FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*) > 1 AND (count(DISTINCT g.home_score) > 1 OR count(DISTINCT g.away_score) > 1)) d")
       NODATE=$(Q "SELECT count(*) FROM games WHERE date IS NULL")
+      TOTAL=$(Q "SELECT count(*) FROM games")
+      # The staged expectation, measured live rather than recorded flat so it cannot
+      # go stale. DUPCLEAN re-counts the same gender-aware groups over only the rows
+      # tl-o23 will leave behind. The phantom predicate is NOT `!= season_year` —
+      # that condemns 79 legitimate games, because nine programmes played their COVID
+      # season in spring 2021 correctly filed under season_year=2020. IN
+      # (season_year, season_year+1) is its audited complement. Do not "simplify" it.
+      DUPCLEAN=$(Q "SELECT count(*) FROM (SELECT g.date, g.home_team, g.away_team, s.gender FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL AND EXTRACT(YEAR FROM g.date)::int IN (g.season_year, g.season_year+1) GROUP BY 1,2,3,4 HAVING count(*) > 1) d")
+      PHANTOMS=$(Q "SELECT count(*) FROM games WHERE date IS NOT NULL AND EXTRACT(YEAR FROM date)::int NOT IN (season_year, season_year+1)")
+      # Both measured live so the cause states what the gender axis is actually
+      # buying today, instead of asserting a number that was true once.
+      CROSSGENDER=$(Q "SELECT count(*) FROM (SELECT g.date, g.home_team, g.away_team FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3 HAVING count(DISTINCT s.gender) > 1) d")
+      BLINDDIS=$(Q "SELECT count(*) FROM (SELECT date, home_team, away_team FROM games WHERE date IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1 AND (count(DISTINCT home_score) > 1 OR count(DISTINCT away_score) > 1)) d")
       MISSING=
-      for v in DUPGROUPS EXTRA DISAGREE NODATE; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      for v in DUPGROUPS EXTRA DISAGREE NODATE TOTAL DUPCLEAN PHANTOMS CROSSGENDER BLINDDIS; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
       if [ -n "$MISSING" ]; then
         printf '{"check":"duplication","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
         exit 0
       fi
       V=ok; [ "$DUPGROUPS" -gt 0 ] && V=warn; [ "$DISAGREE" -gt 0 ] && V=alarm
-      printf '{"check":"duplication","verdict":"%s","headline":"%s duplicate (date,home,away) groups, %s extra rows, %s disagree on score; %s rows have no date and cannot be checked","cause":"a fixture scraped from both schools becomes two rows; no canonical match key exists"}\n' \
-        "$V" "$DUPGROUPS" "$EXTRA" "$DISAGREE" "$NODATE"
+      printf '{"check":"duplication","verdict":"%s","headline":"%s duplicate (date,home,away,gender) groups, %s extra rows, %s disagree on score; %s of %s rows have no date and are outside this check. Expect %s now and %s once tl-o23 deletes the %s phantom rows — a later drop to %s is that repair landing, not a regression.","cause":"a fixture scraped from both schools becomes two rows; no canonical match key exists. Gender is in the key deliberately: %s same-day fixtures between the same two schools are a genuine mens and womens pair, so the gender-blind key this check used to apply merged them and read their differing scores as corruption — %s false score disagreements, alarmed on, versus %s real ones now."}\n' \
+        "$V" "$DUPGROUPS" "$EXTRA" "$DISAGREE" "$NODATE" "$TOTAL" "$DUPGROUPS" "$DUPCLEAN" "$PHANTOMS" "$DUPCLEAN" "$CROSSGENDER" "$BLINDDIS" "$DISAGREE"
 
   # ── 4. Season labelling ─────────────────────────────────────────────────
   - id: season-label
@@ -283,7 +308,18 @@ nodes:
       # measurement that sails through the non-empty assertion below, because 0 is also
       # what a real but empty export reports. The file count is the only thing that
       # separates "the export holds no rows" from "there is no export to read".
-      PY='import glob,pandas as pd; fs=sorted(glob.glob("data/structured/*/all/games.parquet")); print(len(fs), sum(len(pd.read_parquet(f,columns=["game_id"])) for f in fs))'
+      # WHICH parquet corpus this reads, because the two are easy to confuse and the
+      # difference is 712 rows. The glob data/structured/*/all/games.parquet matches
+      # the 13 PER-SCHOOL exports (ecu, fhsu, hu, ...), each of which has its own
+      # all/ subdirectory. It does NOT match the merged export at
+      # data/structured/all/games.parquet — that path has no all/all/ under it. The
+      # per-school sum is 2140 and its game_id set is identical to Postgres (verified
+      # both directions, 0 rows on either side), so DB = PQ is the correct
+      # expectation for this corpus and any gap is a real finding. The merged export
+      # is a different, stale file: 2852 rows, a strict superset of the db carrying
+      # 712 retired-ordinal rows that CLAUDE.md warns against reading. MC measures it
+      # separately so the report can say so, and it never enters the DB/PQ equality.
+      PY='import glob,os,pandas as pd; fs=sorted(glob.glob("data/structured/*/all/games.parquet")); m="data/structured/all/games.parquet"; mc=(len(pd.read_parquet(m,columns=["game_id"])) if os.path.exists(m) else "absent"); print(len(fs), sum(len(pd.read_parquet(f,columns=["game_id"])) for f in fs), mc)'
       # Piping straight into `tail -1` threw python's EXIT STATUS away. A run that dies
       # partway — one corrupt or unreadable parquet out of thirteen — can have printed to
       # stdout before it failed, and tail hands that line on as though it were the answer.
@@ -294,11 +330,14 @@ nodes:
         exit 0
       fi
       PQOUT=$(printf '%s' "$PQRAW" | tail -1)
-      # Split only a well-formed two-integer line. Anything else — a truncated line, a
-      # traceback tail, a uv diagnostic — leaves BOTH empty and trips the assertion,
-      # rather than being silently parsed as a count.
-      PQFILES=$(printf '%s' "$PQOUT" | awk 'NF==2 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1}')
-      PQ=$(printf '%s' "$PQOUT" | awk 'NF==2 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $2}')
+      # Split only a well-formed three-field line: two integers and a third that is
+      # either an integer or the literal token absent. Anything else — a truncated
+      # line, a traceback tail, a uv diagnostic — leaves ALL THREE empty and trips the
+      # assertion, rather than being silently parsed as a count.
+      OK3='NF==3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && ($3 ~ /^[0-9]+$/ || $3 == "absent")'
+      PQFILES=$(printf '%s' "$PQOUT" | awk "$OK3"' {print $1}')
+      PQ=$(printf '%s' "$PQOUT" | awk "$OK3"' {print $2}')
+      MC=$(printf '%s' "$PQOUT" | awk "$OK3"' {print $3}')
       # du keeps walking after a permission error, prints a total for what it COULD read,
       # and exits nonzero — so `du -sh ... | cut` yields a plausible undercount with no
       # signal in the value itself: `1.1G` and `4.0K` are equally well-formed. Piping to
@@ -322,9 +361,21 @@ nodes:
       # it appeared only as ${DB:-?} in the headline, so a dead database read
       # "db ? games" with verdict ok. All six captures are asserted here.
       MISSING=
-      for v in DB PQ PQFILES RAW ONDISK TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      for v in DB PQ PQFILES MC RAW ONDISK TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
       if [ -n "$MISSING" ]; then
-        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ and PQFILES from uv run python over data/structured/*/all/games.parquet, RAW from du, ONDISK from find, TRACKED from git ls-files). Those are failures, not measurements of zero. Database half: %s.","cause":"stderr is discarded on all of them, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing or partly unreadable raw_html directory, an unexpected working directory, or git failing. Re-run the commands by hand from the repo root."}\n' "$MISSING" "$DBHALF"
+        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ PQFILES and MC from uv run python over data/structured, RAW from du, ONDISK from find, TRACKED from git ls-files). Those are failures, not measurements of zero. Database half: %s.","cause":"stderr is discarded on all of them, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing or partly unreadable raw_html directory, an unexpected working directory, or git failing. Re-run the commands by hand from the repo root."}\n' "$MISSING" "$DBHALF"
+        exit 0
+      fi
+      # DB and PQ are the two operands of the equality below, so being non-empty is
+      # not enough — they must be NUMBERS. `[ x -ne y ]` on a non-numeric operand is
+      # a test ERROR (exit 2), not false, so the comparison would silently not fire
+      # and V would keep its initialised ok. That is the exact shape of the bug this
+      # node is being fixed for, so the new comparison is guarded against it rather
+      # than reintroducing it one layer down.
+      NONNUM=
+      for v in DB PQ; do case "${!v}" in *[!0-9]*|"") NONNUM="$NONNUM $v";; esac; done
+      if [ -n "$NONNUM" ]; then
+        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — non-numeric result for:%s, so the db-vs-parquet comparison cannot be made. A comparison that cannot be evaluated is not a pass.","cause":"psql or the parquet reader returned something that is not a row count. Re-run both by hand from the repo root and look at what they actually printed."}\n' "$NONNUM"
         exit 0
       fi
       # PQFILES is non-empty here, so it is a real count and 0 means the glob genuinely
@@ -335,14 +386,52 @@ nodes:
         exit 0
       fi
       V=ok
-      [ "${PQ:-0}" -lt 0 ] 2>/dev/null && V=warn
-      [ "${TRACKED:-0}" -gt 0 ] 2>/dev/null && V=warn
-      # Same numbers, each now stated over the corpus it was measured on: the parquet row
-      # sum over the files it read, and the git-tracked count over the files on disk.
-      # `parquet all/ 2140 rows` and `parquet all/ 2140 rows across 13 files` are the same
-      # measurement; `across 1 file` and `across 13 files` are not the same news.
-      printf '{"check":"archive","verdict":"%s","headline":"db %s games vs parquet all/ %s rows across %s parquet files read; raw_html %s, %s of %s files on disk git-tracked","cause":"a twice-weekly in-season refresh adds ~260 tracked files per run"}\n' \
-        "$V" "${DB:-?}" "${PQ:-?}" "${PQFILES:-?}" "${RAW:-?}" "${TRACKED:-0}" "${ONDISK:-?}"
+      # THE REAL COMPARISON. This line used to read `[ "${PQ:-0}" -lt 0 ]` — a test for
+      # a NEGATIVE ROW COUNT, which cannot happen, so the verdict could never fire and
+      # DB and PQ were never compared to each other anywhere in the node. A parquet
+      # export holding 999,999 rows against Postgres 2,140 printed ok. Both happen to
+      # be 2140 today, so the check has been right by accident, not by measurement.
+      AGREE="counts agree"
+      # ALARM, not warn. This one comparison is the entire reason the node exists, and
+      # two other conditions below raise `warn` on every reachable run (TRACKED is 2140
+      # and the merged export legitimately exceeds the db). A mismatch signalled at the
+      # same level as two permanent warns is indistinguishable from them — which would
+      # leave the verdict exactly as inert as the `[ "${PQ:-0}" -lt 0 ]` test this
+      # replaced. The headline changed; the signal has to change too.
+      # Severity only ever RISES. Plain `V=warn` further down would silently downgrade an
+      # alarm set here — which is how the first attempt at this fix broke: the mismatch
+      # correctly set alarm, then the always-true TRACKED line on the next line reset it to
+      # warn, and the escalation was invisible. A later assignment that can undo an earlier
+      # signal is the same defect as the dead predicate this whole node is being repaired for.
+      raise() { case "$V:$1" in ok:warn|ok:alarm|warn:alarm) V=$1 ;; esac; }
+      if [ "$DB" -ne "$PQ" ]; then raise alarm; AGREE="MISMATCH, parquet minus db = $((PQ - DB)) rows"; fi
+      [ "${TRACKED:-0}" -gt 0 ] 2>/dev/null && raise warn
+      # The merged export is reported, never compared. It is expected to exceed the db
+      # and doing so is not this check failing — but it is worth naming every run,
+      # because it is the file a careless consumer reads instead of the per-school
+      # ones, and the gap is the whole reason the stale 2,852-game figure keeps
+      # resurfacing. Absent is a legitimate state and says so rather than printing 0.
+      # Branch on the direction rather than printing db + $((MC - DB)) unconditionally:
+      # that phrasing asserts the merged export is a SUPERSET of the db, which is only
+      # what is true today (2852 = 2140 + 712). A merged export smaller than the db is
+      # a different and equally reportable state, and printing it as `db + -712 rows`
+      # would be stating a relationship the data does not support.
+      if [ "$MC" = "absent" ]; then
+        MHALF="merged data/structured/all/games.parquet is absent, so nothing can read the stale superset"
+      elif [ "$MC" -gt "$DB" ]; then
+        MHALF="merged data/structured/all/games.parquet holds $MC rows = db + $((MC - DB)) rows the db does not have (retired school ordinals) and is NOT part of the comparison above"
+      elif [ "$MC" -lt "$DB" ]; then
+        MHALF="merged data/structured/all/games.parquet holds $MC rows, $((DB - MC)) FEWER than the db rather than the usual surplus, and is NOT part of the comparison above"
+        raise warn
+      else
+        MHALF="merged data/structured/all/games.parquet holds $MC rows, equal to the db, so its retired-ordinal surplus is gone"
+      fi
+      # Each number stated over the corpus it was measured on, and the corpus named in
+      # full: `parquet all/ 2140 rows` was ambiguous between the 13 per-school all/
+      # exports that were actually summed and the single merged all/ export that was
+      # not, which are 712 rows apart.
+      printf '{"check":"archive","verdict":"%s","headline":"db %s games vs %s rows summed across the %s per-school data/structured/*/all/games.parquet exports — %s; %s; raw_html %s, %s of %s files on disk git-tracked","cause":"a twice-weekly in-season refresh adds ~260 tracked files per run. The db-vs-parquet equality is the right expectation for the per-school corpus: its game_id set matches Postgres exactly in both directions, so a gap there is a real divergence and not an export convention."}\n' \
+        "$V" "$DB" "$PQ" "$PQFILES" "$AGREE" "$MHALF" "$RAW" "$TRACKED" "$ONDISK"
 
   # ── Report ──────────────────────────────────────────────────────────────
   - id: report

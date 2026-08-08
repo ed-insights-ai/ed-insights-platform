@@ -2,7 +2,7 @@ name: ground-truth
 description: |
   Use when: you need to know whether what Postgres holds actually matches what the source box score said — before building a season-long system on it, and after any parser, loader or scraper change.
   Triggers: "ground truth", "is the data true", "source fidelity", "does the DB match the HTML", "did the parser fix work", "re-parse check".
-  Does: runs twelve deterministic read-only checks against the cached box-score HTML, the parquet archive and the live Postgres, then prints one report with a per-check verdict and the file:line that causes each failure. Covers both men's and women's programmes.
+  Does: runs thirteen deterministic read-only checks against the cached box-score HTML, the parquet archive and the live Postgres, then prints one report with a per-check verdict and the file:line that causes each failure. Covers both men's and women's programmes.
   NOT for: internal consistency (that is data-integrity.yml), repairing anything (this never writes), scraping, or anything that touches the network.
 
 requiresProject: true
@@ -24,7 +24,7 @@ tags: [data, fidelity, source-of-truth, soccer]
 # STRING. `${X:-0}` then substitutes the BENIGN value and the verdict stays `ok`;
 # where there is no default, `[ "" -gt 0 ]` is a test ERROR (exit 2) rather than
 # false, so the unguarded `&& V=alarm` never fires and V keeps its initialised
-# `ok`. Nine of the twelve checks here used to read `[ OK ]` against a database
+# `ok`. Nine of the twelve checks then in this file used to read `[ OK ]` against a database
 # that did not exist, with `?` in every headline slot.
 #
 # The convention, taken from the cache-provenance check below: after the queries
@@ -395,66 +395,562 @@ nodes:
       printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s of %s cached HU+HUW box scores read, of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page. Read the venue figures against the box-score denominator: they are a claim about the corpus that was actually read, not about every box score that should exist"}\n' \
         "$V" "$CONTRA" "$PAIRSETS" "$WITHVENUE" "$SRCFILES" "$AWAYSRC" "$STORED" "$HUTOTAL" "$SELFHOME"
 
+  # ── 2b. The Site: city oracle — home/away against a source outside the parser ──
+  # THE CHECK THE HEADLINE DEFECT NUMBER WAS MEASURED WITH, and until now it was
+  # in neither workflow: "home/away correct in only 651 of 1,745 SideArm games"
+  # is what justifies the whole repair, and nothing in this suite reproduced it.
+  #
+  # Read this against check 2 above, which it does not replace:
+  #   * 2's CONTRA counts fixtures whose two perspectives disagree. Both rows of
+  #     a SideArm x SideArm fixture come from ONE parse_sidearm_game, so they can
+  #     be made to agree on the same WRONG orientation and CONTRA still goes to
+  #     zero. This node cannot be satisfied that way: the Site: city is printed
+  #     by the athletics site and is external to both parsers.
+  #   * 2's AWAYSRC treats a StatCrew title with no city as an away game. Here a
+  #     page that states no city is INDETERMINATE — its own count, folded into
+  #     neither correct nor wrong.
+  #   * 2's alarm needs all 337 HU+HUW rows to claim Harding home, so half a fix
+  #     turns it green. This node alarms on the per-row wrong count, so it stays
+  #     red until the last row is right.
+  #
+  # THE SCHOOL -> HOME CITY MAP IS DERIVED, NOT WRITTEN DOWN. schools.toml has no
+  # city. A hand-typed map would be an unfalsifiable constant in the middle of an
+  # instrument. Instead: a programme's home city is the modal Site: city over its
+  # OWN cached pages — it plays about half its fixtures at home and its away
+  # fixtures scatter over a dozen cities, so the mode is the home city by a wide
+  # margin. The margin is the confidence and it is printed: mode count, pages
+  # backing it, and the runner-up. A programme whose mode is under 20 pages or
+  # not twice its runner-up is NOT mapped; it is named and its games become
+  # indeterminate rather than being judged against a city nobody established.
+  #
+  # THE PROGRAMME'S OWN NAME IS ALSO DERIVED. Postgres spells the same programme
+  # several ways — 'Okla. Baptist' 149 times and 'Oklahoma Baptist' 41 — so a
+  # single substring for the school silently drops a fifth of OKBU's corpus, and
+  # THAT is most of the difference between this node's denominator and the
+  # recorded 1,745. Spellings are grown by cover: the modal name first, then any
+  # name that covers over half the programme's still-uncovered games and beats
+  # the runner-up in them, refusing any name already owned by a programme in a
+  # different city (without that guard SNU claims 'Ouachita' off two stray rows).
+  # Games where the two stored names still do not identify the programme are
+  # indeterminate and counted.
+  #
+  # FAIL CLOSED. NORUN is declared before the first guard. The two filesystem
+  # sources get SOURCE-side guards, not value guards: the counters here are
+  # built from a directory walk and a loop, so they can only ever read 0, never
+  # empty, and 0 is exactly what a missing cache, a chmod-000 directory or a
+  # wrong cwd produces. Files are counted before anything inside them is
+  # believed. The Postgres read is wrapped only around connect/execute/fetch so
+  # a dead database names itself instead of arriving as a silent zero; nothing
+  # downstream of the counting is inside a try.
+  - id: site-city-oracle
+    runtime: uv
+    timeout: 300000
+    deps: [psycopg2-binary]
+    script: |
+      import json, os, re
+      from collections import Counter, defaultdict
+      from pathlib import Path
+      import psycopg2
+
+      # Declared before the first guard. Anything that appends to it later would
+      # otherwise be reaching for a name that does not exist yet, and it would
+      # fail only on the failure path — green on every run that did not need it.
+      NORUN = []
+      CHECK = "site-city-oracle"
+
+      def emit(v, h, c):
+          print(json.dumps({"check": CHECK, "verdict": v, "headline": h, "cause": c}))
+          raise SystemExit(0)
+
+      def stop(why):
+          emit("alarm", "CHECK DID NOT RUN — could not read:" + "".join(" " + x for x in NORUN)
+               + ". Those are unread sources, not measurements of zero.", why)
+
+      def find_root():
+          cands = []
+          if os.environ.get("KEELSON_PROJECT_DIR"):
+              cands.append(Path(os.environ["KEELSON_PROJECT_DIR"]))
+          here = Path.cwd().resolve()
+          cands.append(here)
+          cands.extend(here.parents)
+          for b in cands:
+              b = Path(b).resolve()
+              if (b / "packages/pipeline/config/schools.toml").is_file():
+                  return b
+          return None
+
+      ROOT = find_root()
+      if ROOT is None:
+          NORUN.append("repository root (no packages/pipeline/config/schools.toml at or above cwd " + str(Path.cwd()) + ")")
+          stop("this node reads two filesystem sources relative to the repository root and neither was found. Nothing is reported rather than reporting an oracle that was never built.")
+
+      CFG = ROOT / "packages/pipeline/config/schools.toml"
+      RAW = ROOT / "packages/pipeline/data/raw_html"
+
+      # Which programmes are SideArm is not in Postgres — schools has no scraper
+      # column — so it comes from the config the scraper itself reads.
+      SIDE, STAT = set(), set()
+      try:
+          ab = None
+          for line in CFG.read_text(encoding="utf-8", errors="replace").splitlines():
+              s = line.strip()
+              if s.startswith("[[schools]]"):
+                  ab = None
+              elif s.startswith("abbreviation") and '"' in s:
+                  ab = s.split('"')[1]
+              elif s.startswith("scraper") and ab and '"' in s:
+                  v = s.split('"')[1]
+                  if v == "sidearm":
+                      SIDE.add(ab)
+                  elif v == "statcrew":
+                      STAT.add(ab)
+      except Exception as exc:
+          NORUN.append("schools.toml (%s: %s)" % (type(exc).__name__, exc))
+      if not SIDE:
+          NORUN.append("0 sidearm abbreviations from " + str(CFG))
+      if not STAT:
+          NORUN.append("0 statcrew abbreviations from " + str(CFG))
+      CACHED = 0
+      if not (RAW.is_dir() and os.access(RAW, os.R_OK) and os.access(RAW, os.X_OK)):
+          NORUN.append("cached-HTML root is not a readable directory: " + str(RAW))
+      else:
+          CACHED = sum(1 for _ in RAW.rglob("*.html"))
+          if CACHED == 0:
+              NORUN.append("0 .html files under " + str(RAW))
+      if NORUN:
+          stop("the platform census comes from the pipeline's own schools.toml and the venue evidence from the cached corpus. A missing or restructured config, an unreadable cache, or a cwd that is not the repository root empties both silently, and is_dir() alone does not catch a chmod-000 directory — the files are counted before anything inside them is trusted. Never fall back to a hardcoded programme list.")
+
+      DSN = os.environ.get("DATABASE_URL", "postgresql://lume@localhost:5432/ed_insights")
+      rows = []
+      try:
+          conn = psycopg2.connect(DSN)
+          cur = conn.cursor()
+          cur.execute("SELECT s.abbreviation, s.gender, g.game_id, g.home_team, g.away_team "
+                      "FROM games g JOIN schools s ON s.id = g.school_id ORDER BY 1, 3")
+          rows = cur.fetchall()
+      except Exception as exc:
+          NORUN.append("Postgres (%s: %s)" % (type(exc).__name__, str(exc).strip().replace("\n", " ")[:140]))
+      if NORUN:
+          stop("the try covers connect, execute and fetch only, so the reason is captured instead of arriving as an empty result set; nothing downstream of the counting is inside it.")
+      if not rows:
+          NORUN.append("games table returned 0 rows")
+          stop("there is nothing to compare against source.")
+
+      SITE = re.compile(rb"<dt>\s*Site:\s*</dt>\s*<dd>(.{0,2000}?)</dd>", re.I | re.S)
+
+      # Four outcomes, deliberately distinguished: no dt/dd at all, a blank dd, a
+      # dd holding no letters (SideArm renders a missing venue as the literal 0 on
+      # 80 pages), and a city. Only the last is evidence.
+      def read_site(p):
+          m = SITE.search(p.read_bytes())
+          if not m:
+              return "notag", None
+          t = m.group(1).decode("utf-8", "replace")
+          t = re.sub(r"<[^>]+>", " ", t).replace("&nbsp;", " ")
+          t = re.sub(r"\s+", " ", t).strip()
+          if not t:
+              return "blank", None
+          c = re.sub(r"[^a-z0-9 .\-']", "", t.split(",")[0].strip().lower())
+          c = re.sub(r"\s+", " ", c).strip()
+          if not c or not re.search(r"[a-z]", c):
+              return "sentinel", None
+          return "city", c
+
+      G = []
+      total, pages, tagged = Counter(), Counter(), Counter()
+      for ab, gender, gid, ht, at in rows:
+          total[ab] += 1
+          p = RAW / ab.lower() / str((gid % 1000000) // 100) / ("game_%02d.html" % (gid % 100))
+          if not (p.is_file() and os.access(p, os.R_OK)):
+              G.append(dict(ab=ab, g=gender, gid=gid, ht=ht, at=at, kind="nopage", city=None))
+              continue
+          pages[ab] += 1
+          kind, city = read_site(p)
+          if kind != "notag":
+              tagged[ab] += 1
+          G.append(dict(ab=ab, g=gender, gid=gid, ht=ht, at=at, kind=kind, city=city))
+
+      READ = sum(pages.values())
+      if READ == 0:
+          NORUN.append("0 of %d game rows had a readable cached page under %s" % (len(G), RAW))
+          stop("every expected cache path was missing or unreadable, which reads identically to a corpus that states no venue unless the pages are counted first.")
+
+      PROG = sorted(total)
+      pcity = defaultdict(Counter)
+      for x in G:
+          if x["city"]:
+              pcity[x["ab"]][x["city"]] += 1
+      MINMODE, MODERATIO = 20, 2.0
+      home, weakcity, cityline = {}, [], []
+      for ab in PROG:
+          c = pcity.get(ab, Counter())
+          mc = c.most_common(2)
+          cited = sum(c.values())
+          ru = mc[1][1] if len(mc) > 1 else 0
+          if mc and mc[0][1] >= MINMODE and mc[0][1] >= MODERATIO * max(ru, 1):
+              home[ab] = mc[0][0]
+              cityline.append("%s=%s %d/%d cited over %d pages, next %s %d"
+                              % (ab, mc[0][0], mc[0][1], cited, pages[ab],
+                                 (mc[1][0] if len(mc) > 1 else "none"), ru))
+          elif tagged[ab] > 0:
+              weakcity.append("%s(best %s over %d cited of %d pages)" % (ab, (mc[0] if mc else "no city at all"), cited, pages[ab]))
+      # Only programmes whose pages were actually READ and carried no Site: line.
+      # A programme with no readable page at all belongs to the no_page bucket and
+      # naming it here would put a list beside a count of 0.
+      NOTAG = [a for a in PROG if tagged[a] == 0 and pages[a] > 0]
+
+      # Spellings of a programme's own name, grown by cover. A name is refused if
+      # a programme in a DIFFERENT home city already owns it; two programmes that
+      # share a city (a men's and a women's side of one school) may share a name.
+      MAPPED = sorted(home)
+      bysch = defaultdict(list)
+      for x in G:
+          bysch[x["ab"]].append(x)
+      selfn = dict((ab, set()) for ab in MAPPED)
+      owner = {}
+      for ab in MAPPED:
+          prim = Counter([n for x in bysch[ab] for n in (x["ht"], x["at"])]).most_common(1)[0][0]
+          selfn[ab].add(prim)
+          owner.setdefault(prim, set()).add(home[ab])
+      SPELL = len(MAPPED)
+      while True:
+          best = None
+          for ab in MAPPED:
+              rem = [x for x in bysch[ab] if not (selfn[ab] & set([x["ht"], x["at"]]))]
+              if not rem:
+                  continue
+              c = Counter()
+              for x in rem:
+                  for n in (x["ht"], x["at"]):
+                      if n in selfn[ab]:
+                          continue
+                      if n in owner and home[ab] not in owner[n]:
+                          continue
+                      c[n] += 1
+              if not c:
+                  continue
+              mc = c.most_common(2)
+              top, k = mc[0]
+              ru = mc[1][1] if len(mc) > 1 else 0
+              if k < 0.5 * len(rem) or k <= ru:
+                  continue
+              if best is None or k > best[2]:
+                  best = (ab, top, k)
+          if best is None:
+              break
+          selfn[best[0]].add(best[1])
+          owner.setdefault(best[1], set()).add(home[best[0]])
+          SPELL += 1
+
+      # Secondary map, used ONLY to say how well an away verdict is corroborated:
+      # the modal Site: city of every game a given team name appears in, anywhere
+      # in the corpus. It never decides a verdict.
+      ncity = defaultdict(Counter)
+      for x in G:
+          if x["city"]:
+              for n in (x["ht"], x["at"]):
+                  ncity[n][x["city"]] += 1
+      nhome = {}
+      for n, c in ncity.items():
+          mc = c.most_common(2)
+          tot = sum(c.values())
+          ru = mc[1][1] if len(mc) > 1 else 0
+          if tot >= 4 and mc[0][1] > ru and mc[0][1] >= 1.5 * max(ru, 1):
+              nhome[n] = mc[0][0]
+
+      B = Counter()
+      per = defaultdict(Counter)
+      pgen = defaultdict(Counter)
+      strong = weakaway = foldc = foldd = 0
+      for x in G:
+          ab = x["ab"]
+          if x["kind"] == "nopage":
+              B["no_page"] += 1
+              continue
+          if ab not in home:
+              B["no_tag" if tagged[ab] == 0 else "no_home_city"] += 1
+              continue
+          hs = x["ht"] in selfn[ab]
+          asf = x["at"] in selfn[ab]
+          if hs == asf:
+              B["no_side"] += 1
+              continue
+          if x["city"] is None:
+              B["no_city"] += 1
+              B["no_city_" + x["kind"]] += 1
+              foldd += 1
+              foldc += 1 if not hs else 0
+              continue
+          truth = (x["city"] == home[ab])
+          ok = (hs == truth)
+          B["correct" if ok else "wrong"] += 1
+          per[ab]["correct" if ok else "wrong"] += 1
+          per[ab]["n"] += 1
+          pgen[x["g"]]["correct" if ok else "wrong"] += 1
+          foldd += 1
+          foldc += 1 if ok else 0
+          if not truth:
+              opp = x["at"] if hs else x["ht"]
+              if nhome.get(opp) == x["city"]:
+                  strong += 1
+              else:
+                  weakaway += 1
+
+      DET = B["correct"] + B["wrong"]
+      INDET = B["no_page"] + B["no_tag"] + B["no_home_city"] + B["no_side"] + B["no_city"]
+      ORACLEGAMES = sum(total[a] for a in MAPPED)
+      SIDEARM = sum(total[a] for a in PROG if a in SIDE)
+      STATG = sum(total[a] for a in PROG if a in STAT)
+      rank = sorted([(per[a]["correct"], per[a]["n"], a) for a in MAPPED if per[a]["n"] > 0],
+                    key=lambda t: (t[0] * 1.0 / t[1], t[2]))
+      extremes = ("lowest %s %d/%d, highest %s %d/%d"
+                  % (rank[0][2], rank[0][0], rank[0][1], rank[-1][2], rank[-1][0], rank[-1][1])) if rank else "no programme produced a determinate game"
+
+      # Per-row, so half a repair cannot turn it green; and DET == 0 alarms too —
+      # a real measurement, but one with no evidence behind the headline.
+      V = "alarm" if (B["wrong"] > 0 or DET == 0) else ("warn" if INDET > 0 else "ok")
+
+      headline = (
+          "SOURCE VENUE ORACLE (the Site: city in the cached page's dt/dd, external to both parsers): stored "
+          "home_team names the team whose own home city is the stated venue in %d of %d determinate games "
+          "(%.1f%%), %d are WRONG, and %d are INDETERMINATE and held out of both — %d cached page missing or "
+          "unreadable, %d pages stating no usable city (%d hold the literal sentinel 0, %d a blank dd, %d no "
+          "Site: dt/dd), %d where the two stored names do not identify the scraping programme, %d in programmes "
+          "whose pages carry no Site: line at all (%s), %d in programmes whose home city could not be established "
+          "(%s). Every one of the %d game rows is in exactly one of those buckets. Corpus: %d .html files cached, "
+          "%d read for these rows, %d carrying a Site: dt/dd; by schools.toml %d rows are SideArm and %d StatCrew. "
+          "Oracle covers %d programmes over %d rows through %d derived name spellings; %s. Men %d/%d, women %d/%d. "
+          "Of the %d games the source places away from the scraping programme's own city, %d are corroborated by "
+          "the venue equalling the OTHER stored team's derived home city and %d rest only on the venue not being "
+          "the programme's city. Home city per programme, each the modal Site: city of that programme's own pages: "
+          "%s. Folding the %d venue-less pages back in as away games — ONE of the two conventions behind the recorded 651 of "
+          "1,745 — gives %d of %d."
+          % (B["correct"], DET, 100.0 * B["correct"] / max(DET, 1), B["wrong"], INDET,
+             B["no_page"], B["no_city"], B["no_city_sentinel"], B["no_city_blank"], B["no_city_notag"],
+             B["no_side"], B["no_tag"], (", ".join(NOTAG) if NOTAG else "none"),
+             B["no_home_city"], (", ".join(weakcity) if weakcity else "none"),
+             len(G), CACHED, READ, sum(tagged.values()), SIDEARM, STATG,
+             len(MAPPED), ORACLEGAMES, SPELL, extremes,
+             pgen["men"]["correct"], pgen["men"]["correct"] + pgen["men"]["wrong"],
+             pgen["women"]["correct"], pgen["women"]["correct"] + pgen["women"]["wrong"],
+             strong + weakaway, strong, weakaway,
+             ("; ".join(cityline) if cityline else "none established"),
+             B["no_city"], foldc, foldd))
+
+      cause = (
+          "A wrong row is a game whose home_team names the visiting side: the page states the city, that city is "
+          "one programme's own home city, and Postgres names the other team home. Mechanism: "
+          "sidearm_parser.py:127-134 assigns score-table row 0 to home where SideArm renders the VISITOR first, "
+          "and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from "
+          "a vs/at regex returning True on every page. READ THE THREE COUNTS SEPARATELY AND NEVER FOLD THE THIRD "
+          "INTO EITHER OF THE OTHER TWO — a page with no city is not an away game. The project's recorded 651 of "
+          "1,745 is reproducible from this corpus but is conditional on two things its headline does not state: "
+          "venue-less pages resolved as away rather than held out, and a per-programme substring match for the "
+          "programme's own name that silently drops every game stored under a spelling it misses (41 of them "
+          "'Oklahoma Baptist' where the modal spelling is 'Okla. Baptist'). This node derives the spellings from "
+          "the data, so its denominator is larger and its unknowns are named; on the games both recipes resolve "
+          "the verdicts agree. This count is also why the repair cannot be graded on cross-perspective agreement "
+          "alone: two rows of one fixture can be made to agree on the same wrong orientation, but the venue is "
+          "external to both parsers, so the wrong count must fall to 0 row by row. The away verdicts are split "
+          "because a neutral-site fixture is at neither team's home city and lands in the uncorroborated half, "
+          "where the only claim being made is that the scraping programme was not at home. "
+          "STAGED EXPECTATION — the 42 phantom rows (FHSU 2020 24, OBU 2020 18) are still in this corpus and "
+          "are counted here: 19 land correct, 17 wrong, 6 no-city. When tl-o23 deletes them the WRONG count "
+          "drops by 17 and the determinate denominator by 36 with no parser change whatsoever. Read that drop "
+          "as row deletion, not as the repair landing. Their cached pages are byte-identical duplicates of the "
+          "2025 originals, so they also vote twice in their programme's modal-city election. Sibling checks "
+          "state this differently and deliberately: duplication carries the staged 138-then-98 expectation, "
+          "cross-source excludes the 24 phantom-involving pairs outright."
+      )
+      emit(V, headline, cause)
+
   # ── 3. Independent corroboration ────────────────────────────────────────
-  # The only check in the suite that tests whether the numbers are TRUE rather
-  # than merely self-consistent: the same match transcribed by two unrelated
-  # athletics websites. The join accepts either orientation so it keeps working
-  # after the home/away bug above is fixed.
+  # The check that carries the whole "the numbers are TRUE rather than merely
+  # self-consistent" half of this suite's verdict — and the one most able to
+  # overstate its own evidence, so read the four things it is careful about.
+  #
+  # 1. "TWO UNRELATED WEBSITES" IS FALSE FOR MOST PAIRS. In schools.toml only
+  #    HU and HUW are statcrew; the other 11 data-bearing programmes are all
+  #    sidearm, so of 593 raw pairs about 454 are SideArm x SideArm — one
+  #    vendor, one parse_sidearm_game. A parser bug that mislabels CONSISTENTLY
+  #    is invisible to that agreement, and folding those pairs into one headline
+  #    number sells same-parser self-agreement as independent corroboration.
+  #    The genuinely cross-parser subset is the pairs involving HU/HUW. The two
+  #    classes are therefore reported SEPARATELY and must never be re-summed.
+  # 2. THE FIGURES MUST COME FROM THE QUERY THIS NODE ACTUALLY RUNS. The old
+  #    body joined either orientation and printed 1186|1173|0|10, while the
+  #    spec quoted 493/986/977 — the mirror-orientation subset only. Both are
+  #    real numbers; they answer different questions, and any gate keyed to the
+  #    second was comparing against a query that was never executed. Re-derive
+  #    anything you quote from this node's own SQL.
+  # 3. PHANTOM ROWS INFLATE IT. 24 pairs involve a phantom row that is a
+  #    byte-copy of the same school's later-season row, re-counting a comparison
+  #    already counted. Excluded via IN (season_year, season_year+1); see the
+  #    note on the predicate inside — the <> form condemns 79 legitimate games.
+  # 4. BOTH EXCEPT DIRECTIONS. a EXCEPT ALL b was reported alone as 63; b
+  #    EXCEPT ALL a is a further 64 equally real one-sided rows. Sum them.
+  #
+  # The join still accepts either orientation so it keeps working after the
+  # home/away bug in check 2 is fixed. Nothing here fetches.
   - id: cross-source
     timeout: 120000
     bash: |
       set -uo pipefail
       Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
-      SQL="WITH pairs AS (
-             SELECT a.game_id ga, b.game_id gb
-             FROM games a JOIN schools sa ON sa.id=a.school_id
-             JOIN games b ON b.date=a.date AND b.school_id<>a.school_id
-               AND ((b.home_team=a.away_team AND b.away_team=a.home_team)
-                 OR (b.home_team=a.home_team AND b.away_team=a.away_team))
-             JOIN schools sb ON sb.id=b.school_id AND sb.gender=sa.gender
-             WHERE a.date IS NOT NULL AND a.game_id<b.game_id)
-           SELECT count(*)
-                ||'|'||count(*) FILTER (WHERE x.shots=y.shots AND x.shots_on_goal=y.shots_on_goal
-                                          AND x.goals=y.goals AND x.corners=y.corners AND x.saves=y.saves)
-                ||'|'||count(*) FILTER (WHERE x.goals<>y.goals)
-                ||'|'||count(*) FILTER (WHERE x.shots_on_goal<>y.shots_on_goal)
-           FROM pairs p JOIN team_game_stats x ON x.game_id=p.ga
-           JOIN team_game_stats y ON y.game_id=p.gb AND y.team=x.team"
-      OUT=$(Q "$SQL")
-      NROWS=$(printf '%s' "$OUT" | cut -d'|' -f1)
-      ALL5=$(printf '%s' "$OUT" | cut -d'|' -f2)
-      GDIFF=$(printf '%s' "$OUT" | cut -d'|' -f3)
-      SOGDIFF=$(printf '%s' "$OUT" | cut -d'|' -f4)
-      EVOUT=$(Q "WITH pairs AS (SELECT g1.game_id id1, g1.school_id s1, g2.game_id id2, g2.school_id s2
-                                FROM games g1 JOIN games g2 ON g1.date=g2.date AND g1.school_id<g2.school_id
-                                  AND ((g1.home_team=g2.home_team AND g1.away_team=g2.away_team)
-                                    OR (g1.home_team=g2.away_team AND g1.away_team=g2.home_team))
-                                JOIN schools c1 ON c1.id=g1.school_id JOIN schools c2 ON c2.id=g2.school_id
-                                WHERE c1.gender=c2.gender AND g1.date IS NOT NULL),
-                      a AS (SELECT p.id1,p.id2,e.event_type,e.clock FROM pairs p JOIN game_events e
-                            ON e.game_id=p.id1 AND e.school_id=p.s1 WHERE e.event_type<>'substitution'),
-                      b AS (SELECT p.id1,p.id2,e.event_type,e.clock FROM pairs p JOIN game_events e
-                            ON e.game_id=p.id2 AND e.school_id=p.s2 WHERE e.event_type<>'substitution')
-                 SELECT (SELECT count(*) FROM pairs)||'|'||(SELECT count(*) FROM a)
-                        ||'|'||(SELECT count(*) FROM (SELECT * FROM a EXCEPT ALL SELECT * FROM b) x)")
-      EVPAIRS=$(printf '%s' "$EVOUT" | cut -d'|' -f1)
-      EVROWS=$(printf '%s' "$EVOUT" | cut -d'|' -f2)
-      EVONLY=$(printf '%s' "$EVOUT" | cut -d'|' -f3)
-      # Both psql calls return a single pipe-joined row, so `cut` of an empty
-      # string leaves every derived field empty. Asserting the seven derived
-      # fields rather than OUT/EVOUT also catches a short row, which is what a
-      # changed column list would look like.
       NORUN=
-      for v in NROWS ALL5 GDIFF SOGDIFF EVPAIRS EVROWS EVONLY; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      CFG=packages/pipeline/config/schools.toml
+      # Which programmes are parsed by which code path is NOT in Postgres —
+      # schools has no scraper column — so it is read from the same pipeline
+      # config the scraper itself reads. That is a FILESYSTEM source, so it gets
+      # a source-side guard: a missing, unreadable or restructured schools.toml
+      # makes awk print nothing and the counters below stay 0, and 0 here is not
+      # a measurement. Never fall back to a hardcoded HU/HUW list — a silent
+      # default is exactly how this node would start reporting a cross-parser
+      # split it did not actually derive.
+      STATAB=; SIDEAB=
+      if [ -r "$CFG" ]; then
+        STATAB=$(awk -F'"' '/^\[\[schools\]\]/{a=""} /^abbreviation/{a=$2} /^scraper/{if(a!="" && $2=="statcrew") print a}' "$CFG" 2>/dev/null)
+        SIDEAB=$(awk -F'"' '/^\[\[schools\]\]/{a=""} /^abbreviation/{a=$2} /^scraper/{if(a!="" && $2=="sidearm") print a}' "$CFG" 2>/dev/null)
+      fi
+      SCLIST=; SCN=0
+      for a in $STATAB; do SCLIST="$SCLIST${SCLIST:+,}'$a'"; SCN=$((SCN+1)); done
+      SALIST=; SAN=0
+      for a in $SIDEAB; do SALIST="$SALIST${SALIST:+,}'$a'"; SAN=$((SAN+1)); done
+      if [ "$SCN" -eq 0 ] || [ "$SAN" -eq 0 ]; then
+        printf '{"check":"cross-source","verdict":"alarm","headline":"CHECK DID NOT RUN — could not classify programmes by parser: %s yielded %s statcrew and %s sidearm abbreviations. Without that split this check cannot separate genuine cross-parser corroboration from one parser agreeing with itself, and the undivided figure overstates the evidence.","cause":"the config was missing, unreadable, this node ran from a cwd that is not the repository root, or the abbreviation/scraper key order inside a [[schools]] block changed. Nothing is reported rather than reporting a split that was not derived."}\n' \
+          "$CFG" "$SCN" "$SAN"
+        exit 0
+      fi
+      # real: every game whose date falls inside its own season window. The
+      # phantom predicate is NOT IN (season_year, season_year+1) and NOT
+      # <> season_year — nine programmes played their COVID season in spring,
+      # correctly filed under the previous year, and the <> form condemns 79
+      # legitimate games on the way to the same 42 phantoms.
+      PAIRCTE="WITH real AS (
+                 SELECT g.game_id, g.school_id, g.season_year, g.date, g.home_team, g.away_team,
+                        s.gender, s.name inst, (s.abbreviation IN ($SCLIST)) sc
+                 FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL),
+               allp AS (
+                 SELECT a.game_id ga, b.game_id gb, a.gender, a.date,
+                        least(a.inst,b.inst) i1, greatest(a.inst,b.inst) i2,
+                        (a.sc <> b.sc) xp,
+                        (extract(year from a.date) IN (a.season_year, a.season_year+1)
+                     AND extract(year from b.date) IN (b.season_year, b.season_year+1)) np
+                 FROM real a JOIN real b ON b.date=a.date AND b.school_id<>a.school_id AND b.gender=a.gender
+                   AND ((b.home_team=a.away_team AND b.away_team=a.home_team)
+                     OR (b.home_team=a.home_team AND b.away_team=a.away_team))
+                 WHERE a.game_id<b.game_id),
+               p AS (SELECT * FROM allp WHERE np)"
+      # Team-side agreement, split by parser class. The x/y join is on team NAME,
+      # so a fixture whose two sources spell the team differently contributes
+      # fewer than its two sides and silently shrinks the denominator the
+      # agreement figure is measured against. XEXP/SEXP are 2x the surviving
+      # pair count, so any such shortfall is visible in the headline instead.
+      # IS [NOT] DISTINCT FROM, not =: a NULL metric would otherwise fall out of
+      # both the agree and the disagree counter and vanish from the arithmetic.
+      OUT=$(Q "$PAIRCTE,
+               sides AS (SELECT p.xp, x.shots xs, x.shots_on_goal xg, x.goals xgo, x.corners xc, x.saves xsv,
+                                y.shots ys, y.shots_on_goal yg, y.goals ygo, y.corners yc, y.saves ysv
+                         FROM p JOIN team_game_stats x ON x.game_id=p.ga
+                         JOIN team_game_stats y ON y.game_id=p.gb AND y.team=x.team)
+               SELECT (SELECT count(*) FROM (SELECT DISTINCT gender,date,i1,i2 FROM p WHERE xp) q)
+                 ||'|'||(SELECT count(*) FROM p WHERE xp)
+                 ||'|'||(SELECT 2*count(*) FROM p WHERE xp)
+                 ||'|'||(SELECT count(*) FROM sides WHERE xp)
+                 ||'|'||(SELECT count(*) FROM sides WHERE xp AND xs IS NOT DISTINCT FROM ys AND xg IS NOT DISTINCT FROM yg
+                           AND xgo IS NOT DISTINCT FROM ygo AND xc IS NOT DISTINCT FROM yc AND xsv IS NOT DISTINCT FROM ysv)
+                 ||'|'||(SELECT count(*) FROM sides WHERE xp AND xgo IS DISTINCT FROM ygo)
+                 ||'|'||(SELECT count(*) FROM sides WHERE xp AND xg IS DISTINCT FROM yg)
+                 ||'|'||(SELECT count(*) FROM (SELECT DISTINCT gender,date,i1,i2 FROM p WHERE NOT xp) q)
+                 ||'|'||(SELECT count(*) FROM p WHERE NOT xp)
+                 ||'|'||(SELECT 2*count(*) FROM p WHERE NOT xp)
+                 ||'|'||(SELECT count(*) FROM sides WHERE NOT xp)
+                 ||'|'||(SELECT count(*) FROM sides WHERE NOT xp AND xs IS NOT DISTINCT FROM ys AND xg IS NOT DISTINCT FROM yg
+                           AND xgo IS NOT DISTINCT FROM ygo AND xc IS NOT DISTINCT FROM yc AND xsv IS NOT DISTINCT FROM ysv)
+                 ||'|'||(SELECT count(*) FROM sides WHERE NOT xp AND xgo IS DISTINCT FROM ygo)
+                 ||'|'||(SELECT count(*) FROM sides WHERE NOT xp AND xg IS DISTINCT FROM yg)
+                 ||'|'||(SELECT count(*) FROM (SELECT DISTINCT gender,date,i1,i2 FROM p) q)
+                 ||'|'||(SELECT count(*) FROM allp WHERE NOT np)")
+      XFIX=$(printf '%s' "$OUT" | cut -d'|' -f1)
+      XPAIR=$(printf '%s' "$OUT" | cut -d'|' -f2)
+      XEXP=$(printf '%s' "$OUT" | cut -d'|' -f3)
+      XSIDE=$(printf '%s' "$OUT" | cut -d'|' -f4)
+      XALL5=$(printf '%s' "$OUT" | cut -d'|' -f5)
+      XGD=$(printf '%s' "$OUT" | cut -d'|' -f6)
+      XSOGD=$(printf '%s' "$OUT" | cut -d'|' -f7)
+      SFIX=$(printf '%s' "$OUT" | cut -d'|' -f8)
+      SPAIR=$(printf '%s' "$OUT" | cut -d'|' -f9)
+      SEXP=$(printf '%s' "$OUT" | cut -d'|' -f10)
+      SSIDE=$(printf '%s' "$OUT" | cut -d'|' -f11)
+      SALL5=$(printf '%s' "$OUT" | cut -d'|' -f12)
+      SGD=$(printf '%s' "$OUT" | cut -d'|' -f13)
+      SSOGD=$(printf '%s' "$OUT" | cut -d'|' -f14)
+      TOTFIX=$(printf '%s' "$OUT" | cut -d'|' -f15)
+      DROPPED=$(printf '%s' "$OUT" | cut -d'|' -f16)
+      # Events. BOTH EXCEPT directions are summed. a EXCEPT ALL b alone counts
+      # only what the first source has and the second lacks; the reverse is a
+      # different, equally real one-sided row, and reporting one half of the two
+      # understates the disagreement by roughly half — 63 where the answer is 127.
+      EVOUT=$(Q "$PAIRCTE,
+                 pr AS (SELECT p.ga id1, ga.school_id s1, p.gb id2, gb.school_id s2, p.xp
+                        FROM p JOIN games ga ON ga.game_id=p.ga JOIN games gb ON gb.game_id=p.gb),
+                 ea AS (SELECT pr.id1,pr.id2,pr.xp,e.event_type,e.clock FROM pr JOIN game_events e
+                        ON e.game_id=pr.id1 AND e.school_id=pr.s1 WHERE e.event_type<>'substitution'),
+                 eb AS (SELECT pr.id1,pr.id2,pr.xp,e.event_type,e.clock FROM pr JOIN game_events e
+                        ON e.game_id=pr.id2 AND e.school_id=pr.s2 WHERE e.event_type<>'substitution')
+                 SELECT (SELECT count(*) FROM ea WHERE xp)
+                   ||'|'||(SELECT count(*) FROM eb WHERE xp)
+                   ||'|'||((SELECT count(*) FROM (SELECT * FROM ea WHERE xp EXCEPT ALL SELECT * FROM eb WHERE xp) q)
+                          +(SELECT count(*) FROM (SELECT * FROM eb WHERE xp EXCEPT ALL SELECT * FROM ea WHERE xp) q))
+                   ||'|'||(SELECT count(*) FROM ea WHERE NOT xp)
+                   ||'|'||(SELECT count(*) FROM eb WHERE NOT xp)
+                   ||'|'||((SELECT count(*) FROM (SELECT * FROM ea WHERE NOT xp EXCEPT ALL SELECT * FROM eb WHERE NOT xp) q)
+                          +(SELECT count(*) FROM (SELECT * FROM eb WHERE NOT xp EXCEPT ALL SELECT * FROM ea WHERE NOT xp) q))")
+      XEVA=$(printf '%s' "$EVOUT" | cut -d'|' -f1)
+      XEVB=$(printf '%s' "$EVOUT" | cut -d'|' -f2)
+      XONLY=$(printf '%s' "$EVOUT" | cut -d'|' -f3)
+      SEVA=$(printf '%s' "$EVOUT" | cut -d'|' -f4)
+      SEVB=$(printf '%s' "$EVOUT" | cut -d'|' -f5)
+      SONLY=$(printf '%s' "$EVOUT" | cut -d'|' -f6)
+      # Platform census from Postgres, so the mix quoted in the headline covers
+      # the programmes that actually carry games rather than every row in
+      # schools.toml — NSU is configured sidearm_legacy, disabled, and holds 0
+      # games. StatCrew and SideArm are printed against the total so a programme
+      # on some third platform shows up as the two not adding to the whole.
+      CEN=$(Q "WITH d AS (SELECT s.abbreviation ab FROM schools s JOIN games g ON g.school_id=s.id GROUP BY 1)
+               SELECT (SELECT count(*) FROM d WHERE ab IN ($SCLIST))||'|'||(SELECT count(*) FROM d WHERE ab IN ($SALIST))
+                      ||'|'||(SELECT count(*) FROM d)")
+      DBSC=$(printf '%s' "$CEN" | cut -d'|' -f1)
+      DBSA=$(printf '%s' "$CEN" | cut -d'|' -f2)
+      DBTOT=$(printf '%s' "$CEN" | cut -d'|' -f3)
+      # All three psql calls return one pipe-joined row, so cut of an empty
+      # string leaves every derived field empty. Asserting the derived fields
+      # rather than OUT/EVOUT/CEN also catches a short row, which is what a
+      # changed column list would look like.
+      for v in XFIX XPAIR XEXP XSIDE XALL5 XGD XSOGD SFIX SPAIR SEXP SSIDE SALL5 SGD SSOGD TOTFIX DROPPED \
+               XEVA XEVB XONLY SEVA SEVB SONLY DBSC DBSA DBTOT; do
+        [ -n "${!v:-}" ] || NORUN="$NORUN $v"
+      done
       if [ -n "$NORUN" ]; then
         printf '{"check":"cross-source","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
         exit 0
       fi
+      # Past the guard every capture is non-empty, so these tests mean only what
+      # they say — no ${X:-0} defaults, which is what made this family of checks
+      # fail open before.
+      XEVT=$(( XEVA + XEVB )); SEVT=$(( SEVA + SEVB ))
       V=ok
-      [ "$GDIFF" -gt 0 ] && V=alarm
-      { [ "$SOGDIFF" -gt 0 ] || [ "$EVONLY" -gt 0 ]; } && [ "$V" = ok ] && V=warn
-      printf '{"check":"cross-source","verdict":"%s","headline":"%s team-sides transcribed twice from unrelated sites: %s agree on all five metrics, %s disagree on goals, %s on shots-on-goal; %s twice-scraped fixtures yield %s non-sub events of which %s appear on only one side","cause":"a goals disagreement means one transcription is simply wrong; shots-on-goal drift is parser.py:886-888 coercing an absent SOG column to 0 instead of NULL"}\n' \
-        "$V" "$NROWS" "$ALL5" "$GDIFF" "$SOGDIFF" "$EVPAIRS" "$EVROWS" "$EVONLY"
+      # Zero cross-parser fixtures is a real measurement, not a failed query, and
+      # it is still an alarm: the headline's load-bearing claim is that some of
+      # this corroboration is independent, and at zero there is none to have.
+      [ "$XFIX" -eq 0 ] && V=alarm
+      { [ "$XGD" -gt 0 ] || [ "$SGD" -gt 0 ]; } && V=alarm
+      { [ "$XSIDE" -ne "$XEXP" ] || [ "$SSIDE" -ne "$SEXP" ] || [ "$XSOGD" -gt 0 ] || [ "$XONLY" -gt 0 ] \
+        || [ "$SSOGD" -gt 0 ] || [ "$SONLY" -gt 0 ]; } && [ "$V" = ok ] && V=warn
+      printf '{"check":"cross-source","verdict":"%s","headline":"CROSS-PARSER corroboration (StatCrew vs SideArm — two platforms and two parse functions, the only genuinely independent evidence here): %s fixtures from %s game-row pairs, %s of %s expected team-sides matched by team name, of which %s agree on all five metrics, %s disagree on goals and %s on shots-on-goal; %s non-sub event rows (%s plus %s) of which %s appear on only one side, both EXCEPT directions summed. SAME-PARSER agreement (SideArm vs SideArm — one vendor, one parse_sidearm_game; this catches non-deterministic parsing and storage corruption but is NOT evidence the parser is right): %s fixtures from %s pairs, %s of %s team-sides, %s agree on all five, %s disagree on goals and %s on shots-on-goal; %s event rows (%s plus %s) of which %s are one-sided. Platform mix over programmes that carry games: %s StatCrew plus %s SideArm of %s. Denominators: %s fixtures compared in total, after excluding %s game-row pairs that involved a phantom row (date year not in season_year or season_year+1).","cause":"a goals disagreement means one transcription is simply wrong; shots-on-goal drift is parser.py:886-888 coercing an absent SOG column to 0 instead of NULL. Read the two blocks separately and never add them: a parser bug that mislabels CONSISTENTLY is invisible to same-parser agreement, so only the cross-parser block speaks to whether the parser is correct, and it is the smaller of the two. A team-side count below the expected 2 per pair means the two sources spelled the team differently and the agreement figure beside it covers only the sides that matched. Fixtures are distinct (gender, date, institution pair) — gender is in the key because a mens and a womens match the same day between the same two schools are different fixtures; where the pair count exceeds the fixture count a fixture is covered by more than one surviving game-row pair."}\n' \
+        "$V" "$XFIX" "$XPAIR" "$XSIDE" "$XEXP" "$XALL5" "$XGD" "$XSOGD" "$XEVT" "$XEVA" "$XEVB" "$XONLY" \
+        "$SFIX" "$SPAIR" "$SSIDE" "$SEXP" "$SALL5" "$SGD" "$SSOGD" "$SEVT" "$SEVA" "$SEVB" "$SONLY" \
+        "$DBSC" "$DBSA" "$DBTOT" "$TOTFIX" "$DROPPED"
 
   # ── 4. Roster attribution ───────────────────────────────────────────────
   # Whether a player row is attached to the right team. Detected purely from
@@ -1077,11 +1573,11 @@ nodes:
     always_run: true
     trigger_rule: all_done
     depends_on:
-      [reparse-fidelity, home-away-truth, cross-source, roster-attribution,
+      [reparse-fidelity, home-away-truth, site-city-oracle, cross-source, roster-attribution,
        card-fidelity, substitution-coverage, goal-completeness, impossible-rows,
        nan-sentinel, cache-provenance, export-staleness, gender-fidelity]
     script: |
-      const IDS = ['reparse_fidelity','home_away_truth','cross_source','roster_attribution',
+      const IDS = ['reparse_fidelity','home_away_truth','site_city_oracle','cross_source','roster_attribution',
                    'card_fidelity','substitution_coverage','goal_completeness','impossible_rows',
                    'nan_sentinel','cache_provenance','export_staleness','gender_fidelity']
       const MARK = { ok: '[ OK   ]', warn: '[ WARN ]', alarm: '[ ALARM]' }
