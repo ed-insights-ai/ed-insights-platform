@@ -6,7 +6,24 @@
 # deterministically in bash, then spends exactly one agent turn composing the board.
 # The numbers are never the agent's to invent.
 #
-# Contributions are collected at startup: `keelson stop && keelson start` after editing.
+# 2026-08-08 enhancement, learnings taken from mantoni/beads-ui (bead tl-6uh):
+#   - "Blocked" is the UNION of two disjoint queries: `bd blocked` (dependency-blocked,
+#     own status still open) and `bd list --status blocked` (status-blocked). A board
+#     built from status alone silently omits dependency-blocked work — the exact thing
+#     beads exists to track.
+#   - `bd blocked --json` names the blockers (`blocked_by`), so a blocked card can say
+#     WHAT it waits on instead of just "blocked".
+#   - `bd list --json` carries dependency_count/dependent_count — a ready row with a
+#     high dependent count is leverage: finishing it unblocks the most work.
+#   - `bd status --json` yields the whole KPI header in one call.
+#   - Recently-closed (closed_at desc, few days) is a momentum strip, not a graveyard.
+#
+# Every section is measured fail-closed: a bd failure renders UNMEASURED for that
+# section, never an empty-but-healthy-looking board (see bd memory
+# guard-the-source-not-the-value).
+#
+# Contributions are collected at startup: `keelson workflow status` first (a restart
+# CANCELS running workflows), then `keelson stop && keelson start` after editing.
 
 name: beads
 model: balanced
@@ -14,8 +31,9 @@ description: |
   Use when: a Chamber lens needs a live view of the Touchline work queue rather than
             a snapshot of ROADMAP.md.
   Triggers: named as `refresh.workflow` by a lens; not usually run by hand.
-  Does: measures the beads database with bd (ready / blocked / in-progress / epic
-        completion / stats), then composes and emits a canvas board under the lens id.
+  Does: measures the beads database with bd (KPI summary / ready with leverage counts /
+        in-progress / blocked union with blocker names / epic completion / recent
+        closes / stale), then composes and emits a canvas board under the lens id.
   NOT for: changing any issue. Every bd call here is read-only.
 
 # Runs against a fixed checkout: a panel refresh passes no project, and the lens has to
@@ -30,27 +48,74 @@ inputs:
 
 nodes:
   - id: measure
+    timeout: 120000
     bash: |
       set -uo pipefail
       REPO=/Users/danielscholl/edinsights-ai/project/ed-insights-platform
       cd "$REPO" || { echo "REPO_MISSING $REPO"; exit 1; }
+      # j: run one read-only bd command fail-closed. Non-zero exit or empty capture
+      # renders UNMEASURED — "the query failed" must never look like "nothing there".
+      # Capture BEFORE piping to jq: under pipefail a died bd inside a pipeline would
+      # otherwise take the whole node down instead of marking one section.
+      j() {
+        local out rc
+        out=$("$@" 2>/dev/null); rc=$?
+        if [ "$rc" -ne 0 ] || [ -z "$out" ]; then echo "UNMEASURED"; else printf '%s' "$out"; fi
+      }
       echo "=== AS OF ==="
       date "+%Y-%m-%d %H:%M %Z"
       echo
-      echo "=== STATS ==="
-      bd stats 2>&1 | sed -n '3,12p'
+      echo "=== KPI (bd status summary) ==="
+      j bd status --json | jq -c '.summary // .' 2>/dev/null || echo "UNMEASURED"
       echo
-      echo "=== READY (no unmet blockers, priority order) ==="
-      bd ready --exclude-type=epic 2>&1 | sed -n '1,30p'
+      echo "=== IN PROGRESS (id|assignee|title) ==="
+      WIP=$(j bd list --status in_progress --json)
+      if [ "$WIP" = "UNMEASURED" ]; then echo "UNMEASURED"; else
+        printf '%s' "$WIP" | jq -r '.[] | [.id, (.assignee // "-"), .title] | join("|")'
+        WIP_IDS=$(printf '%s' "$WIP" | jq -r '[.[].id] | join(",")')
+      fi
       echo
-      echo "=== IN PROGRESS ==="
-      bd list --status in_progress 2>&1 | sed -n '1,15p'
+      echo "=== READY (id|prio|unlocks|needs|title; priority order; in-progress subtracted) ==="
+      READY=$(j bd ready --exclude-type=epic --json)
+      if [ "$READY" = "UNMEASURED" ]; then echo "UNMEASURED"; else
+        printf '%s' "$READY" | jq -r --arg wip "${WIP_IDS:-}" '
+          [.[] | select(.id as $i | ($wip | split(",")) | index($i) | not)]
+          | sort_by(.priority, .id) | .[]
+          | [.id, "P\(.priority)", "unlocks:\(.dependent_count // 0)", "needs:\(.dependency_count // 0)", .title]
+          | join("|")'
+      fi
       echo
-      echo "=== EPIC COMPLETION ==="
-      bd epic status 2>&1 | sed -n '1,60p'
+      echo "=== BLOCKED (union: dependency-blocked + status-blocked; id|prio|blocked_by|title) ==="
+      DEP=$(j bd blocked --json)
+      STA=$(j bd list --status blocked --json)
+      if [ "$DEP" = "UNMEASURED" ] || [ "$STA" = "UNMEASURED" ]; then echo "UNMEASURED"; else
+        BLOCKED_ALL=$(jq -n -c --argjson a "$DEP" --argjson b "$STA" '
+          ($a + $b) | unique_by(.id) | sort_by(.priority, .id)
+          | map([.id, "P\(.priority)", ((.blocked_by // []) | join(",")), .title] | join("|"))')
+        TOTAL_BLOCKED=$(printf '%s' "$BLOCKED_ALL" | jq -r 'length')
+        echo "total_blocked|$TOTAL_BLOCKED (showing at most 12 by priority — the board must state this cap)"
+        printf '%s' "$BLOCKED_ALL" | jq -r '.[:12][]'
+      fi
       echo
-      echo "=== BLOCKED (waiting on a predecessor) ==="
-      bd blocked 2>&1 | sed -n '1,45p'
+      echo "=== EPIC COMPLETION (id|closed/total|eligible|title) ==="
+      j bd epic status --json | jq -r '.[]
+        | [.epic.id, "\(.closed_children)/\(.total_children)", (if .eligible_for_close then "ELIGIBLE-FOR-CLOSE" else "-" end), .epic.title]
+        | join("|")' 2>/dev/null || echo "UNMEASURED"
+      echo
+      echo "=== RECENTLY CLOSED (last 5 by closed_at desc — momentum, not a graveyard) ==="
+      j bd list --status closed --json | jq -r '
+        sort_by(.closed_at) | reverse | .[:5][]
+        | [.id, (.closed_at // "" | split("T")[0]), .title] | join("|")' 2>/dev/null || echo "UNMEASURED"
+      echo
+      echo "=== STALE (in-progress untouched 7+ days — abandoned-work signal) ==="
+      STALE=$(j bd stale --json --days 7)
+      if [ "$STALE" = "UNMEASURED" ]; then echo "UNMEASURED"; else
+        N=$(printf '%s' "$STALE" | jq -r 'if type=="array" then length else 0 end' 2>/dev/null || echo 0)
+        echo "stale_count|$N"
+        if [ "$N" -gt 0 ]; then printf '%s' "$STALE" | jq -r '.[] | [.id, .title] | join("|")'; fi
+      fi
+      # A healthy stale_count of 0 must not become the node's nonzero exit status.
+      exit 0
 
   - id: compose
     depends_on: [measure]
@@ -65,6 +130,8 @@ nodes:
       Everything below was measured just now by a deterministic bash node against the
       beads database. **These numbers are the truth. Do not adjust, round, or infer
       past them.** If something you want to say is not in this data, leave it out.
+      If any section reads UNMEASURED, render that section as an error-toned alarm
+      saying the measurement failed — never as empty-and-healthy.
 
       $measure.output
 
@@ -75,22 +142,39 @@ nodes:
 
       1. **What can I start right now?** The ready list, highest priority first, with
          the `tl-xxx` ids verbatim so they paste straight into `bd show`.
-      2. **What is the season at risk from?** Which ready work sits on the critical
-         path to a correct dataset and a scheduled refresh before kickoff.
-      3. **Where is the whole effort?** Epic completion, and how much is blocked
-         versus actionable.
+      2. **What should I start FIRST?** The ready rows with the highest `unlocks:`
+         count are leverage — finishing them frees the most downstream work.
+      3. **Where is the whole effort?** Epic completion, what is blocked and on what,
+         and whether momentum is real (recent closes) or stalling (stale work).
 
-      ## Board composition
+      ## Board composition — use the full vocabulary
 
-      - Lead with a stats section: total open, ready, blocked, in progress, closed.
-      - Then the ready queue as rows — id, priority, title. Priority P0 first.
-      - Then epic completion. Twelve epics; show them in delivery order
-        (S0, S0.5, S1, S2, S3, S4, S5, API, S6, S7, S8, S9), not alphabetically.
-      - If anything is in progress, give it its own short section above the queue —
-        work already claimed is the most interesting state on the board.
-      - Include a "data as of" line carrying the timestamp from the measurement. The
-        card's own clock tracks when the board last *changed*, not when it was last
-        measured, so the board must say this itself.
+      - `header`: a `status` pill ("measuring true", tone ok — or tone error if
+        anything is UNMEASURED), a `chip` carrying the AS OF timestamp verbatim
+        (the card's own clock tracks when the board last *changed*, not when it was
+        measured, so the header must say this itself), and `segments` for
+        ready / in progress / blocked counts (tones: accent / ok / warn).
+      - A `stats` section from the KPI line: open, ready, blocked, in progress,
+        closed — with `sub` text where it helps (e.g. closed count sub "all time").
+      - If anything is IN PROGRESS: a `cards` section above the queue — work already
+        claimed is the most interesting state on the board. Title, id, assignee.
+      - The READY queue as a `table`: columns id, priority, unlocks, title. Priority
+        as a badge (P0 tone error, P1 warn, P2 info, P3+ neutral). When `unlocks:` is
+        2 or more, render that cell with a badge toned accent — it is the leverage
+        signal. Keep ids exactly as measured.
+      - BLOCKED as `rows`: chip = the id, text = title, trailing = "waits on <ids>"
+        from the blocked_by column. If the measurement notes a display cap, the
+        caption/text must state "showing N of M" — never imply completeness.
+      - EPIC COMPLETION as a `bars` section: one bar per epic,
+        `value`=closed, `total`=total children, `trailing`="n/m", label = the epic's
+        stage name. Delivery order (S0, S0.5, S1, S2, S3, S4, S5, API, S6, S7, S8,
+        S9), not alphabetical. Tone ok when complete, neutral otherwise; if an epic
+        is marked ELIGIBLE-FOR-CLOSE, badge it.
+      - RECENTLY CLOSED as compact `rows` (id, date, title) — the momentum strip.
+      - STALE: only if stale_count > 0, an error-toned section naming the issues;
+        omit entirely when 0.
+      - Footer text: "Every number on this board was measured against the beads
+        database at the timestamp above."
 
       Set `scope: "status board"`. Set `reason` to a short note on what changed since
       the last authoring — omit it entirely if this is the first.
@@ -98,8 +182,7 @@ nodes:
       Also pass `refresh: { workflow: "chamber-lens-beads", cadenceMs: 1800000 }` so the
       lens keeps itself current through this same workflow. Pass it every time: on the
       first author it establishes the backing, and on a refresh it patches the existing
-      one rather than replacing it — a refresh turn that omitted it would be fine too,
-      but passing it means this workflow can never accidentally strip its own wiring.
+      one rather than replacing it.
 
       Keep it scannable. This is a board someone glances at on a Sunday morning, not
       a report they read.
