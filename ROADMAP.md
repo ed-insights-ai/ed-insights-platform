@@ -90,7 +90,7 @@ The numbers in ed_insights are true; the labels are wrong. Ground-truth validati
 - [ ] `tl-qbg` **P0** Add the canonical match key column — *blocked by `tl-ath`, `tl-vkt`, `tl-o23`, `tl-hbo`*
 - [ ] `tl-vkt` **P0** Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24))
 - [ ] `tl-09k` **P1** Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25))
-- [ ] `tl-9ap` **P1** Recover 166 SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) — *blocked by `tl-o23`*
+- [ ] `tl-9ap` **P1** Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) — *blocked by `tl-o23`*
 - [ ] `tl-ce3` **P2** Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29))
 
 ### API correctness
