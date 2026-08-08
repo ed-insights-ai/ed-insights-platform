@@ -29,7 +29,10 @@ what *describes* those scores is wrong:
   The scraper assumed whichever school's website it read must be the home team.
 - **Which team a player played for** is swapped in 723 games; the two rosters wear each
   other's names.
-- **Red cards** are all filed as yellow. 166 of them.
+- **Red cards from twelve of the thirteen programmes are filed as yellow** — 166 of them in
+  the cached pages, of which 158 survive once duplicate copies are deleted. Harding's own 43
+  are stored correctly, because Harding is the one programme on a different platform. So the
+  repair takes the database from 43 red cards to 201, not to 158.
 - **28 events** are destroyed on every database load, one of them a goal.
 
 None of it is lost. It is all in the 1.1 GB of web pages already saved on disk — it just
@@ -77,8 +80,9 @@ and "0 red cards across 3 pages read" are obviously different claims.
 
 ### The mistake that keeps recurring
 
-Three times now, in different disguises: **a rule that looks obviously right, where nobody
-asked what legitimate data it excludes.**
+Seven times now, in different disguises: **a rule that looks obviously right, where nobody
+asked what legitimate data it excludes** — or an acceptance number stated without the
+condition that makes it true.
 
 - A phantom-row detector written as `date year != season year` would have deleted **79 real
   games** — nine programmes played their COVID season in spring, correctly filed under the
@@ -87,6 +91,19 @@ asked what legitimate data it excludes.**
   fixtures** — a men's and a women's match, same day, same two schools, 39 of them with
   different scores.
 - A test reporting `0` when it could not look, in the same words it uses for a genuine zero.
+- A duplicate-group target of "98" that is only reachable *after* the phantom rows are
+  deleted — 138 is correct today, and someone reading it flatly would hunt a 40-group
+  discrepancy that is just work not yet done.
+- A red-card target of "158" that silently omits the **43 already-correct** cards, so the
+  true post-repair total is **201** and a correct result would read as a 43-row overcount.
+- A verification query that grouped by `home_team` and then asked whether `home_team` varied
+  — self-contradictory, so it returned a confident **0** where the real figure is **471**.
+- The project's own headline figure, 651 of 1,745, which turned out to depend on two
+  unstated conventions: venue-less pages counted as away rather than held out, and a name
+  match that silently dropped 41 games spelled differently.
+
+The tell is always the same: the number looks clean, and nobody asks what it had to exclude
+to look that way.
 
 It is now written into [CLAUDE.md](CLAUDE.md) as a standing check: *ask of every rule, what
 valid row does this throw away?*
