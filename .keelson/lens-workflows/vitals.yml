@@ -103,9 +103,10 @@ nodes:
       echo "red cards stored|$N|201 (43 StatCrew + 158 SideArm)|$(v "$N" 201 43)"
       # Home contradictions: the fixture pair must be UNORDERED and gender-aware —
       # grouping by home_team and testing home_team variance silently returns 0
-      # (bd memory never-group-by-the-field-you-test).
+      # (bd memory never-group-by-the-field-you-test). The 523 baseline is measured
+      # with all 2,140 games dated; 471 applied only when 111 PR #42 games lacked dates.
       N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, least(g.home_team,g.away_team), greatest(g.home_team,g.away_team) FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1 AND count(DISTINCT g.home_team)>1) d")
-      echo "two-perspective home contradictions|$N|0|$(v "$N" 0 471)"
+      echo "two-perspective home contradictions|$N|0 (523, measured with all 2,140 games dated)|$(v "$N" 0 523)"
       # Duplicate groups: gender IS part of the key — without it 40 real m/w
       # fixtures collapse. 138 is the honest current count; 98 after phantoms go.
       N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, g.home_team, g.away_team FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1) d")
