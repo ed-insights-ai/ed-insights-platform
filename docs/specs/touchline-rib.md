@@ -386,7 +386,7 @@ Each of these was confirmed in source. Each has a plausible-looking wrong versio
 | Region wiring is boot-frozen | `cadenceMs` and `serverRefresh` are read once when surfaces are walked. Per-team panels must go through `ctx.registerRegion`, never array mutation |
 | Never `await` an agent turn inside `onAction` | The harness awaits the handler synchronously and the socket caps at 60s idle. Fire and return; results arrive as snapshot frames |
 | Rib activation is **fail-hard** | One out-of-namespace key or duplicate surface id throws and fails the entire server boot, not just this rib |
-| `data/raw_html` is 1.1 GB tracked in git | A twice-weekly in-season job adds ~260 files per run. Untrack before S4 turns the scheduler on, or the repo roughly doubles by November. Keep the parquets (12 MB) per ADR-004 |
+| ~~`data/raw_html` is 1.1 GB tracked in git~~ — **resolved, #18** | The blanket `!packages/pipeline/data/` negation swept the HTML cache into git. `.gitignore` now excludes `raw_html/`, stopping the growth with no history rewrite: already-committed pages stay tracked as an offline re-parse archive, new ones are ignored. Parquets stay tracked per ADR-004 |
 
 ---
 
@@ -531,8 +531,10 @@ durable op.
 
 **Gate before this stage turns on:** validate `--year 2026` against a live schedule page
 for all thirteen enabled programs. A SideArm site serving 2025 instead of an empty 2026
-page reproduces the FHSU corruption on day one, and S0 Task 1 is the assertion that
-catches it. Also untrack `data/raw_html` first.
+page reproduces the FHSU/OBU corruption on day one; S0 Task 1 (merged as #14) is the
+assertion that catches it, and it now distinguishes "no schedule published yet" (INFO,
+benign) from "the site served a different season" (ERROR, naming the year served).
+Repo growth was handled separately in #18.
 
 **Proves:** scheduled freshness end to end, unattended, against the project checkout —
 the requirement the harness heartbeat structurally cannot meet.
