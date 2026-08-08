@@ -8,7 +8,17 @@ from src.schemas import ConferenceAverages, ConferenceStanding, FormResult
 
 router = APIRouter(prefix="/api/conferences")
 
-STOP_WORDS = {"university", "college", "state", "of", "the", "and", "at", "women", "lady"}
+STOP_WORDS = {
+    "university",
+    "college",
+    "state",
+    "of",
+    "the",
+    "and",
+    "at",
+    "women",
+    "lady",
+}
 
 
 def _ilike_pattern(school_name: str) -> str:
@@ -38,11 +48,13 @@ async def conference_standings(
 ) -> list[ConferenceStanding]:
     # 1. Get schools in this conference
     result = await db.execute(
-        select(School).where(
+        select(School)
+        .where(
             School.conference == abbr,
             School.gender == gender,
             School.enabled == True,  # noqa: E712
-        ).order_by(School.name)
+        )
+        .order_by(School.name)
     )
     schools = result.scalars().all()
 
@@ -52,12 +64,16 @@ async def conference_standings(
         pattern = _ilike_pattern(school.name)
 
         # 2. Get all scored games for this school this season
-        games_stmt = select(Game).where(
-            Game.school_id == school.id,
-            Game.season_year == season,
-            Game.home_score.is_not(None),
-            Game.away_score.is_not(None),
-        ).order_by(Game.date.desc())
+        games_stmt = (
+            select(Game)
+            .where(
+                Game.school_id == school.id,
+                Game.season_year == season,
+                Game.home_score.is_not(None),
+                Game.away_score.is_not(None),
+            )
+            .order_by(Game.date.desc())
+        )
 
         games_result = await db.execute(games_stmt)
         games = games_result.scalars().all()
@@ -101,22 +117,24 @@ async def conference_standings(
             form.append(FormResult(result=res, game_id=g.game_id))
         form.reverse()  # oldest first
 
-        standings.append(ConferenceStanding(
-            school_id=school.id,
-            school_name=school.name,
-            abbreviation=school.abbreviation,
-            gender=school.gender or gender,
-            games_played=gp,
-            wins=wins,
-            losses=losses,
-            draws=draws,
-            goals_for=gf,
-            goals_against=ga,
-            goal_diff=goal_diff,
-            points=points,
-            ppg=ppg,
-            form=form,
-        ))
+        standings.append(
+            ConferenceStanding(
+                school_id=school.id,
+                school_name=school.name,
+                abbreviation=school.abbreviation,
+                gender=school.gender or gender,
+                games_played=gp,
+                wins=wins,
+                losses=losses,
+                draws=draws,
+                goals_for=gf,
+                goals_against=ga,
+                goal_diff=goal_diff,
+                points=points,
+                ppg=ppg,
+                form=form,
+            )
+        )
 
     # Sort: points DESC, goal_diff DESC, goals_for DESC
     standings.sort(key=lambda s: (s.points, s.goal_diff, s.goals_for), reverse=True)
@@ -170,7 +188,9 @@ async def conference_averages(
 
         # Get team stats for shots
         tgs_result = await db.execute(
-            select(TeamGameStats).join(Game, TeamGameStats.game_id == Game.game_id).where(
+            select(TeamGameStats)
+            .join(Game, TeamGameStats.game_id == Game.game_id)
+            .where(
                 TeamGameStats.school_id == school.id,
                 Game.season_year == season,
                 TeamGameStats.team.ilike(pattern),
@@ -185,13 +205,15 @@ async def conference_averages(
                 total_shots += row.shots or 0
                 total_sog += row.shots_on_goal or 0
 
-        school_stats.append({
-            "gp": gp,
-            "gf": total_gf,
-            "shots": total_shots,
-            "sog": total_sog,
-            "clean_sheets": clean_sheets,
-        })
+        school_stats.append(
+            {
+                "gp": gp,
+                "gf": total_gf,
+                "shots": total_shots,
+                "sog": total_sog,
+                "clean_sheets": clean_sheets,
+            }
+        )
 
     if not school_stats:
         raise HTTPException(status_code=404, detail="No game data found")
@@ -203,10 +225,15 @@ async def conference_averages(
         sum(s["gf"] / s["shots"] * 100 for s in school_stats if s["shots"] > 0) / n, 1
     )
     avg_cs_pct = round(
-        sum(s["clean_sheets"] / s["gp"] * 100 for s in school_stats if s["gp"] > 0) / n, 1
+        sum(s["clean_sheets"] / s["gp"] * 100 for s in school_stats if s["gp"] > 0) / n,
+        1,
     )
-    avg_spg = round(sum(s["shots"] / s["gp"] for s in school_stats if s["gp"] > 0) / n, 1)
-    avg_sog_pg = round(sum(s["sog"] / s["gp"] for s in school_stats if s["gp"] > 0) / n, 1)
+    avg_spg = round(
+        sum(s["shots"] / s["gp"] for s in school_stats if s["gp"] > 0) / n, 1
+    )
+    avg_sog_pg = round(
+        sum(s["sog"] / s["gp"] for s in school_stats if s["gp"] > 0) / n, 1
+    )
 
     return ConferenceAverages(
         conference=abbr,
