@@ -689,6 +689,16 @@ nodes:
       - Commit messages are ALWAYS generated: `git commit -m "$(aipr commit -m sonnet -s)"`.
         Never hand-write one, and never append a "Generated with Claude Code"
         footer or a `Co-Authored-By:` trailer to any commit.
+      - Keelson workflows launched from inside this run (`keelson workflow run …`)
+        execute against the project's PRIMARY checkout, not this worktree. A
+        harness or check that must see this branch's code needs its in-worktree
+        entry point invoked directly (learned on the first factory run, when a
+        nested ground-truth run graded the stale primary parser and reported
+        135 false diffs).
+      - Never stage `.beads/issues.jsonl` on a feature branch — it is a passive
+        tracker export that only dedicated sync commits carry, and the export
+        hook flushes it DURING `git commit`, after `git add` has already staged
+        a stale copy.
 
       ## Steps
 
@@ -1834,6 +1844,27 @@ nodes:
       stamp_ci_outcome "CI red at finalize (see the PR checks tab)"
       printf 'FAIL\n' > "$KEELSON_ARTIFACTS_DIR/.ci-final-status"
       echo "PR_STATE: DRAFT — CI not green; left as a draft for a human"
+      exit 0
+
+  - id: request-review-bot
+    depends_on: [finalize-pr]
+    bash: |
+      # Copilot review does NOT auto-trigger on this repo: every PR gets the
+      # review bot by standing practice, so request it here instead of by hand
+      # after the run (learned on the first factory cycle — all four PRs needed
+      # a manual request, and all four reviews found something real).
+      set -uo pipefail
+      PR_NUM=$(cat "$KEELSON_ARTIFACTS_DIR/.pr-number" 2>/dev/null | tr -d '[:space:]')
+      if [ -z "$PR_NUM" ]; then
+        echo "REVIEW_BOT: no PR recorded; nothing to request"
+        exit 0
+      fi
+      if gh api --method POST "repos/{owner}/{repo}/pulls/$PR_NUM/requested_reviewers" \
+           -f "reviewers[]=copilot-pull-request-reviewer[bot]" >/dev/null 2>&1; then
+        echo "REVIEW_BOT: copilot review requested on PR #$PR_NUM"
+      else
+        echo "REVIEW_BOT: request failed (non-fatal) — request by hand: gh pr edit $PR_NUM --add-reviewer Copilot"
+      fi
       exit 0
 
   # ─────────────────────────────────────────────────────────────────────────
