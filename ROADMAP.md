@@ -230,5 +230,5 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 
 Issues live in [beads](https://github.com/gastownhall/beads) under `.beads/` — dependency-aware, so `bd ready` only shows work whose prerequisites are actually done. That matters here: the repair has a strict order, and doing it out of order produces plausible-looking wrong answers. `.beads/issues.jsonl` is the committed export; the database itself is gitignored.
 
-Beads mirroring a GitHub issue carry `external_ref: gh-N` and link above. New work goes in beads only.
+The GitHub issue tracker is retired — all 13 issues were closed on 2026-08-08, each pointing at its bead. The `#N` links above go to those closed issues, which still hold the original mechanism write-ups and are worth reading. File new work in beads.
 

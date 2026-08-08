@@ -100,8 +100,15 @@ bd update <id> --claim         # take it
 python3 scripts/roadmap.py     # regenerate ROADMAP.md after changing issues
 ```
 
-Beads that mirror a GitHub issue carry `external_ref: gh-N`; both stay in sync until
-the GitHub backlog is retired. New work goes in beads only.
+**The GitHub issue tracker is retired.** All 13 issues were closed on 2026-08-08, each
+pointing at its bead. Nine of them also carry a *"what has changed since this issue was
+filed"* note — a corrected acceptance number, a new dependency, a priority change — because
+the bead had diverged from the issue. The other four had not diverged and say nothing extra,
+which is the honest signal that the original write-up still stands.
+
+The beads keep `external_ref: gh-N`, so the mechanism write-ups stay one click away —
+several are excellent and worth reading — but the issue itself is history, not a second
+source of truth. **File everything in beads.**
 
 Two Keelson workflows validate the data and one drives the queue:
 
