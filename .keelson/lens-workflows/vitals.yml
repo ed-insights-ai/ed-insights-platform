@@ -1,0 +1,179 @@
+# Contributed by Chamber as `chamber-lens-vitals` — the FILENAME decides that name,
+# not the `name:` field below. A lens names it in refresh.workflow to become living.
+#
+# Why this exists: the data-repair's state currently lives in a Claude session's
+# /prime run. This workflow is the same step-3 vitals table, measured on cadence,
+# so a human with the Chamber surface open learns the state without asking anyone.
+#
+# Every number is measured fail-closed, per metric: a psql failure or an empty
+# capture renders UNMEASURED, never 0 — "I measured zero" and "I could not look"
+# must be distinguishable (see bd memory guard-the-source-not-the-value; this
+# project shipped 19 checks that could not tell the difference).
+#
+# Verdicts are computed HERE, deterministically, not by the composing agent:
+#   OK          now == target
+#   OUTSTANDING now is between the worst-known baseline and the target
+#   REGRESSED   now is further from target than the worst-known baseline
+#   UNMEASURED  the query failed — rendered as an alarm, never as a number
+#
+# Targets carry the peer-session correction of 2026-08-08: red cards target is
+# 201 total (43 StatCrew reds already correct + 158 recovered SideArm), not 158
+# (see bd memory red-cards-43-and-158-are-disjoint).
+#
+# Contributions are collected at startup: `keelson workflow status` first (a
+# restart CANCELS running workflows), then `keelson stop && keelson start`.
+
+name: vitals
+model: balanced
+description: |
+  Use when: a Chamber lens needs the live data-repair vitals — each repair metric
+            measured against Postgres now, not recited from a document.
+  Triggers: named as `refresh.workflow` by the data-vitals lens; not usually run
+            by hand.
+  Does: measures every repair metric with SELECT-only queries (fail-closed per
+        metric), computes deterministic verdicts against target and worst-known
+        baseline, then spends one agent turn composing and emitting the board
+        under the lens id.
+  NOT for: mutating the database, running the full integrity harness
+           (data-integrity / ground-truth own that), or the work queue
+           (chamber-lens-beads owns that).
+
+# A panel refresh passes no project, so the workflow must not require one and the
+# bash node hardcodes its own paths where it needs any.
+requiresProject: false
+mutates_checkout: false
+
+inputs:
+  lens:
+    description: The lens id to emit under. Supplied by the refresh contract.
+    required: true
+
+nodes:
+  - id: measure
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      echo "=== AS OF ==="
+      date "+%Y-%m-%d %H:%M %Z"
+      KICK=$(date -j -f "%Y-%m-%d" "2026-08-27" +%s 2>/dev/null || date -d "2026-08-27" +%s)
+      NOW=$(date +%s)
+      echo "days_to_kickoff|$(( (KICK - NOW) / 86400 ))"
+      echo
+      # m: run one SELECT fail-closed. Non-zero exit OR empty capture -> UNMEASURED.
+      m() {
+        local out rc
+        out=$(psql -U lume -d ed_insights -tA -c "$1" 2>&1); rc=$?
+        if [ "$rc" -ne 0 ] || [ -z "$out" ]; then echo "UNMEASURED"; else echo "$out"; fi
+      }
+      # v: deterministic verdict from now/target/baseline by distance-to-target.
+      # Direction-agnostic: works for counts that must fall (phantoms 42->0) and
+      # counts that must rise (red cards 43->201, events 22754->22782).
+      v() {
+        local now=$1 target=$2 base=$3 dn db
+        case "$now" in (*[!0-9]*|"") echo "UNMEASURED"; return;; esac
+        if [ "$now" -eq "$target" ]; then echo "OK"; return; fi
+        dn=$(( now - target ));  dn=${dn#-}
+        db=$(( base - target )); db=${db#-}
+        if [ "$dn" -gt "$db" ]; then echo "REGRESSED"; else echo "OUTSTANDING"; fi
+      }
+      echo "=== DB PROBE ==="
+      PROBE=$(m "SELECT 1")
+      if [ "$PROBE" = "UNMEASURED" ]; then
+        echo "DB_UNREACHABLE — every vital below is UNMEASURED. This board must render as an alarm, not as numbers."
+      else
+        echo "reachable"
+      fi
+      echo
+      echo "=== VITALS (metric|now|target|verdict) ==="
+      # Games total: 2140 is the pre-repair count; 2098 is the target after the 42
+      # phantom rows are deleted. Any OTHER movement is a regression.
+      N=$(m "SELECT count(*) FROM games")
+      echo "games total|$N|2098 (2140 until phantoms deleted)|$(v "$N" 2098 2140)"
+      # Phantom rows: predicate is NOT IN (season_year, season_year+1) — the naive
+      # != season_year form condemns 79 legitimate COVID-season games.
+      N=$(m "SELECT count(*) FROM games WHERE date IS NOT NULL AND extract(year FROM date) NOT IN (season_year, season_year+1)")
+      echo "phantom rows|$N|0|$(v "$N" 0 42)"
+      N=$(m "SELECT count(*) FROM games WHERE date IS NULL")
+      echo "NULL dates|$N|0|$(v "$N" 0 111)"
+      N=$(m "SELECT count(*) FROM games WHERE is_conference_game IS NULL")
+      echo "is_conference_game NULL|$N|0|$(v "$N" 0 2140)"
+      # Red cards: 43 StatCrew reds (Harding) were never wrong; the repair adds 158
+      # recovered SideArm reds for a total of 201. The two sets are disjoint.
+      N=$(m "SELECT count(*) FROM game_events WHERE event_type='red_card'")
+      echo "red cards stored|$N|201 (43 StatCrew + 158 SideArm)|$(v "$N" 201 43)"
+      # Home contradictions: the fixture pair must be UNORDERED and gender-aware —
+      # grouping by home_team and testing home_team variance silently returns 0
+      # (bd memory never-group-by-the-field-you-test).
+      N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, least(g.home_team,g.away_team), greatest(g.home_team,g.away_team) FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1 AND count(DISTINCT g.home_team)>1) d")
+      echo "two-perspective home contradictions|$N|0|$(v "$N" 0 471)"
+      # Duplicate groups: gender IS part of the key — without it 40 real m/w
+      # fixtures collapse. 138 is the honest current count; 98 after phantoms go.
+      N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, g.home_team, g.away_team FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1) d")
+      echo "duplicate groups (gender-aware)|$N|98 (138 until phantoms deleted)|$(v "$N" 98 138)"
+      N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, g.home_team, g.away_team FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1 AND count(DISTINCT coalesce(g.home_score,-1)||':'||coalesce(g.away_score,-1))>1) d")
+      echo "score disagreements (gender-aware)|$N|0|$(v "$N" 0 0)"
+      N=$(m "SELECT count(*) FROM game_events")
+      echo "events rows|$N|22782 (28 lost at load)|$(v "$N" 22782 22754)"
+      echo
+      echo "=== INFO (no verdict — target is approximate) ==="
+      # Home/away is invented school-centrically: every HU/HUW row claims Harding
+      # is home. Post-repair roughly half of these 337 should. No exact target
+      # exists yet, so this row carries no computed verdict.
+      N=$(m "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id WHERE s.abbreviation IN ('HU','HUW') AND g.home_team='Harding'")
+      echo "HU+HUW rows claiming Harding home|$N|roughly half of 337 (337 = unrepaired)"
+
+  - id: compose
+    depends_on: [measure]
+    model: balanced
+    allowed_tools: [chamber_emit_lens]
+    prompt: |
+      You are composing the live DATA VITALS board for the Touchline data repair.
+      Emit it with `chamber_emit_lens` exactly once, using `id: "$inputs.lens"`.
+
+      ## The measurement
+
+      Everything below was measured moments ago by a deterministic bash node with
+      SELECT-only queries, and every verdict was COMPUTED there too. **These
+      numbers and verdicts are the truth. Do not adjust, round, re-derive, or
+      soften them.** If something you want to say is not in this data, leave it
+      out.
+
+      $measure.output
+
+      ## How to read the verdicts
+
+      - OK — at target. Finished work; render calm (tone ok).
+      - OUTSTANDING — known defect, repair not landed yet. The expected state for
+        most rows right now; render neutral/info, not alarming.
+      - REGRESSED — moved AWAY from target past its worst-known baseline. The most
+        important thing on the board; render tone error, put it at the top.
+      - UNMEASURED — the query could not run. Render tone error. Never show it as
+        a number, and if the DB probe says DB_UNREACHABLE, the whole board leads
+        with that alarm instead of a table of vitals.
+
+      ## Board composition
+
+      - Header segments: days to kickoff (2026-08-27), count at target, count
+        outstanding, count regressed/unmeasured. Header status: "measuring true"
+        tone ok if nothing is REGRESSED or UNMEASURED, else tone error.
+      - If anything is REGRESSED or UNMEASURED: an alarm section FIRST naming it.
+      - Then the vitals table: metric | now | target | verdict, one row each,
+        with the row tone following its verdict.
+      - Then the INFO row(s) in a small separate section, clearly marked as
+        having no computed verdict.
+      - Include a "measured at" line carrying the AS OF timestamp from the
+        measurement — the card's own clock tracks when the board last changed,
+        not when it was last measured, so the board must say this itself.
+      - A one-line footer: "Every number on this board was measured by a query
+        run at the timestamp above. Nothing is recited from a document."
+
+      Set `scope: "vitals board"`. Set `reason` to a short note on what changed
+      since the last authoring — omit it entirely if this is the first.
+
+      Also pass `refresh: { workflow: "chamber-lens-vitals", cadenceMs: 1800000 }`
+      so the lens keeps itself current through this same workflow. Pass it every
+      time: on the first author it establishes the backing, and on a refresh it
+      patches the existing one rather than stripping its own wiring.
+
+      Keep it scannable — a glance should answer "is the repair on track and did
+      anything just get worse."

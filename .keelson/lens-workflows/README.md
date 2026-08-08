@@ -29,3 +29,18 @@ agent's to invent. Pin the lens on the Chamber surface and it refreshes every 30
 
 Note the hardcoded repo path in its bash node: a panel refresh passes no project, so the
 workflow has to know where to `cd`.
+
+## vitals.yml → `chamber-lens-vitals`
+
+Backs the `data-vitals` lens: the repair burn-down, measured live — the same table `/prime`
+step 3 produces, without needing a Claude session. A bash node runs every metric as a
+SELECT-only query **fail-closed per metric** (a psql failure or empty capture renders
+`UNMEASURED`, never `0` — proven by pointing it at a nonexistent database) and computes the
+verdict deterministically by distance-to-target against a worst-known baseline: `OK`,
+`OUTSTANDING`, `REGRESSED`, or `UNMEASURED`. The agent turn only renders; it never derives
+a number or a verdict.
+
+Targets carry the 2026-08-08 corrections: red cards target **201** (43 StatCrew reds were
+never wrong and are disjoint from the 158 recoverable SideArm reds — see
+`bd memories red-cards`), and the duplicate/games targets state both their current-expected
+and post-phantom-deletion values.
