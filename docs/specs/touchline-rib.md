@@ -113,11 +113,35 @@ should never have existed. Those are cheaper to fix once in the data than to com
 for forever in every reader.
 
 **The decisive finding of the ground-truth audit: every defect is repairable offline.**
-Re-parsing all 2,140 cached box scores reproduces the stored date, attendance, team
-strings, scores and all five team metrics for 2,140/2,140 games and 4,280/4,280 team
-rows, with zero parse failures. The storage layer invents and corrupts nothing — every
-defect in the table above lives in a parser or the loader, and the evidence needed to fix
-it is in the 1.1 GB of cached HTML we already hold. No re-scrape, no network.
+Re-parsing all 2,140 cached box scores produces zero parse failures and zero missing HTML,
+and the evidence needed to fix every defect in the table above is in the 1.1 GB of cached
+HTML we already hold. No re-scrape, no network. *That* part stands.
+
+> **Corrected 2026-08-08 by an adversarial audit of the harness itself.** Two sentences
+> that used to sit here were overclaims, and both were load-bearing.
+>
+> - *"reproduces … for 2,140/2,140 games"* — the check's own current output is **2,005
+>   exact, 135 differ** (venue 111, events 26). The 111 are the known `'NaN'` rows.
+> - *"The storage layer invents and corrupts nothing"* — **false.** The per-season parquets
+>   hold **22,782** event rows; Postgres holds **22,754**. **28 real events are destroyed at
+>   load**, because `storage.py:15-27` hashes seven fields but not `description`, so two
+>   events sharing a clock collapse into one. That is a loader defect, and it is now
+>   P0 (`tl-3zm`).
+>
+> Note also what the re-parse can and cannot prove. It re-parses with the *same*
+> `parse_game` / `parse_sidearm_game` that produced the stored rows, so a systematic parser
+> misread reproduces exactly and reads as fidelity. And it compares players on
+> `(player_name, shots, shots_on_goal, goals, assists)` — **not `team`** — and events on
+> `(event_type, clock, player)`. "Zero field diffs" was always compatible with 723
+> roster-swapped games and 8,949 events whose team string joins to neither side.
+>
+> The honest form of the verdict is narrower than *"the numbers are true, the labels are
+> wrong."* The labels half is fully supported. The numbers half rests on the **139
+> StatCrew × SideArm pairs** — two platforms *and* two parsers — showing zero goal
+> disagreements, plus the scoreline-vs-events oracle and the physical-impossibility checks.
+> For the other **454 SideArm × SideArm pairs** it rests on agreement between two runs of
+> the same code, which is weaker evidence than it reads as. See the *measuring instrument*
+> epic for the corrections.
 
 **What is *not* wrong — corrected:** the 176 duplicate groups inflate nothing. **No**
 duplicate group shares both `school_id` and `season_year` (measured: 0), and every
@@ -508,11 +532,31 @@ It is not yet sufficient, and its limitation is structural: it checks whether th
 defect, because the table is consistently wrong. This workflow would pass today's data.
 
 The companion `ground-truth.yml` closes that gap with twelve read-only, offline checks that
-re-derive from the 2,140 cached box scores and from the second independent transcription
-that exists wherever two schools scraped one fixture. Its `duplication` check must also gain
-gender in the key (it reports 176 rather than 98) and its `identity` check reproduces only
-`_ilike_pattern`, one of the five matchers. The numbers in the Problem Statement above are
-the targets for both.
+re-derive from the 2,140 cached box scores and from the second transcription that exists
+wherever two schools scraped one fixture.
+
+> **The instrument is not yet fit to grade the repair.** An adversarial audit on 2026-08-08
+> found faults serious enough to need their own epic. The headline one is systemic:
+> **19 of the 21 checks fail OPEN.** Every `Q()` sends psql stderr to `/dev/null` and most
+> verdicts are unguarded `[ "$X" -gt 0 ]`, which on an empty string is a shell *test error*
+> — so `V` keeps its initial value of `ok`. Demonstrated: a check body run against a
+> nonexistent database emits valid JSON with `"verdict":"ok"` and exit 0, and the report
+> renders `[ OK ]` with blank numbers.
+>
+> Also: `archive`'s verdict is `[ "${PQ:-0}" -lt 0 ]` — a row count is never negative, so
+> that check can never detect the mismatch it exists for; and `duplication`'s ALARM is
+> driven by 39 "score disagreements" which are **all** legitimate men's-vs-women's fixture
+> pairs, so it reports corruption that does not exist.
+>
+> The `duplication` check that needs gender in its key is in **`data-integrity.yml:49-51`**,
+> not in `ground-truth.yml` — an earlier draft of this paragraph named the wrong file. Its
+> `identity` check reproduces only `_ilike_pattern`, one of five matchers, and the `Site:`
+> city oracle that produced the headline 651/1,745 home/away figure is **in neither
+> workflow**, so that number is not currently reproducible by the instrument that is
+> supposed to grade its repair.
+
+The numbers in the Problem Statement above are the targets for both — once the checks that
+measure them are trustworthy.
 
 > **Authoring note, learned the hard way.** Do not name a shell variable `GROUPS` in a
 > bash node. It is a readonly bash builtin array holding the caller's group ids;
@@ -719,13 +763,25 @@ the S2 integrity board's first baseline.
   fixtures, and `home_team='Harding'` for HU+HUW falls from 337/337 to roughly half.
 - The SideArm roster swap goes **723 -> 0** on the arithmetic gate and **739 -> 0** against the
   HTML captions; StatCrew stays at 0/337.
-- Red cards converge: `penalty-type red` markers in cached HTML = 166 and SideArm `red_card`
-  rows = 166.
+- Red cards converge: `penalty-type red` markers in cached HTML = **158** and SideArm
+  `red_card` rows = **158**. *(Corrected 2026-08-08 from 166 = 166, which is unsatisfiable:
+  of the 166 markers in the cache, **8** sit in the phantom `fhsu/2020` and `obu/2020`
+  directories that Task 2 deletes — 7 and 1 respectively, byte-identical to their 2025
+  twins. 166 = 158 unique + 8 duplicates. Same trap as the re-parse count two bullets down,
+  caught there and missed here.)*
 - Every `(gender, date, sorted institution pair)` group has `count(*) = count(DISTINCT
   school_id)`, max size 2, zero gender mixing, zero oriented-score disagreement — currently
   40 violations, all phantom, so 0 after Task 2.
-- The full re-parse harness reports 2,140/2,140 games re-parsed with 0 errors and 0 field
+- The full re-parse harness reports **2,098/2,098** games re-parsed with 0 errors and 0 field
   diffs, and `ground-truth.yml` reports no alarms it did not report before the repair.
+  *(2,098, not 2,140 — Task 2 deletes 42 phantom games and their cached HTML, so the
+  post-repair corpus is smaller than the pre-repair one. An earlier draft of this line said
+  2,140, which is unsatisfiable after Task 2 and quietly pressures keeping the phantoms.)*
+- `ground-truth.yml` itself has been corrected first, per the note in *The verification
+  harness*: its duplication check must gain gender in the key (it reports 176 where the true
+  figure is 98) and its identity check must cover all five matchers rather than
+  `_ilike_pattern` alone. A baseline measured with an uncorrected instrument is not a
+  baseline.
 
 ### S1 — The canon and the first Observation
 
@@ -835,8 +891,14 @@ one-time full reload it requires.
 
 Bracket mode for the Race region, the Dispatch splitting into preview/review pairs, a
 season-in-review page. Then the deferred correctness work: the `sidearm_legacy` scraper,
-so NSU stops being reconstructed (D-06), and the caution `Type` column at
-`sidearm_parser.py:339-348`, so red cards become visible outside Harding.
+so NSU stops being reconstructed (D-06).
+
+*Corrected 2026-08-08.* This stage previously also listed the caution `Type` column at
+`sidearm_parser.py:339-348`. That contradicted D-03, which had already moved it into the
+S0.5 repair pass, and D-03 wins: it is a regex change plus a re-parse, not a re-scrape.
+Leaving it here would have stored every red card of the 2026 season as yellow until
+November, and would have made S0.5's own "0 field diffs" gate unsatisfiable — a re-parse
+with the hardcoded parser either reverts the 166-row backfill or reports 166 diffs.
 
 ---
 

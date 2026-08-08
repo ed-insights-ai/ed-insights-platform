@@ -40,10 +40,20 @@ packages/pipeline/data/raw_html/
 
 # Gas Town runtime (not part of the project)
 .runtime/
-.claude/
+.claude/*
+# Slash commands are project assets, not local runtime — they travel with the repo.
+!.claude/commands/
 .logs/
 state.json
-.beads/
 
 # Keelson workflow run worktrees (created by isolated runs)
 .worktrees/
+
+# Beads issue tracker. The Dolt database is machine-local and rebuildable, but
+# issues.jsonl is the committed record of what we are building — the plan has to
+# survive a fresh clone, and it is what ROADMAP.md is generated from.
+.beads/*
+!.beads/issues.jsonl
+.dolt/
+*.db
+.beads-credential-key

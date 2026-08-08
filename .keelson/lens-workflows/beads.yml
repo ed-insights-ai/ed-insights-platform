@@ -1,0 +1,105 @@
+# Contributed by Chamber as `chamber-lens-beads` — the FILENAME decides that name,
+# not the `name:` field below. A lens names it in refresh.workflow to become living.
+#
+# Why this exists: the bundled lens author can only Read/Glob/Grep, so it can watch a
+# file but cannot measure anything live. This workflow measures the beads database
+# deterministically in bash, then spends exactly one agent turn composing the board.
+# The numbers are never the agent's to invent.
+#
+# Contributions are collected at startup: `keelson stop && keelson start` after editing.
+
+name: beads
+model: balanced
+description: |
+  Use when: a Chamber lens needs a live view of the Touchline work queue rather than
+            a snapshot of ROADMAP.md.
+  Triggers: named as `refresh.workflow` by a lens; not usually run by hand.
+  Does: measures the beads database with bd (ready / blocked / in-progress / epic
+        completion / stats), then composes and emits a canvas board under the lens id.
+  NOT for: changing any issue. Every bd call here is read-only.
+
+# Runs against a fixed checkout: a panel refresh passes no project, and the lens has to
+# work whatever directory the harness happens to be in.
+requiresProject: false
+mutates_checkout: false
+
+inputs:
+  lens:
+    description: The lens id to emit under. Supplied by the refresh contract.
+    required: true
+
+nodes:
+  - id: measure
+    bash: |
+      set -uo pipefail
+      REPO=/Users/danielscholl/edinsights-ai/project/ed-insights-platform
+      cd "$REPO" || { echo "REPO_MISSING $REPO"; exit 1; }
+      echo "=== AS OF ==="
+      date "+%Y-%m-%d %H:%M %Z"
+      echo
+      echo "=== STATS ==="
+      bd stats 2>&1 | sed -n '3,12p'
+      echo
+      echo "=== READY (no unmet blockers, priority order) ==="
+      bd ready --exclude-type=epic 2>&1 | sed -n '1,30p'
+      echo
+      echo "=== IN PROGRESS ==="
+      bd list --status in_progress 2>&1 | sed -n '1,15p'
+      echo
+      echo "=== EPIC COMPLETION ==="
+      bd epic status 2>&1 | sed -n '1,60p'
+      echo
+      echo "=== BLOCKED (waiting on a predecessor) ==="
+      bd blocked 2>&1 | sed -n '1,45p'
+
+  - id: compose
+    depends_on: [measure]
+    model: balanced
+    allowed_tools: [chamber_emit_lens]
+    prompt: |
+      You are composing a live status board for the Touchline project's work queue.
+      Emit it with `chamber_emit_lens` exactly once, using `id: "$inputs.lens"`.
+
+      ## The measurement
+
+      Everything below was measured just now by a deterministic bash node against the
+      beads database. **These numbers are the truth. Do not adjust, round, or infer
+      past them.** If something you want to say is not in this data, leave it out.
+
+      $measure.output
+
+      ## What the reader needs
+
+      The D2 soccer season starts around **27 August 2026**. Anyone opening this board
+      wants three answers without reading further:
+
+      1. **What can I start right now?** The ready list, highest priority first, with
+         the `tl-xxx` ids verbatim so they paste straight into `bd show`.
+      2. **What is the season at risk from?** Which ready work sits on the critical
+         path to a correct dataset and a scheduled refresh before kickoff.
+      3. **Where is the whole effort?** Epic completion, and how much is blocked
+         versus actionable.
+
+      ## Board composition
+
+      - Lead with a stats section: total open, ready, blocked, in progress, closed.
+      - Then the ready queue as rows — id, priority, title. Priority P0 first.
+      - Then epic completion. Twelve epics; show them in delivery order
+        (S0, S0.5, S1, S2, S3, S4, S5, API, S6, S7, S8, S9), not alphabetically.
+      - If anything is in progress, give it its own short section above the queue —
+        work already claimed is the most interesting state on the board.
+      - Include a "data as of" line carrying the timestamp from the measurement. The
+        card's own clock tracks when the board last *changed*, not when it was last
+        measured, so the board must say this itself.
+
+      Set `scope: "status board"`. Set `reason` to a short note on what changed since
+      the last authoring — omit it entirely if this is the first.
+
+      Also pass `refresh: { workflow: "chamber-lens-beads", cadenceMs: 1800000 }` so the
+      lens keeps itself current through this same workflow. Pass it every time: on the
+      first author it establishes the backing, and on a refresh it patches the existing
+      one rather than replacing it — a refresh turn that omitted it would be fine too,
+      but passing it means this workflow can never accidentally strip its own wiring.
+
+      Keep it scannable. This is a board someone glances at on a Sunday morning, not
+      a report they read.

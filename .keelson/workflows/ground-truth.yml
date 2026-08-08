@@ -17,8 +17,60 @@ tags: [data, fidelity, source-of-truth, soccer]
 # scraped the same fixture. Nothing here fetches. The athletics sites are small
 # and a durable check must never hammer them.
 #
+# FAIL CLOSED. Every check in this file must alarm when it cannot run.
+#
+# Q() sends psql stderr to /dev/null, so a dead database, a dropped table, a
+# permissions change or one timed-out query all arrive in the shell as an EMPTY
+# STRING. `${X:-0}` then substitutes the BENIGN value and the verdict stays `ok`;
+# where there is no default, `[ "" -gt 0 ]` is a test ERROR (exit 2) rather than
+# false, so the unguarded `&& V=alarm` never fires and V keeps its initialised
+# `ok`. Nine of the twelve checks here used to read `[ OK ]` against a database
+# that did not exist, with `?` in every headline slot.
+#
+# The convention, taken from the cache-provenance check below: after the queries
+# run, assert every captured variable is non-empty; if any is empty, print an
+# explicit `CHECK DID NOT RUN` alarm naming the empty captures and exit 0. The
+# failure headline is deliberately NOT the measurement headline with blanks in
+# it — a reader must be able to tell "the query failed" from "the data is bad"
+# at a glance. Past that guard the verdict tests use bare "$VAR", because the
+# `${VAR:-0}` defaults are what made the check fail open in the first place.
+#
+# THAT CONVENTION IS ONLY HALF OF IT, and the missing half is the one that bit.
+# Asserting non-empty works for a psql capture because a dead query yields the
+# empty string. It is USELESS for a capture built from `find | wc -l`, from
+# `grep -rl | wc -l`, from a python sum() over a glob, or from a shell counter
+# initialised to 0 and incremented in a loop. None of those can ever produce an
+# empty string. They produce `0` — the same `0` a healthy, genuinely-clean check
+# reports. "The directory was missing, unreadable, or the cwd was wrong" and "I
+# looked and everything is fine" render identically, in the same sentence, with
+# the same verdict.
+#
+# THE RULE: a check must be able to distinguish "I measured zero" from "I did not
+# measure". For a counter, that means guarding the SOURCE, not the value — does
+# the directory exist, is it readable, did the glob match a file, did the command
+# run — and then either withholding the number or refusing to print a verdict.
+# `[ -d "$D" ]` is NOT such a guard: test -d succeeds on a chmod-000 directory
+# and grep reads nothing out of it. Count the files first.
+#
+# Where a node has a database half and a filesystem half, split the verdict
+# rather than gate the whole node on the fragile half: home-away-truth reports
+# its 471 contradictory fixtures from Postgres and separately marks the StatCrew
+# venue evidence as not run. Do not throw away a working measurement to guard a
+# broken one.
+#
+# The accumulator is named NORUN, not data-integrity.yml's MISSING, because
+# gender-fidelity captures a SQL result into $MISSING. One name across this file
+# beats matching the sibling file exactly — do not "harmonise" it.
+#
+# `${!v}` is bash indirect expansion. Keelson spawns `bash -c <body>` (see the
+# bash handler in @keelson/cli), and bash 3.2 on this machine supports it. Do
+# not port these loops to sh.
+#
 # Conventions inherited from data-integrity.yml, all learned the hard way:
 #   * every node prints exactly one JSON line on stdout
+#   * a check that cannot run exits 0 with an alarm JSON, never non-zero: the
+#     report node turns absent output into ALARM too, but an explicit headline
+#     says WHICH capture came back empty and a bare exit code does not.
 #   * NEVER name a bash variable GROUPS (readonly builtin array of the caller's
 #     gids — assignment is silently ignored and $GROUPS expands to a gid, 20 on
 #     macOS, which reads as a plausible count). Same for UID/PWD/SECONDS/RANDOM/
@@ -37,6 +89,17 @@ nodes:
   # the 7 game fields, both team-stat rows x 5 metrics, the player-row multiset
   # and the event multiset against Postgres. ~85s for all 2,140 games.
   # Set GROUND_TRUTH_SAMPLE=1 for a fast per-(school,season) smoke pass.
+  #
+  # FAIL-CLOSED NOTE — this node is the ONE exception to the exit-0-with-an-alarm
+  # convention described at the top of this file, and it must stay that way. It
+  # fails closed by LETTING EXCEPTIONS ESCAPE: psycopg2 raises on a dead database,
+  # a dropped table, a permissions change or a statement timeout, nothing reaches
+  # stdout, the node exits non-zero, and the report node turns absent output into
+  # ALARM. Do NOT "harmonise" it by wrapping the psycopg2 work in try/except — an
+  # except block that prints a verdict is exactly how this check would start
+  # failing open. The three bail() paths already emit an explicit alarm for the
+  # conditions that are not exceptions. Its safety lives in the report node, so do
+  # not weaken the `if (!raw) ... verdict:'alarm'` branch there either.
   - id: reparse-fidelity
     runtime: uv
     timeout: 900000
@@ -253,20 +316,84 @@ nodes:
                           FROM games g JOIN schools s ON s.id=g.school_id GROUP BY 1) t
                     WHERE selfh = n")
       R=packages/pipeline/data/raw_html
-      WITHVENUE=0; ATHOME=0
-      if [ -d "$R/hu" ] || [ -d "$R/huw" ]; then
-        WITHVENUE=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at [^)<]*\)' "$R/hu" "$R/huw" 2>/dev/null | wc -l | tr -d ' ')
-        ATHOME=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at Searcy' "$R/hu" "$R/huw" 2>/dev/null | wc -l | tr -d ' ')
+      # SOURCE-SIDE GUARD. WITHVENUE/ATHOME come from `grep -rl | wc -l`, which
+      # can never return the empty string the psql guard below looks for: it
+      # prints 0 for a missing, empty or unreadable directory exactly as loudly as
+      # for a corpus that genuinely states no venue. `[ -d ]` does not save it —
+      # test -d succeeds on a chmod-000 directory, grep then reads nothing, and
+      # this node reports "a venue for 0 box scores of which 0 are away from
+      # Searcy" as a measured fact. Count the files that WOULD be scanned before
+      # trusting any count of what is inside them; zero scannable files is "did
+      # not measure", and it is left EMPTY here so it cannot be printed as a
+      # number. Do not re-initialise these to 0.
+      # Both directories are required, not either: the database side of the
+      # sentence counts HU+HUW together, so a source side that silently covered
+      # only the men's cache would be compared against a denominator spanning
+      # both. The old `[ -d hu ] || [ -d huw ]` made that undercount invisible.
+      HUDIRS=; HUMISS=; SRCFILES=0
+      for d in hu huw; do
+        N=
+        if [ -d "$R/$d" ] && [ -r "$R/$d" ] && [ -x "$R/$d" ]; then
+          N=$(find "$R/$d" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
+          [ $? -eq 0 ] || N=
+        fi
+        if [ -n "$N" ] && [ "$N" -gt 0 ]; then
+          HUDIRS="$HUDIRS $R/$d"; SRCFILES=$(( SRCFILES + N ))
+        else
+          HUMISS="$HUMISS $d"
+        fi
+      done
+      WITHVENUE=; ATHOME=; AWAYSRC=
+      if [ -z "$HUMISS" ]; then
+        # pipefail is set, so these carry grep's status: 1 is "no file matched"
+        # (a real zero) and 2 is "grep could not read something" (not a zero).
+        WITHVENUE=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at [^)<]*\)' $HUDIRS 2>/dev/null | wc -l | tr -d ' ')
+        [ $? -gt 1 ] && WITHVENUE=
+        ATHOME=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at Searcy' $HUDIRS 2>/dev/null | wc -l | tr -d ' ')
+        [ $? -gt 1 ] && ATHOME=
       fi
       STORED=$(Q "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id
                   WHERE s.abbreviation IN ('HU','HUW') AND g.home_team ILIKE '%Harding%'")
       HUTOTAL=$(Q "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id WHERE s.abbreviation IN ('HU','HUW')")
-      AWAYSRC=$(( ${WITHVENUE:-0} - ${ATHOME:-0} ))
+      [ -n "$WITHVENUE" ] && [ -n "$ATHOME" ] && AWAYSRC=$(( WITHVENUE - ATHOME ))
+      # The five psql captures arrive empty when their query fails. SELFHOME
+      # coalesces to the literal 'none' on success, so empty means it failed.
+      NORUN=
+      for v in PAIRSETS CONTRA SELFHOME STORED HUTOTAL; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"home-away-truth","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
+        exit 0
+      fi
+      # Past the guard every capture is non-empty, so these tests now mean only
+      # what they say. This node used to alarm on a dead database by COINCIDENCE:
+      # STORED and HUTOTAL were both empty, `${X:-0}` made both 0, and `0 -eq 0`
+      # is true. That is two failed queries agreeing with each other, not a
+      # detection, and it evaporated the moment the HTML side read 0 as well.
       V=ok
-      [ "${CONTRA:-0}" -gt 0 ] 2>/dev/null && V=alarm
-      [ "$AWAYSRC" -gt 0 ] && [ "${STORED:-0}" -eq "${HUTOTAL:-0}" ] 2>/dev/null && V=alarm
-      printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s box scores of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page"}\n' \
-        "$V" "${CONTRA:-?}" "${PAIRSETS:-?}" "${WITHVENUE:-0}" "$AWAYSRC" "${STORED:-?}" "${HUTOTAL:-?}" "${SELFHOME:-none}"
+      [ "$CONTRA" -gt 0 ] && V=alarm
+      # SPLIT VERDICT. The database half above needs no HTML and its 471
+      # contradictory fixtures are a real finding, so an unreadable cache must not
+      # suppress it — but the source half must not be reported either, and least
+      # of all as zero. Print the database numbers, name the source half as not
+      # run, and alarm because half of this check did not happen.
+      if [ -z "$WITHVENUE" ] || [ -z "$ATHOME" ]; then
+        printf '{"check":"home-away-truth","verdict":"alarm","headline":"DATABASE HALF ONLY — %s of %s twice-scraped same-gender fixtures have both rows claiming home; %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s. SOURCE HALF DID NOT RUN — the StatCrew venue line was never counted (%s scannable .html files under %s; unusable programme directories:%s), so the venue and away-from-Searcy figures are withheld rather than reported as zero.","cause":"the cached HU/HUW box scores were missing, empty or unreadable, or this node ran from a cwd that is not the repository root — grep prints 0 for every one of those and it is indistinguishable from a source that states no venue. The database counts above stand on their own. Where the contradictory-fixture count is non-zero the mechanism is parser.py:859-862 swapping whenever the school name matches the away slot, and sidearm_parser.py:127-134 assigning score-table row 0 to home."}\n' \
+          "$CONTRA" "$PAIRSETS" "$STORED" "$HUTOTAL" "$SELFHOME" "$SRCFILES" "$R" \
+          "${HUMISS:- none — grep could not finish reading the corpus}"
+        exit 0
+      fi
+      [ "$AWAYSRC" -gt 0 ] && [ "$STORED" -eq "$HUTOTAL" ] && V=alarm
+      # SRCFILES IS THE DENOMINATOR, and until now it was printed only on the
+      # failure path. The guards above reject a programme directory with nothing
+      # scannable, but they pass on one holding a SINGLE readable file, and a
+      # partial cache is the ordinary state of this tree — mid-scrape, just after
+      # a school is added, or with one athletics site down. That is legitimate and
+      # must NOT alarm; what must not happen is reporting "a venue for 2 box
+      # scores, 0 away from Searcy" in the same sentence shape as a full corpus.
+      # WITHVENUE, ATHOME and the AWAYSRC derived from them now all state what
+      # they were measured over, so a thin corpus is self-evident in the headline.
+      printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s of %s cached HU+HUW box scores read, of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page. Read the venue figures against the box-score denominator: they are a claim about the corpus that was actually read, not about every box score that should exist"}\n' \
+        "$V" "$CONTRA" "$PAIRSETS" "$WITHVENUE" "$SRCFILES" "$AWAYSRC" "$STORED" "$HUTOTAL" "$SELFHOME"
 
   # ── 3. Independent corroboration ────────────────────────────────────────
   # The only check in the suite that tests whether the numbers are TRUE rather
@@ -313,11 +440,21 @@ nodes:
       EVPAIRS=$(printf '%s' "$EVOUT" | cut -d'|' -f1)
       EVROWS=$(printf '%s' "$EVOUT" | cut -d'|' -f2)
       EVONLY=$(printf '%s' "$EVOUT" | cut -d'|' -f3)
+      # Both psql calls return a single pipe-joined row, so `cut` of an empty
+      # string leaves every derived field empty. Asserting the seven derived
+      # fields rather than OUT/EVOUT also catches a short row, which is what a
+      # changed column list would look like.
+      NORUN=
+      for v in NROWS ALL5 GDIFF SOGDIFF EVPAIRS EVROWS EVONLY; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"cross-source","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      [ "${GDIFF:-0}" -gt 0 ] 2>/dev/null && V=alarm
-      { [ "${SOGDIFF:-0}" -gt 0 ] || [ "${EVONLY:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      [ "$GDIFF" -gt 0 ] && V=alarm
+      { [ "$SOGDIFF" -gt 0 ] || [ "$EVONLY" -gt 0 ]; } && [ "$V" = ok ] && V=warn
       printf '{"check":"cross-source","verdict":"%s","headline":"%s team-sides transcribed twice from unrelated sites: %s agree on all five metrics, %s disagree on goals, %s on shots-on-goal; %s twice-scraped fixtures yield %s non-sub events of which %s appear on only one side","cause":"a goals disagreement means one transcription is simply wrong; shots-on-goal drift is parser.py:886-888 coercing an absent SOG column to 0 instead of NULL"}\n' \
-        "$V" "${NROWS:-?}" "${ALL5:-?}" "${GDIFF:-?}" "${SOGDIFF:-?}" "${EVPAIRS:-?}" "${EVROWS:-?}" "${EVONLY:-?}"
+        "$V" "$NROWS" "$ALL5" "$GDIFF" "$SOGDIFF" "$EVPAIRS" "$EVROWS" "$EVONLY"
 
   # ── 4. Roster attribution ───────────────────────────────────────────────
   # Whether a player row is attached to the right team. Detected purely from
@@ -352,10 +489,19 @@ nodes:
       OVERSIZE=$(Q "SELECT count(*) FROM (SELECT p.school_id, g.season_year FROM player_game_stats p
                     JOIN games g ON g.game_id=p.game_id GROUP BY 1,2
                     HAVING count(DISTINCT p.player_name) > 60) z")
+      # The roster-swap count is quoted verbatim as a before/after acceptance
+      # criterion elsewhere in the repair plan, so a silent `ok` here is directly
+      # load-bearing. Assert all seven captures, not just the two that gate V.
+      NORUN=
+      for v in SWAPPED ALIGNED UNREC NGAMES SCRAPER BOTHROSTERS OVERSIZE; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"roster-attribution","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero, and the roster-swap count must not be quoted from a run that printed this.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      { [ "${SWAPPED:-0}" -gt 0 ] || [ "${BOTHROSTERS:-0}" -gt 0 ]; } 2>/dev/null && V=alarm
+      { [ "$SWAPPED" -gt 0 ] || [ "$BOTHROSTERS" -gt 0 ]; } && V=alarm
       printf '{"check":"roster-attribution","verdict":"%s","headline":"%s of %s games have the two rosters wearing each other name (%s aligned, %s unreconciled); school_id equals the SCRAPING school for %s player rows; %s games hold two teams under one school_id; %s school-seasons return more than 60 distinct players for a ~25-player roster","cause":"sidearm_parser.py:414-441 swaps home_team/away_team but :458-460 still labels player_stats[0] with home_team; player_game_stats has no player-team key at all, so storage.py stamps the scraper (stats.py:124, players.py:37/60/135, teams.py:305 then return both rosters)"}\n' \
-        "$V" "${SWAPPED:-?}" "${NGAMES:-?}" "${ALIGNED:-?}" "${UNREC:-?}" "${SCRAPER:-?}" "${BOTHROSTERS:-?}" "${OVERSIZE:-?}"
+        "$V" "$SWAPPED" "$NGAMES" "$ALIGNED" "$UNREC" "$SCRAPER" "$BOTHROSTERS" "$OVERSIZE"
 
   # ── 5. Card fidelity vs cached HTML ─────────────────────────────────────
   # The card type lives ONLY in a CSS class on an empty <td>, which pandas
@@ -369,12 +515,70 @@ nodes:
         printf '{"check":"card-fidelity","verdict":"alarm","headline":"no cached HTML at %s — ground truth unavailable","cause":""}\n' "$R"
         exit 0
       fi
-      psql -U lume -d ed_insights -At -F'|' -c "SELECT lower(s.abbreviation), s.gender, count(*) FILTER (WHERE e.event_type='red_card'), count(*) FILTER (WHERE e.event_type='yellow_card') FROM schools s LEFT JOIN game_events e ON e.school_id=s.id GROUP BY 1,2" 2>/dev/null > /tmp/gt_cards_db.txt
+      # The path used to be a fixed /tmp/gt_cards_db.txt shared by every run on
+      # the box, so two concurrent runs truncated each other's input mid-read and
+      # each undercounted. $$ makes it private; the trap removes it on any exit.
+      DBF=/tmp/gt_cards_db.$$.txt
+      trap 'rm -f "$DBF"' EXIT
+      psql -U lume -d ed_insights -At -F'|' -c "SELECT lower(s.abbreviation), s.gender, count(*) FILTER (WHERE e.event_type='red_card'), count(*) FILTER (WHERE e.event_type='yellow_card') FROM schools s LEFT JOIN game_events e ON e.school_id=s.id GROUP BY 1,2" 2>/dev/null > "$DBF"
+      PSQLRC=$?
+      # psql's exit status used to be discarded and the shell truncated the file
+      # regardless, so a dead database meant an empty file, a loop body that never
+      # executed, and BLIND=0 reading as a pass. Worse, the source-side grep lives
+      # INSIDE the loop, so the check also reported zero red cards in the cached
+      # HTML — a headline of confident zeroes on every side.
+      if [ "$PSQLRC" -ne 0 ] || [ ! -s "$DBF" ]; then
+        printf '{"check":"card-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — the per-programme card query exited %s and produced no rows, so the comparison loop never executed. The cached HTML was never counted either: every number this check reports is produced inside that loop.","cause":"psql stderr is discarded here — database down, schools or game_events dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$PSQLRC"
+        exit 0
+      fi
       SRCRED=0; DBRED=0; BLIND=0; BLINDLIST=""; MENRED=0; WOMENRED=0
+      # NFILES is the DENOMINATOR, and it is not decoration. The guards below
+      # refuse a programme with nothing scannable, but they pass on a programme
+      # with ONE readable file, and a partial corpus is the normal state of this
+      # cache: mid-scrape, just after adding a school, or with one athletics site
+      # down. "cached source marks 0 red cards" and "0 red cards across 3 box
+      # scores read" are the same verdict and obviously different statements, so
+      # every source-side count in this node carries the number of files it was
+      # actually measured over. Do NOT alarm on a partial corpus — make it visible.
+      SEEN=0; NORUN=; NFILES=0
       while IFS='|' read -r SLUG GEN NRED NYEL; do
         [ -z "${SLUG:-}" ] && continue
         [ -d "$R/$SLUG" ] || continue
-        HTMLRED=$(grep -rho 'penalty-type red' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
+        # A short or non-numeric row would make `[ "$NRED" -eq 0 ]` a test error
+        # (exit 2), which reads as false and silently drops the programme from
+        # BLIND. Refuse to guess: an unusable row is a check that did not run.
+        [ -n "${GEN:-}" ] || { NORUN="$NORUN $SLUG:gender"; continue; }
+        case "${NRED:-}" in ''|*[!0-9]*) NORUN="$NORUN $SLUG:red_card"; continue ;; esac
+        case "${NYEL:-}" in ''|*[!0-9]*) NORUN="$NORUN $SLUG:yellow_card"; continue ;; esac
+        # SEEN alone is not enough. `[ -d ]` above succeeds on a chmod-000
+        # directory and on an empty one, so a programme can be counted as SEEN
+        # while grep reads nothing at all — HTMLRED comes back 0, it adds 0 to
+        # SRCRED, and the programme silently drops out of BLIND. Thirteen such
+        # directories render as "cached source marks 0 red cards, 0 programmes
+        # show reds in their own HTML" with verdict ok, which is this check
+        # reporting a clean bill of health for a corpus it never opened. Count the
+        # files grep will be handed; a programme with nothing to scan is
+        # unmeasured, not clean.
+        NHTML=$(find "$R/$SLUG" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
+        FRC=$?
+        if [ "$FRC" -ne 0 ] || [ "${NHTML:-0}" -eq 0 ]; then NORUN="$NORUN $SLUG:no-readable-html"; continue; fi
+        SEEN=$(( SEEN + 1 )); NFILES=$(( NFILES + NHTML ))
+        # UNCHECKED EXIT STATUS — the third fail-open class, and the last one.
+        # `grep ... | wc -l` throws grep's status away. grep exits 0 on match, 1 on
+        # no match and 2 when it could not READ something: permission denied, an
+        # I/O error, a path that vanished mid-walk. `wc -l` prints 0 for all three,
+        # so a corpus that EXISTS and passes every guard above but cannot be read
+        # arrived here as a confident "0 red cards" with verdict ok — a verifier
+        # drove HTMLRED from 166 to 0 with the directories fully intact.
+        # PIPESTATUS is invisible across a command substitution, so restructure
+        # instead: capture the matches, check the producing command, then count the
+        # capture separately. `-gt 1` is the boundary and it matters — exit 1 means
+        # "no matches", which is a real and legitimate measurement of zero, and
+        # treating it as failure would turn every clean programme into a false
+        # alarm. Only exit 2 and above is a search that did not happen.
+        REDHITS=$(grep -rho 'penalty-type red' "$R/$SLUG" 2>/dev/null); GRC=$?
+        if [ "$GRC" -gt 1 ]; then NORUN="$NORUN $SLUG:red-grep-exit-$GRC"; continue; fi
+        HTMLRED=$(printf '%s' "$REDHITS" | grep -c .)
         SRCRED=$(( SRCRED + HTMLRED ))
         DBRED=$(( DBRED + NRED ))
         [ "$GEN" = men ] && MENRED=$(( MENRED + HTMLRED ))
@@ -383,10 +587,15 @@ nodes:
           BLIND=$(( BLIND + 1 ))
           BLINDLIST="$BLINDLIST $SLUG/$GEN=$HTMLRED"
         fi
-      done < /tmp/gt_cards_db.txt
+      done < "$DBF"
+      [ "$SEEN" -eq 0 ] && NORUN="$NORUN no-programme-matched-a-cached-HTML-directory"
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"card-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows, unreadable source directories or failed searches, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or grep exited 2 or above and so could not read files that are present (permission denied, an I/O error, a path that vanished), or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 red cards exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok; [ "$BLIND" -gt 0 ] && V=alarm
-      printf '{"check":"card-fidelity","verdict":"%s","headline":"cached source marks %s red cards (men %s / women %s); the database stores %s; %s programmes show reds in their own HTML and zero in the DB:%s","cause":"sidearm_parser.py:339-348 hardcodes event_type=yellow_card for every caution row — the red marker is a CSS class on an empty td that pandas.read_html drops, shifting the row (see the column-shift note at sidearm_parser.py:320-328). Recoverable in place with re.findall on the penalty-type class; no re-scrape needed"}\n' \
-        "$V" "$SRCRED" "$MENRED" "$WOMENRED" "$DBRED" "$BLIND" "${BLINDLIST:- none}"
+      printf '{"check":"card-fidelity","verdict":"%s","headline":"cached source marks %s red cards (men %s / women %s) across %s cached box scores read from %s programmes; the database stores %s; %s programmes show reds in their own HTML and zero in the DB:%s","cause":"sidearm_parser.py:339-348 hardcodes event_type=yellow_card for every caution row — the red marker is a CSS class on an empty td that pandas.read_html drops, shifting the row (see the column-shift note at sidearm_parser.py:320-328). Recoverable in place with re.findall on the penalty-type class; no re-scrape needed. Read the red-card count against the box-score denominator: a low count over a small denominator is an unfinished corpus, not a clean parser"}\n' \
+        "$V" "$SRCRED" "$MENRED" "$WOMENRED" "$NFILES" "$SEEN" "$DBRED" "$BLIND" "${BLINDLIST:- none}"
 
   # ── 6. Substitution coverage vs cached HTML ─────────────────────────────
   # Substitutions are not a StatCrew-only feature of the SOURCE, only of our
@@ -400,12 +609,44 @@ nodes:
         printf '{"check":"substitution-coverage","verdict":"alarm","headline":"no cached HTML at %s — ground truth unavailable","cause":""}\n' "$R"
         exit 0
       fi
-      psql -U lume -d ed_insights -At -F'|' -c "SELECT lower(s.abbreviation), s.gender, count(*) FILTER (WHERE e.event_type='substitution') FROM schools s LEFT JOIN game_events e ON e.school_id=s.id GROUP BY 1,2" 2>/dev/null > /tmp/gt_subs_db.txt
+      # Same fixed shared /tmp path as card-fidelity had, same fix. See the
+      # comments there — the mechanism and the failure mode are identical.
+      DBF=/tmp/gt_subs_db.$$.txt
+      trap 'rm -f "$DBF"' EXIT
+      psql -U lume -d ed_insights -At -F'|' -c "SELECT lower(s.abbreviation), s.gender, count(*) FILTER (WHERE e.event_type='substitution') FROM schools s LEFT JOIN game_events e ON e.school_id=s.id GROUP BY 1,2" 2>/dev/null > "$DBF"
+      PSQLRC=$?
+      if [ "$PSQLRC" -ne 0 ] || [ ! -s "$DBF" ]; then
+        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"CHECK DID NOT RUN — the per-programme substitution query exited %s and produced no rows, so the comparison loop never executed. The cached HTML was never counted either: every number this check reports is produced inside that loop.","cause":"psql stderr is discarded here — database down, schools or game_events dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$PSQLRC"
+        exit 0
+      fi
       SRCSUB=0; DBSUB=0; BLIND=0; BLINDLIST=""; MENBLIND=0; WOMENBLIND=0
+      # NFILES is the denominator — see the long note in card-fidelity. The guards
+      # here pass on a programme with a single readable file, and a half-scraped
+      # cache is normal rather than exotic, so the headline must say how much
+      # source produced the number.
+      SEEN=0; NORUN=; NFILES=0
       while IFS='|' read -r SLUG GEN NSUB; do
         [ -z "${SLUG:-}" ] && continue
         [ -d "$R/$SLUG" ] || continue
-        HTMLSUB=$(grep -rho 'substitution:' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
+        [ -n "${GEN:-}" ] || { NORUN="$NORUN $SLUG:gender"; continue; }
+        case "${NSUB:-}" in ''|*[!0-9]*) NORUN="$NORUN $SLUG:substitution"; continue ;; esac
+        # Same source guard as card-fidelity, same reason — see the long comment
+        # there. `[ -d ]` passing is not evidence that grep could read anything,
+        # and 13 empty directories otherwise print "cached source mentions
+        # substitution: 0 times ... 0 programmes have substitutions in their own
+        # HTML and none stored" with verdict ok.
+        NHTML=$(find "$R/$SLUG" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
+        FRC=$?
+        if [ "$FRC" -ne 0 ] || [ "${NHTML:-0}" -eq 0 ]; then NORUN="$NORUN $SLUG:no-readable-html"; continue; fi
+        SEEN=$(( SEEN + 1 )); NFILES=$(( NFILES + NHTML ))
+        # Same unchecked-exit-status fix as card-fidelity, same reason and same
+        # boundary — see the long comment there. A verifier drove HTMLSUB from
+        # 130,862 to 0 with every directory intact, because `| wc -l` discarded the
+        # grep exit 2 that said it had not read anything. Exit 1 ("no matches")
+        # must stay a legitimate zero; only exit 2 and above is a failed search.
+        SUBHITS=$(grep -rho 'substitution:' "$R/$SLUG" 2>/dev/null); GRC=$?
+        if [ "$GRC" -gt 1 ]; then NORUN="$NORUN $SLUG:sub-grep-exit-$GRC"; continue; fi
+        HTMLSUB=$(printf '%s' "$SUBHITS" | grep -c .)
         SRCSUB=$(( SRCSUB + HTMLSUB ))
         DBSUB=$(( DBSUB + NSUB ))
         if [ "$HTMLSUB" -gt 0 ] && [ "$NSUB" -eq 0 ]; then
@@ -414,10 +655,15 @@ nodes:
           [ "$GEN" = men ] && MENBLIND=$(( MENBLIND + 1 ))
           [ "$GEN" = women ] && WOMENBLIND=$(( WOMENBLIND + 1 ))
         fi
-      done < /tmp/gt_subs_db.txt
+      done < "$DBF"
+      [ "$SEEN" -eq 0 ] && NORUN="$NORUN no-programme-matched-a-cached-HTML-directory"
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows, unreadable source directories or failed searches, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or grep exited 2 or above and so could not read files that are present (permission denied, an I/O error, a path that vanished), or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 substitutions exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok; [ "$BLIND" -gt 0 ] && V=alarm
-      printf '{"check":"substitution-coverage","verdict":"%s","headline":"cached source mentions substitution: %s times (SideArm renders each play-by-play row twice, so halve it); the database stores %s substitution events; %s programmes (%s men / %s women) have substitutions in their own HTML and none stored:%s","cause":"sidearm_parser.py:12 dismisses the play-by-play as not used for structured data — parse_sidearm_game builds events only from the scoring summary (:469) and the cautions table (:474). The same tables also carry correctly-typed cards and use the exact TEAM substitution: X for Y. wording parser.py:725-738 already handles"}\n' \
-        "$V" "$SRCSUB" "$DBSUB" "$BLIND" "$MENBLIND" "$WOMENBLIND" "${BLINDLIST:- none}"
+      printf '{"check":"substitution-coverage","verdict":"%s","headline":"cached source mentions substitution: %s times across %s cached box scores read from %s programmes (SideArm renders each play-by-play row twice, so halve it); the database stores %s substitution events; %s programmes (%s men / %s women) have substitutions in their own HTML and none stored:%s","cause":"sidearm_parser.py:12 dismisses the play-by-play as not used for structured data — parse_sidearm_game builds events only from the scoring summary (:469) and the cautions table (:474). The same tables also carry correctly-typed cards and use the exact TEAM substitution: X for Y. wording parser.py:725-738 already handles. Read the mention count against the box-score denominator: a small count over a small denominator is an unfinished corpus, not a parser that is keeping up"}\n' \
+        "$V" "$SRCSUB" "$NFILES" "$SEEN" "$DBSUB" "$BLIND" "$MENBLIND" "$WOMENBLIND" "${BLINDLIST:- none}"
 
   # ── 7. Goal completeness and attributability ────────────────────────────
   # The scoreline is an independent oracle for the event stream: every goal that
@@ -451,12 +697,23 @@ nodes:
       BYGENDER=$(Q "SELECT coalesce(string_agg(gender||' '||n,', '),'none') FROM
                     (SELECT s.gender, count(*) n FROM games g JOIN schools s ON s.id=g.school_id
                      WHERE NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id) GROUP BY 1) t")
+      # Four separate psql calls, so one failing query (the BADCLOCK regex scan is
+      # the likeliest to time out) used to leave real numbers standing next to a
+      # blank. BADCLOCK does not gate the verdict, which is exactly why it has to
+      # be asserted here: nothing else would notice it vanished. BYGENDER
+      # coalesces to the literal 'none' on success, so empty means it failed.
+      NORUN=
+      for v in NGAMES MISMATCH SHORTFALL PHANTOM NOSCORER NGOALS NOTEAM NEVENTS BADCLOCK BYGENDER; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"goal-completeness","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      [ "${PHANTOM:-0}" -gt 0 ] 2>/dev/null && V=alarm
-      { [ "${MISMATCH:-0}" -gt 0 ] || [ "${NOSCORER:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      [ "$PHANTOM" -gt 0 ] && V=alarm
+      { [ "$MISMATCH" -gt 0 ] || [ "$NOSCORER" -gt 0 ]; } && [ "$V" = ok ] && V=warn
       printf '{"check":"goal-completeness","verdict":"%s","headline":"%s of %s games disagree with their own scoreline (%s goals missing, %s invented); %s of %s goal events have no scorer; %s of %s events carry a team string matching neither side of their game; clocks malformed/over-110 %s; games with no events at all: %s","cause":"parser.py:115-118 refuses to classify a scoring-summary table holding fewer than two mm:ss values, so 1-0 StatCrew games lose their only goal; sidearm_parser.py:287 drops the scorer when the (N) season-count suffix is absent; parser.py:397-399 falls through to the raw abbreviation so game_events.team never joins to games"}\n' \
-        "$V" "${MISMATCH:-?}" "${NGAMES:-?}" "${SHORTFALL:-?}" "${PHANTOM:-?}" "${NOSCORER:-?}" "${NGOALS:-?}" \
-        "${NOTEAM:-?}" "${NEVENTS:-?}" "${BADCLOCK:-?}" "${BYGENDER:-none}"
+        "$V" "$MISMATCH" "$NGAMES" "$SHORTFALL" "$PHANTOM" "$NOSCORER" "$NGOALS" \
+        "$NOTEAM" "$NEVENTS" "$BADCLOCK" "$BYGENDER"
 
   # ── 8. Physically impossible rows ───────────────────────────────────────
   # Facts about football that no source can contradict. A drift here means a
@@ -486,11 +743,22 @@ nodes:
                   JOIN schools s ON s.id=g.school_id
                   WHERE t.shots_on_goal=0 AND t.shots>0 GROUP BY s.abbreviation,s.gender,g.season_year
                   ORDER BY count(*) DESC LIMIT 4) z")
+      # MANGLED and WORST coalesce to the literal 'none' on success, so empty
+      # means the query failed. NROWS is the denominator — "did we look at any
+      # team rows at all" — and a zero denominator certifies nothing, so it is
+      # treated as a did-not-run rather than as four clean zeroes.
+      NORUN=
+      for v in SOGGT GOALGT SOGZERO ALLZERO NROWS MANGLED WORST; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      [ -n "${NROWS:-}" ] && [ "$NROWS" -eq 0 ] 2>/dev/null && NORUN="$NORUN NROWS=0(no team rows examined)"
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"impossible-rows","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing usable for:%s. Those are failed queries or an empty denominator, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      { [ "${SOGGT:-0}" -gt 0 ] || [ "${GOALGT:-0}" -gt 0 ]; } 2>/dev/null && V=alarm
-      { [ "${SOGZERO:-0}" -gt 0 ] || [ "${ALLZERO:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      { [ "$SOGGT" -gt 0 ] || [ "$GOALGT" -gt 0 ]; } && V=alarm
+      { [ "$SOGZERO" -gt 0 ] || [ "$ALLZERO" -gt 0 ]; } && [ "$V" = ok ] && V=warn
       printf '{"check":"impossible-rows","verdict":"%s","headline":"of %s team rows: %s have SOG above shots, %s have goals above SOG, %s claim zero SOG with shots taken (worst: %s), %s are entirely zero; mangled team names: %s","cause":"parser.py:886-888 coerces an absent shots_on_goal column to 0 rather than NULL, conflating absent with zero; sidearm_parser.py:120 rsplit on the last whitespace token mis-splits an abbreviation containing a period, so :507 team_stats_raw.get(abbrev) misses and every metric silently defaults to 0"}\n' \
-        "$V" "${NROWS:-?}" "${SOGGT:-?}" "${GOALGT:-?}" "${SOGZERO:-?}" "${WORST:-none}" "${ALLZERO:-?}" "${MANGLED:-none}"
+        "$V" "$NROWS" "$SOGGT" "$GOALGT" "$SOGZERO" "$WORST" "$ALLZERO" "$MANGLED"
 
   # ── 9. NULL means NULL ──────────────────────────────────────────────────
   # A pandas np.nan reaching a varchar column through an unguarded row.get()
@@ -517,10 +785,20 @@ nodes:
                    (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||'='||count(*) x
                     FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NULL
                     GROUP BY s.abbreviation, s.gender, g.season_year ORDER BY count(*) DESC LIMIT 8) z")
+      # This node has no row-count denominator at all, so before the guard below
+      # nothing in it could distinguish "no NaN sentinels anywhere" from "no query
+      # ran". Six psql calls, all six asserted; DATEWHO coalesces to the literal
+      # 'none' on success, so empty means the query failed.
+      NORUN=
+      for v in GAMESN GAMESTOT EVN EVTOT STATN NULLDATE DATEWHO; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"nan-sentinel","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero, and this check has no denominator that would have given the emptiness away.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      { [ "${GAMESTOT:-0}" -gt 0 ] || [ "${EVTOT:-0}" -gt 0 ] || [ "${NULLDATE:-0}" -gt 0 ]; } 2>/dev/null && V=alarm
+      { [ "$GAMESTOT" -gt 0 ] || [ "$EVTOT" -gt 0 ] || [ "$NULLDATE" -gt 0 ]; } && V=alarm
       printf '{"check":"nan-sentinel","verdict":"%s","headline":"games %s; game_events %s; team/player team=NaN %s; %s games store no date at all despite the source carrying one (%s)","cause":"load_db.py:133 passes row.get(venue) unguarded (:131,:135,:136,:209 share the pattern) and psycopg2 adapts np.nan to NaN::float which Postgres coerces into the varchar; load_db.py:236-247 does the same for events. The NULL dates are parser.py:160, whose title regex demands MM/DD/YY and rejects Sep. 1, 2016 and 10/2/2018 — and parser.py:188 keys the venue fallback off the same pattern, which is why the NULL-date rows are the same rows as the NaN venues"}\n' \
-        "$V" "${GAMESN:-?}" "${EVN:-?}" "${STATN:-?}" "${NULLDATE:-?}" "${DATEWHO:-none}"
+        "$V" "$GAMESN" "$EVN" "$STATN" "$NULLDATE" "$DATEWHO"
 
   # ── 10. Cache provenance ────────────────────────────────────────────────
   # Faithful to the cached HTML is worthless if the cached HTML is the wrong
@@ -530,6 +808,11 @@ nodes:
     timeout: 300000
     bash: |
       set -uo pipefail
+      # Declared here, not at the collection point further down, because the probe
+      # guards below append to it. `set -u` would abort on an unbound NORUN, and it
+      # would abort only on the failure path — so the guard would be broken in exactly
+      # the case it exists for, and green every other run.
+      NORUN=
       R=packages/pipeline/data/raw_html
       if [ ! -d "$R" ]; then
         printf '{"check":"cache-provenance","verdict":"alarm","headline":"no cached HTML at %s — nothing to establish provenance against","cause":""}\n' "$R"
@@ -538,29 +821,124 @@ nodes:
       # One line deliberately: a multi-line heredoc here would break out of the
       # YAML block scalar at column 1 and silently unregister this workflow.
       PY='import subprocess,tomllib; from pathlib import Path; o2a={s["ordinal"]:s["abbreviation"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; db={int(g) for g in subprocess.run(["psql","-U","lume","-d","ed_insights","-At","-c","SELECT game_id FROM games"],capture_output=True,text=True).stdout.split()}; dbk={(o2a.get(g//1000000,"?"),(g%1000000)//100,g%100) for g in db}; ck={(p.parent.parent.name.upper(),int(p.parent.name),int(p.stem.split("_")[1])) for p in Path("data/raw_html").rglob("game_*.html")}; print("%d|%d|%d|%d"%(len(db),len(ck),len(dbk-ck),len(ck-dbk)))'
-      BIJ=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Capture-then-check-then-parse. `... | tail -1` throws the producer's exit
+      # status away, so a python that died AFTER printing something well-formed was
+      # accepted verbatim, and one that died before it printed handed its error text
+      # to cut, which yields the whole message as field 1. Both read as measurements.
+      # Shape-check as well as status-check: only a four-field pipe-delimited line of
+      # digits is a result. Anything else is a failure wearing a result's clothes.
+      BIJRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); BIJRC=$?
+      BIJ=$(printf '%s' "$BIJRAW" | tail -1)
+      if [ "$BIJRC" -ne 0 ]; then NORUN="$NORUN bijection-python-exit-$BIJRC"; BIJ=; fi
+      case "$BIJ" in
+        [0-9]*'|'[0-9]*'|'[0-9]*'|'[0-9]*) : ;;
+        *) [ -n "$BIJ" ] && NORUN="$NORUN bijection-malformed-output"; BIJ= ;;
+      esac
       DBN=$(printf '%s' "$BIJ" | cut -d'|' -f1)
       CACHEN=$(printf '%s' "$BIJ" | cut -d'|' -f2)
       NOSRC=$(printf '%s' "$BIJ" | cut -d'|' -f3)
       NOROW=$(printf '%s' "$BIJ" | cut -d'|' -f4)
-      YEARBAD=""; NBAD=0
+      # NBAD and NDUP are COUNTERS, and a counter that was never incremented is
+      # indistinguishable from a clean scan: both are 0. A season glob that
+      # matched nothing, a game_01.html nobody could read, or a shasum that never
+      # ran all render as "0 season directories link a different year" and "0
+      # pair(s) share a byte-identical game_01" — the two sentences an operator
+      # reads as proof the archive is sound. So count the INPUTS as well as the
+      # hits: NSEASON is how many season directories were walked, NLINKED how many
+      # actually yielded a /stats/YYYY/ link, SHAS the raw digest rows. All three
+      # are asserted in the guard below.
+      YEARBAD=""; NBAD=0; NSEASON=0; NLINKED=0; NG01=0; READFAIL=
       for D in "$R"/*/[0-9][0-9][0-9][0-9]; do
         [ -d "$D" ] || continue
+        NSEASON=$(( NSEASON + 1 ))
         Y=${D##*/}
-        LINKS=$(grep -ohE '/stats/[0-9]{4}/' "$D"/game_01.html 2>/dev/null | sort -u | tr -d '\n')
+        F="$D/game_01.html"
+        # UNCHECKED EXIT STATUS, with the one twist that makes this node different
+        # from card-fidelity. The old pipeline `grep | sort -u | tr` reported
+        # grep's status nowhere, so an unreadable game_01.html produced an empty
+        # LINKS and fell straight into the benign '' arm below — a verifier drove
+        # NBAD from 2 to 0 that way, with every directory in place.
+        #
+        # But a per-directory alarm would be WRONG here, because grep exits 2 for
+        # "no such file" and for "permission denied" alike, and both of those are
+        # ordinary: 2 of the 119 season directories legitimately hold no
+        # game_01.html at all, and 20 more hold one that carries no /stats/YYYY/
+        # link. Alarming on any of those would condemn a healthy archive. So the
+        # absent file is filtered with `[ -f ]` FIRST and simply skipped; past that
+        # test an exit of 2 or above means grep could not read a file that IS
+        # there, which is a failed search and is collected in READFAIL. Exit 1
+        # ("no matches") stays a legitimate zero and feeds the '' arm as before.
+        # The honest answer to the partial case is the denominator below, not a
+        # per-directory guard.
+        [ -f "$F" ] || continue
+        NG01=$(( NG01 + 1 ))
+        LRAW=$(grep -ohE '/stats/[0-9]{4}/' "$F" 2>/dev/null); LRC=$?
+        if [ "$LRC" -gt 1 ]; then READFAIL="$READFAIL ${D#"$R"/}(grep-exit-$LRC)"; continue; fi
+        LINKS=$(printf '%s' "$LRAW" | sort -u | tr -d '\n')
+        [ -n "$LINKS" ] && NLINKED=$(( NLINKED + 1 ))
         case "$LINKS" in
           *"/stats/$Y/"*|'') ;;
           *) NBAD=$(( NBAD + 1 )); YEARBAD="$YEARBAD ${D#"$R"/}->$LINKS" ;;
         esac
       done
-      DUPES=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) | sort | awk '{c[$1]=c[$1]" "$2} END {for (h in c) {n=split(c[h],a," "); if (n>1) printf "%s;", c[h]}}' )
+      # shasum SKIPS what it cannot read: it warns on stderr (discarded here),
+      # hashes the rest and exits 1. `[ -z "$SHAS" ]` therefore passes on a single
+      # readable file, so an archive that is 99% unreadable still reported "0
+      # pair(s) share a byte-identical game_01" — the sentence an operator reads as
+      # proof the cache is sound. Take the digests on their own so the status is
+      # visible, then check BOTH the status and the row count against NG01, the
+      # number of game_01.html files the walk above proved are present. A partial
+      # hash can no longer masquerade as a complete one.
+      SHARAW=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) ); SHARC=$?
+      NSHA=$(printf '%s' "$SHARAW" | grep -c .)
+      SHAS=$(printf '%s' "$SHARAW" | sort)
+      DUPES=$(printf '%s\n' "$SHAS" | awk '{c[$1]=c[$1]" "$2} END {for (h in c) {n=split(c[h],a," "); if (n>1) printf "%s;", c[h]}}')
       NDUP=$(printf '%s' "$DUPES" | tr -cd ';' | wc -c | tr -d ' ')
       PHANTOM=$(psql -U lume -d ed_insights -At -c "SELECT coalesce(string_agg(x,', '),'none') FROM (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||' holds '||count(*)||' rows dated '||min(extract(year FROM g.date))::int AS x FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL AND extract(year FROM g.date)::int NOT IN (g.season_year, g.season_year+1) GROUP BY s.abbreviation, s.gender, g.season_year) z" 2>/dev/null)
+      # This node was already the house pattern via `${NOSRC:-1}` — defaults that
+      # ALARM rather than reassure. Two residual holes are closed here.
+      #
+      # (1) PHANTOM is a separate psql whose failure yielded '' -> `${PHANTOM:-none}`
+      #     -> 'none' -> no alarm. That clause was fail-open on its own; it merely
+      #     could not be reached because a dead DB already tripped NOROW.
+      # (2) The dead-DB alarm arrived via NOROW ("cached files never loaded") and
+      #     therefore NAMED THE WRONG CAUSE. The psql inside $PY has its stderr
+      #     swallowed by capture_output, so its failure looks like an empty games
+      #     table: BIJ still parses, DBN is a real 0, and the operator is sent to
+      #     look at the cache. DBN=0 is treated as "the database answered nothing".
+      #
+      # (3) YEARBAD and DUPES are legitimately empty when there is nothing to
+      #     report, so they still stay out of the non-empty loop and keep their
+      #     printf defaults — but the counters derived from them do NOT, because
+      #     an unwalked directory and a clean directory both count 0. NSEASON,
+      #     NLINKED and SHAS are the evidence that the walk happened at all.
+      # Preserve, do not reset — the bijection probe above may already have recorded
+      # a failure here, and a bare `NORUN=` would silently discard it.
+      NORUN="${NORUN:-}"
+      for v in DBN CACHEN NOSRC NOROW PHANTOM; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      [ "${DBN:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN DBN=0(database answered nothing)"
+      [ "$NSEASON" -eq 0 ] && NORUN="$NORUN NSEASON=0(no season directory walked, so NBAD=0 counts nothing)"
+      [ "$NSEASON" -gt 0 ] && [ "$NLINKED" -eq 0 ] && NORUN="$NORUN NLINKED=0(no game_01.html yielded a season link, so NBAD=0 counts nothing)"
+      [ -n "$READFAIL" ] && NORUN="$NORUN unreadable-game_01:$READFAIL"
+      [ -z "$SHAS" ] && NORUN="$NORUN SHAS=empty(shasum hashed no game_01.html, so NDUP=0 counts nothing)"
+      [ "$SHARC" -ne 0 ] && NORUN="$NORUN shasum-exit-$SHARC(it skipped files it could not read, so NDUP counts an incomplete archive)"
+      [ "$NSHA" -ne "$NG01" ] && NORUN="$NORUN shasum-hashed-$NSHA-of-$NG01-game_01-files"
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"cache-provenance","verdict":"alarm","headline":"CHECK DID NOT RUN — the provenance probes returned nothing for:%s. Those are failed queries, unwalked directories or failed searches, not a verdict about the cache. Do NOT read this as cached files never loaded, and do NOT read a zero counter as a clean archive.","cause":"DBN/CACHEN/NOSRC/NOROW come from the one-line uv run python above, whose psql sub-call hides its stderr behind capture_output, and PHANTOM comes from a direct psql with stderr discarded. NSEASON/NLINKED/SHAS are filesystem probes: they come back empty when the cache directories are missing or unreadable, or when this node ran from a cwd that is not the repository root. unreadable-game_01 means grep exited 2 or above on a game_01.html that is present, and a shasum exit or a hashed-N-of-M mismatch means shasum silently skipped files — in both cases the archive was not fully read, so no clean verdict can be drawn from it. A season directory that simply holds no game_01.html is normal and is NOT reported here. Re-run the psql by hand against ed_insights, and re-run the python from packages/pipeline, to see the actual error."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      { [ "${NOSRC:-1}" -gt 0 ] || [ "${NOROW:-1}" -gt 0 ] || [ "$NBAD" -gt 0 ] || [ "$NDUP" -gt 0 ]; } 2>/dev/null && V=alarm
-      [ "${PHANTOM:-none}" != none ] && V=alarm
-      printf '{"check":"cache-provenance","verdict":"%s","headline":"%s stored games vs %s cached files (%s rows with no cached source, %s cached files never loaded); %s season directories link a different year:%s; %s season-directory pair(s) share a byte-identical game_01; phantom seasons: %s","cause":"sidearm_discovery.py followed a 302 from an unrecognised season slug (FHSU and OBU mens 2020 is slugged 2020-21) and fetcher.py:35-48 keys the cache on the REQUESTED year, so the archive itself is poisoned. The PR #14 year guard (sidearm_discovery.py:68-105) stops new ones but the stale rows AND the mislabelled cache files must both be deleted — re-parsing cannot fix this"}\n' \
-        "$V" "${DBN:-?}" "${CACHEN:-?}" "${NOSRC:-?}" "${NOROW:-?}" "$NBAD" "${YEARBAD:- none}" "$NDUP" "${PHANTOM:-none}"
+      { [ "$NOSRC" -gt 0 ] || [ "$NOROW" -gt 0 ] || [ "$NBAD" -gt 0 ] || [ "$NDUP" -gt 0 ]; } && V=alarm
+      [ "$PHANTOM" != none ] && V=alarm
+      # DENOMINATORS. The season walk is the known partial case: guarding each
+      # directory individually would condemn the 22 that legitimately yield no
+      # link, so coverage is made VISIBLE instead. NBAD only has meaning against
+      # NLINKED, and NDUP only against NSHA — "0 season directories link a
+      # different year" out of 97 linked and "out of 3" are the same words and
+      # completely different claims.
+      printf '{"check":"cache-provenance","verdict":"%s","headline":"%s stored games vs %s cached files (%s rows with no cached source, %s cached files never loaded); %s season directories link a different year:%s (of %s walked, %s hold a game_01.html and %s of those yielded a /stats/YYYY/ link); %s season-directory pair(s) share a byte-identical game_01, across %s game_01.html files hashed; phantom seasons: %s","cause":"sidearm_discovery.py followed a 302 from an unrecognised season slug (FHSU and OBU mens 2020 is slugged 2020-21) and fetcher.py:35-48 keys the cache on the REQUESTED year, so the archive itself is poisoned. The PR #14 year guard (sidearm_discovery.py:68-105) stops new ones but the stale rows AND the mislabelled cache files must both be deleted — re-parsing cannot fix this. Read the year and duplicate counts against the walked/linked/hashed denominators: a zero measured over a handful of directories is an unfinished cache, not a clean one"}\n' \
+        "$V" "$DBN" "$CACHEN" "$NOSRC" "$NOROW" "$NBAD" "${YEARBAD:- none}" \
+        "$NSEASON" "$NG01" "$NLINKED" "$NDUP" "$NSHA" "$PHANTOM"
 
   # ── 11. Exported artifact vs source of record ───────────────────────────
   # data-integrity.yml sums data/structured/*/all/ and never opens the merged
@@ -569,25 +947,74 @@ nodes:
     timeout: 300000
     bash: |
       set -uo pipefail
+      # See cache-provenance: declared up here because the python-probe guard below
+      # appends to it, and `set -u` would abort on the failure path only.
+      NORUN=
       Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
       DBGAMES=$(Q "SELECT count(*) FROM games")
       DBEVENTS=$(Q "SELECT count(*) FROM game_events")
       DBPLAYERS=$(Q "SELECT count(*) FROM player_game_stats")
-      PY='import glob,os,tomllib,pandas as pd; ok={s["ordinal"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; F=[f for f in ("data/structured/all/games.parquet","data/games.parquet") if os.path.exists(f)]; D=[pd.read_parquet(f,columns=["game_id"]) for f in F]; ev=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/events.parquet")); gm=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/games.parquet")); pl=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/player_stats.parquet")); print("%d|%d|%d|%d|%d|%d"%(len(F),max([len(d) for d in D]+[0]),max([int((~d.game_id.floordiv(1000000).isin(ok)).sum()) for d in D]+[0]),gm,ev,pl))'
-      OUT=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Fields 7/8/9 are the number of parquet FILES each glob matched. They exist
+      # only to guard fields 4/5/6: `sum(...)` over an empty glob is 0, and a
+      # missing export therefore claims "per-season parquet 0 games / 0 players /
+      # 0 events" in the same breath and the same font as a real count. Same for
+      # len(F): with no merged export on disk, max([]+[0]) makes EXPROWS and STALE
+      # both 0, and STALE is the 712-row stale-ordinal finding this whole check
+      # exists to produce. Fields 1-6 are byte-identical to before.
+      PY='import glob,os,tomllib,pandas as pd; ok={s["ordinal"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; F=[f for f in ("data/structured/all/games.parquet","data/games.parquet") if os.path.exists(f)]; D=[pd.read_parquet(f,columns=["game_id"]) for f in F]; GE=sorted(glob.glob("data/structured/*/[0-9]*/events.parquet")); GG=sorted(glob.glob("data/structured/*/[0-9]*/games.parquet")); GP=sorted(glob.glob("data/structured/*/[0-9]*/player_stats.parquet")); ev=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GE); gm=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GG); pl=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GP); print("%d|%d|%d|%d|%d|%d|%d|%d|%d"%(len(F),max([len(d) for d in D]+[0]),max([int((~d.game_id.floordiv(1000000).isin(ok)).sum()) for d in D]+[0]),gm,ev,pl,len(GG),len(GE),len(GP)))'
+      # Same trap as cache-provenance's bijection probe: `... | tail -1` discards the
+      # producer's exit status, so a pandas that raised after printing, or one that
+      # printed only a traceback, was parsed as though it were nine measurements.
+      # Check the status, then check the shape — nine pipe-delimited digit fields.
+      OUTRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); OUTRC=$?
+      OUT=$(printf '%s' "$OUTRAW" | tail -1)
+      if [ "$OUTRC" -ne 0 ]; then NORUN="$NORUN export-python-exit-$OUTRC"; OUT=; fi
+      NFIELDS=$(printf '%s' "$OUT" | tr '|' '\n' | grep -c .)
+      case "$OUT" in
+        *[!0-9|]*) [ -n "$OUT" ] && NORUN="$NORUN export-malformed-output"; OUT= ;;
+        *) [ -n "$OUT" ] && [ "$NFIELDS" -ne 9 ] && { NORUN="$NORUN export-field-count-$NFIELDS"; OUT=; } ;;
+      esac
       NFILES=$(printf '%s' "$OUT" | cut -d'|' -f1)
       EXPROWS=$(printf '%s' "$OUT" | cut -d'|' -f2)
       STALE=$(printf '%s' "$OUT" | cut -d'|' -f3)
       PQGAMES=$(printf '%s' "$OUT" | cut -d'|' -f4)
       PQEVENTS=$(printf '%s' "$OUT" | cut -d'|' -f5)
       PQPLAYERS=$(printf '%s' "$OUT" | cut -d'|' -f6)
-      EVLOST=$(( ${PQEVENTS:-0} - ${DBEVENTS:-0} ))
+      NPQGAMES=$(printf '%s' "$OUT" | cut -d'|' -f7)
+      NPQEVENTS=$(printf '%s' "$OUT" | cut -d'|' -f8)
+      NPQPLAYERS=$(printf '%s' "$OUT" | cut -d'|' -f9)
+      # Two independent sources here: three psql counts and one uv run python over
+      # the parquet. Either side can fail alone, and each partial failure used to
+      # MANUFACTURE a number rather than withhold one — a dead DB with readable
+      # parquet reported "22782 events lost at merge", which is PQEVENTS minus an
+      # empty string. Both sides are asserted before any arithmetic happens, so
+      # EVLOST is computed only from two numbers that actually exist.
+      #
+      # Non-empty is necessary but NOT sufficient on the parquet side: every field
+      # the python prints is a count, and a count of an absent artifact is a
+      # confident 0, never a blank. NFILES=0 sailed straight through the loop
+      # below and took EXPROWS and the load-bearing STALE=712 down to 0 with it,
+      # which reads as a merged export that is clean rather than one that is not
+      # there. Assert that each probe actually opened a file.
+      # Preserve, do not reset — the python probe above may already have recorded a
+      # failure here, and a bare `NORUN=` would silently discard it.
+      NORUN="${NORUN:-}"
+      for v in DBGAMES DBEVENTS DBPLAYERS NFILES EXPROWS STALE PQGAMES PQEVENTS PQPLAYERS NPQGAMES NPQEVENTS NPQPLAYERS; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      [ "${NFILES:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN NFILES=0(no merged export on disk, so the stale-ordinal count measured nothing)"
+      [ "${NPQGAMES:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-games.parquet-glob-matched-no-files"
+      [ "${NPQEVENTS:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-events.parquet-glob-matched-no-files"
+      [ "${NPQPLAYERS:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-player_stats.parquet-glob-matched-no-files"
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"CHECK DID NOT RUN — no usable value came back for:%s. Those are failed or empty probes, not measurements, and no export-drift number below would have been a comparison of two real counts.","cause":"DBGAMES/DBEVENTS/DBPLAYERS come from Q() with psql stderr discarded; NFILES/EXPROWS/STALE/PQGAMES/PQEVENTS/PQPLAYERS come from the one-line uv run python above with its stderr discarded, which also fails when the cwd holds no packages/pipeline. A glob that matched no parquet sums to 0 rather than to nothing, so an absent export would otherwise have been reported as an export holding zero rows. Re-run each by hand to see the error."}\n' "$NORUN"
+        exit 0
+      fi
+      EVLOST=$(( PQEVENTS - DBEVENTS ))
       V=ok
-      [ "${STALE:-0}" -gt 0 ] 2>/dev/null && V=alarm
-      { [ "$EVLOST" -ne 0 ] || [ "${PQGAMES:-0}" -ne "${DBGAMES:-0}" ] || [ "${PQPLAYERS:-0}" -ne "${DBPLAYERS:-0}" ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      [ "$STALE" -gt 0 ] && V=alarm
+      { [ "$EVLOST" -ne 0 ] || [ "$PQGAMES" -ne "$DBGAMES" ] || [ "$PQPLAYERS" -ne "$DBPLAYERS" ]; } && [ "$V" = ok ] && V=warn
       printf '{"check":"export-staleness","verdict":"%s","headline":"%s merged export(s) hold %s games of which %s carry an ordinal absent from schools.toml; per-season parquet %s games / %s players / %s events vs db %s / %s / %s (%s events lost at merge)","cause":"storage.py:112-140 merge_all_schools concatenates whatever is on disk and never prunes a retired ordinal, then export.py:36 copies the result to data/; the event shortfall is storage.py:15-27 _build_event_id hashing seven fields but not description, so two real events sharing a clock collapse at storage.py:106/:138"}\n' \
-        "$V" "${NFILES:-?}" "${EXPROWS:-?}" "${STALE:-?}" "${PQGAMES:-?}" "${PQPLAYERS:-?}" "${PQEVENTS:-?}" \
-        "${DBGAMES:-?}" "${DBPLAYERS:-?}" "${DBEVENTS:-?}" "$EVLOST"
+        "$V" "$NFILES" "$EXPROWS" "$STALE" "$PQGAMES" "$PQPLAYERS" "$PQEVENTS" \
+        "$DBGAMES" "$DBPLAYERS" "$DBEVENTS" "$EVLOST"
 
   # ── 12. Both programmes, side by side ───────────────────────────────────
   # Every defect above must be reported per gender, because the season-long
@@ -623,11 +1050,26 @@ nodes:
       # so any defect landing on either programme must colour it.
       DEFECTS=$(Q "SELECT count(*) FROM games g WHERE g.date IS NULL
                      OR NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id)")
+      # This node used to be fail-closed BY ACCIDENT and only for a total outage:
+      # NGEN empty -> `${NGEN:-0}` -> 0, and `[ 0 -lt 2 ]` happens to be true. That
+      # is the threshold pointing the right way by luck, not a design. It was still
+      # fail-OPEN for a single failed query — ROWS is the heaviest statement in the
+      # file (three CTEs plus two correlated subqueries per game) and if it alone
+      # timed out while NGEN succeeded, the verdict was a clean `ok` printed beside
+      # the headline 'no rows'. All four captures are asserted now.
+      #
+      # The accumulator is NORUN, not MISSING: $MISSING is a SQL capture here.
+      NORUN=
+      for v in ROWS NGEN MISSING DEFECTS; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      if [ -n "$NORUN" ]; then
+        printf '{"check":"gender-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero. ROWS is the heaviest statement in this workflow and is the one that times out first.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error. Note ROWS has no coalesce, so it is also empty when games is genuinely empty; that is still a condition this parity gate must refuse to certify."}\n' "$NORUN"
+        exit 0
+      fi
       V=ok
-      [ "${NGEN:-0}" -lt 2 ] 2>/dev/null && V=alarm
-      { [ "${MISSING:-none}" != none ] || [ "${DEFECTS:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      [ "$NGEN" -lt 2 ] && V=alarm
+      { [ "$MISSING" != none ] || [ "$DEFECTS" -gt 0 ]; } && [ "$V" = ok ] && V=warn
       printf '{"check":"gender-fidelity","verdict":"%s","headline":"%s; enabled programmes with no games at all: %s","cause":"the women programmes are not a smaller copy of the men — every parser defect above lands on both, and a lower events/game figure is the SideArm play-by-play blindness plus the discipline gap, not a quieter league"}\n' \
-        "$V" "${ROWS:-no rows}" "${MISSING:-none}"
+        "$V" "$ROWS" "$MISSING"
 
   # ── Report ──────────────────────────────────────────────────────────────
   - id: report
