@@ -100,9 +100,8 @@ def main() -> None:
                 else:
                     console.print(f"  [yellow]No games found for {year}")
 
-            if len(years) > 1:
-                merge_all_seasons(years, school_abbrev=school.abbreviation)
-                console.print(f"[bold green]Merged {school.name} seasons.")
+            merge_all_seasons(years, school_abbrev=school.abbreviation)
+            console.print(f"[bold green]Merged {school.name} seasons.")
 
     # Final cross-school merge
     if len(enabled) > 1:
