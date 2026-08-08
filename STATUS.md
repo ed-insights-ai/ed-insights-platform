@@ -29,10 +29,10 @@ what *describes* those scores is wrong:
   The scraper assumed whichever school's website it read must be the home team.
 - **Which team a player played for** is swapped in 723 games; the two rosters wear each
   other's names.
-- **Red cards from twelve of the thirteen programmes are filed as yellow** — 166 of them in
+- **Red cards from eleven of the thirteen programmes are filed as yellow** — 166 of them in
   the cached pages, of which 158 survive once duplicate copies are deleted. Harding's own 43
-  are stored correctly, because Harding is the one programme on a different platform. So the
-  repair takes the database from 43 red cards to 201, not to 158.
+  are stored correctly, because Harding's two programmes are the only ones on a different
+  platform. So the repair takes the database from 43 red cards to 201, not to 158.
 - **28 events** are destroyed on every database load, one of them a goal.
 
 None of it is lost. It is all in the 1.1 GB of web pages already saved on disk — it just
