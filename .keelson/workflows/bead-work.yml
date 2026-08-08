@@ -954,8 +954,24 @@ nodes:
     bash: |
       set -euo pipefail
       BASE=$(cat "$KEELSON_ARTIFACTS_DIR/.default-branch")
-      git diff "${BASE}...HEAD" --stat > "$KEELSON_ARTIFACTS_DIR/diff-stat.txt"
-      git diff "${BASE}...HEAD" > "$KEELSON_ARTIFACTS_DIR/diff.patch"
+      # Parquet exports are regenerated data artifacts. The review lenses hold
+      # only Read/Glob/Grep, so handing them binary columnar files wastes a
+      # lane on bytes they cannot parse (observed on the tl-vkt run). They must
+      # see THAT an artifact changed — its correctness is verified through the
+      # measured acceptance criteria, never by reading it.
+      git diff "${BASE}...HEAD" --stat -- ':(exclude)*.parquet' > "$KEELSON_ARTIFACTS_DIR/diff-stat.txt"
+      {
+        PQ=$(git diff "${BASE}...HEAD" --stat -- '*.parquet' | sed '$d')
+        if [ -n "$PQ" ]; then
+          echo "# NOTE TO REVIEWERS: regenerated binary data artifacts (*.parquet) are"
+          echo "# EXCLUDED from this patch and listed below. Do not try to open them;"
+          echo "# their correctness is verified by the run's measured acceptance"
+          echo "# criteria, not by inspection."
+          printf '%s\n' "$PQ" | sed 's/^/# changed artifact: /'
+          echo
+        fi
+        git diff "${BASE}...HEAD" -- ':(exclude)*.parquet'
+      } > "$KEELSON_ARTIFACTS_DIR/diff.patch"
       LINES=$(wc -l < "$KEELSON_ARTIFACTS_DIR/diff.patch" | tr -d ' ')
       echo "diff.patch: ${LINES} lines"
       cat "$KEELSON_ARTIFACTS_DIR/diff-stat.txt"
