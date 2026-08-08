@@ -27,6 +27,15 @@ Backs the `touchline-queue` lens. A deterministic bash node measures the work qu
 and exactly one agent turn composes the board from that measurement — the numbers are never the
 agent's to invent. Pin the lens on the Chamber surface and it refreshes every 30 minutes.
 
+Enhanced 2026-08-08 with learnings from [mantoni/beads-ui](https://github.com/mantoni/beads-ui)
+(bead tl-6uh): the blocked lane is the **union** of dependency-blocked (`bd blocked`, which also
+names each issue's blockers) and status-blocked (`bd list --status blocked`) — status alone
+silently omits dependency-blocked work; ready rows carry an `unlocks:N` dependent-count so
+leverage is measured, not asserted; the KPI header comes from one `bd status --json` call; and
+the board adds a recently-closed momentum strip and a `bd stale` abandoned-work alarm. Every
+section is fail-closed: a dead `bd` renders seven UNMEASURED sections, never an empty-but-healthy
+board (proven, like vitals.yml, by running it against a stubbed failing `bd`).
+
 Note the hardcoded repo path in its bash node: a panel refresh passes no project, so the
 workflow has to know where to `cd`.
 
