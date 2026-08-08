@@ -26,6 +26,7 @@ OUT = REPO / "ROADMAP.md"
 # Epics in delivery order. Beads has no ordering field, and priority alone
 # collapses S6/S7 together, so the sequence lives here.
 EPIC_ORDER = [
+    "The measuring instrument — fix the harness before it grades the repair",
     "S0 — Pipeline hardening",
     "S0.5 — Repair the existing data",
     "S1 — The canon and the first Observation",
