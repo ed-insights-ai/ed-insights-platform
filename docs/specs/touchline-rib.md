@@ -724,8 +724,16 @@ the S2 integrity board's first baseline.
 - Every `(gender, date, sorted institution pair)` group has `count(*) = count(DISTINCT
   school_id)`, max size 2, zero gender mixing, zero oriented-score disagreement — currently
   40 violations, all phantom, so 0 after Task 2.
-- The full re-parse harness reports 2,140/2,140 games re-parsed with 0 errors and 0 field
+- The full re-parse harness reports **2,098/2,098** games re-parsed with 0 errors and 0 field
   diffs, and `ground-truth.yml` reports no alarms it did not report before the repair.
+  *(2,098, not 2,140 — Task 2 deletes 42 phantom games and their cached HTML, so the
+  post-repair corpus is smaller than the pre-repair one. An earlier draft of this line said
+  2,140, which is unsatisfiable after Task 2 and quietly pressures keeping the phantoms.)*
+- `ground-truth.yml` itself has been corrected first, per the note in *The verification
+  harness*: its duplication check must gain gender in the key (it reports 176 where the true
+  figure is 98) and its identity check must cover all five matchers rather than
+  `_ilike_pattern` alone. A baseline measured with an uncorrected instrument is not a
+  baseline.
 
 ### S1 — The canon and the first Observation
 
@@ -835,8 +843,14 @@ one-time full reload it requires.
 
 Bracket mode for the Race region, the Dispatch splitting into preview/review pairs, a
 season-in-review page. Then the deferred correctness work: the `sidearm_legacy` scraper,
-so NSU stops being reconstructed (D-06), and the caution `Type` column at
-`sidearm_parser.py:339-348`, so red cards become visible outside Harding.
+so NSU stops being reconstructed (D-06).
+
+*Corrected 2026-08-08.* This stage previously also listed the caution `Type` column at
+`sidearm_parser.py:339-348`. That contradicted D-03, which had already moved it into the
+S0.5 repair pass, and D-03 wins: it is a regex change plus a re-parse, not a re-scrape.
+Leaving it here would have stored every red card of the 2026 season as yellow until
+November, and would have made S0.5's own "0 field diffs" gate unsatisfiable — a re-parse
+with the hardcoded parser either reverts the 166-row backfill or reports 166 diffs.
 
 ---
 
