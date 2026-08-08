@@ -267,8 +267,9 @@ def main() -> int:
     )
     add("")
     add(
-        "Beads mirroring a GitHub issue carry `external_ref: gh-N` and link above. New work "
-        "goes in beads only."
+        "The GitHub issue tracker is retired — all 13 issues were closed on 2026-08-08, each "
+        "pointing at its bead. The `#N` links above go to those closed issues, which still "
+        "hold the original mechanism write-ups and are worth reading. File new work in beads."
     )
     add("")
 
