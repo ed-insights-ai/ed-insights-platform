@@ -9,6 +9,13 @@ covers how we work — branching, commits, local dev, and our Gas Town workflow.
 - One PR per feature — keep them focused
 - Rebase onto `main` before opening a PR
 - Delete branches after merge
+- **Never stage `.beads/issues.jsonl` on a feature branch.** It is a passive
+  tracker export; only dedicated sync/chore commits carry it. Two reasons,
+  both learned on PR #44: parallel branches each exporting it conflict
+  constantly, and the export hook flushes the file *during* `git commit` —
+  after `git add` has already staged a stale copy — so a chained
+  `add && commit` ships a snapshot one mutation behind the tracker. When you
+  do make a sync commit, run any `bd` command first to flush, then stage.
 
 ## Commit Convention
 
