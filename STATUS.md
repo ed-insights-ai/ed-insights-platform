@@ -103,7 +103,8 @@ condition that makes it true.
 - A red-card target of "158" that silently omits the **43 already-correct** cards, so the
   true post-repair total is **201** and a correct result would read as a 43-row overcount.
 - A verification query that grouped by `home_team` and then asked whether `home_team` varied
-  — self-contradictory, so it returned a confident **0** where the real figure is **471**.
+  — self-contradictory, so it returned a confident **0** where the real figure is **471**
+  — itself measured across 2,029 dated games, and **523** now that all 2,140 are dated.
 - The project's own headline figure, 651 of 1,745, which turned out to depend on two
   unstated conventions: venue-less pages counted as away rather than held out, and a name
   match that silently dropped 41 games spelled differently.
