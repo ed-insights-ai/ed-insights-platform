@@ -578,6 +578,45 @@ populated.
 - It must run over a **corrected own-team identification**. None of the five `apps/api`
   matchers is good enough; the canon is a prerequisite, not a consumer.
 
+**Resolved: `schools.toml` is a membership record, not a scrape-coverage list.** This was an
+open question — it moves 100–120 rows — and it is settled by two measurements plus a
+documented date, not by judgement.
+
+*Meeting frequency separates a member from a neighbour by an order of magnitude.* A conference
+member is met by every programme every year; a convenient nearby opponent is met by about half
+the programmes, some years:
+
+| Women's opponent | Meetings/season | Per programme per season |
+|---|---|---|
+| OBUW, SNUW — known GAC | 23.3–29.7 | **3.33–4.24** |
+| Northeastern State | 3.6 | **0.51** |
+| Newman | 2.1 | **0.30** |
+| Rogers State | 2.0 | **0.29** |
+
+*Season timing corroborates it.* 100% of the women's Northeastern State fixtures fall in
+August–September, against 40% for known GAC opponents — conference play runs into October and
+November, non-conference is front-loaded. These are out-of-conference friendlies against nearby
+institutions, so **the women's roster in `schools.toml` is complete**; NSU, RSU and NU field
+men's GAC teams and non-GAC women's teams, which is exactly why the derivation must be
+gender-aware.
+
+*The men's affiliate boundary shows the same signature inverted.* Meetings per season, before
+and after 2019:
+
+| Men's opponent | 2016–18 | 2019–25 |
+|---|---|---|
+| FHSU | 1.0 | **32.0** |
+| NU | 0.7 | **21.3** |
+| RSU | 1.0 | **20.1** |
+| OBU — member throughout | 16.7 | 13.4 *(flat)* |
+
+A 32× step at exactly 2019 against a flat line for a continuous member. This corroborates
+[UI_DESIGN.md](../UI_DESIGN.md) line 18 — *"4 affiliates: FHSU, Newman, NSU, Rogers State —
+men's only, joined GAC 2019"*. Pre-2019 men's fixtures against them are **non-conference**.
+
+Reproduce either table with `keelson workflow run data-integrity` plus the queries in this
+section's git history.
+
 **Resolution is unambiguous but not automatic.** No opponent string resolves to two
 programmes, so there are no ties to break. But **13 distinct opponent strings are near-misses
 requiring hand adjudication** before the migration is written: "Northwestern OSU" (3 rows) and
