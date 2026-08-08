@@ -1,0 +1,1527 @@
+{
+  "distinct_string_count": 221,
+  "generated_at": "2026-08-08T18:12:06.378752+00:00",
+  "institutions": {
+    "east-central": {
+      "abbreviations": [
+        "ECU"
+      ],
+      "name": "East Central"
+    },
+    "fort-hays-state": {
+      "abbreviations": [
+        "FHSU"
+      ],
+      "name": "Fort Hays State"
+    },
+    "harding": {
+      "abbreviations": [
+        "HU",
+        "HUW"
+      ],
+      "name": "Harding"
+    },
+    "newman": {
+      "abbreviations": [
+        "NU"
+      ],
+      "name": "Newman"
+    },
+    "northeastern-state": {
+      "abbreviations": [
+        "NSU"
+      ],
+      "name": "Northeastern State"
+    },
+    "northwestern-oklahoma-state": {
+      "abbreviations": [
+        "NWOSU"
+      ],
+      "name": "Northwestern Oklahoma State"
+    },
+    "oklahoma-baptist": {
+      "abbreviations": [
+        "OKBU"
+      ],
+      "name": "Oklahoma Baptist"
+    },
+    "ouachita-baptist": {
+      "abbreviations": [
+        "OBU",
+        "OBUW"
+      ],
+      "name": "Ouachita Baptist"
+    },
+    "rogers-state": {
+      "abbreviations": [
+        "RSU"
+      ],
+      "name": "Rogers State"
+    },
+    "southern-nazarene": {
+      "abbreviations": [
+        "SNU",
+        "SNUW"
+      ],
+      "name": "Southern Nazarene"
+    },
+    "southwestern-oklahoma-state": {
+      "abbreviations": [
+        "SWOSU"
+      ],
+      "name": "Southwestern Oklahoma State"
+    }
+  },
+  "opponents": {
+    "#16 Fort Hays St.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "fort-hays-state",
+      "note": null
+    },
+    "#16 Northeastern State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northeastern-state",
+      "note": null
+    },
+    "#16 Southern Nazarene": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southern-nazarene",
+      "note": null
+    },
+    "#19 Southern Nazarene": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southern-nazarene",
+      "note": null
+    },
+    "A&M-Commerce": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Adams State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Angelo St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Angelo State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Ark.-Pine Bluff": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Arkansas-Pine Bluff": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Austin College": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Bemidji State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Bethany College": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Black Hills St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "CBC": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Central Baptist College abbreviation; not a mapped GAC institution."
+    },
+    "CSU Pueblo": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Cal St. Monterey Bay": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Cal State East Bay": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Cal State San Marcos": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Campbellsville": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Cedarville": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Cent. Christian (KS)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Centenary (La.)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Central Baptist": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Central Baptist College; not a mapped GAC institution."
+    },
+    "Central Baptist (AR)": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Central Baptist College in Arkansas; not a mapped GAC institution."
+    },
+    "Central Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Central Missouri": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Central Mo.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Central Okla.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Central Oklahoma": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Christian Bros.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Christian Brothers": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Cincinatti Chr.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Colo. Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Colorado Mesa": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Colorado Pueblo": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Colorado St-Pueblo": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "DBU": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Dallas Baptist University abbreviation; 443 source rows identify a non-member."
+    },
+    "Dallas Baptist": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Dallas Baptist University; distinct from Oklahoma and Ouachita Baptist."
+    },
+    "Dallas Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Dallas Christian College": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Davenport": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Delta St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Delta State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Delta State University": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Drury": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "ESU": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Emporia State abbreviation; evidence: game_id 12201601."
+    },
+    "East Central": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "east-central",
+      "note": null
+    },
+    "East Central Univ": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "east-central",
+      "note": null
+    },
+    "Eastern N.M.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Eastern New Mexico": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Embry-Riddle": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Emporia St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Emporia State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "FAULK": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Faulkner": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Fla. Southern": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Fort Hays St.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "fort-hays-state",
+      "note": null
+    },
+    "Fort Hays State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "fort-hays-state",
+      "note": null
+    },
+    "HU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "harding",
+      "note": null
+    },
+    "Harding": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "harding",
+      "note": null
+    },
+    "Harding University": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "harding",
+      "note": null
+    },
+    "Hendrix": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Holy Names": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Jamestown": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "John Brown (Ark.)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "LWU": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lake Erie": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lincoln (MO)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lindenwood": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lindenwood (MO)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lubbock Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lubbock Christian Un": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Lyon": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MARY": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MARY (N.D.)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MSU Denver": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MSU Moorhead": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MSU Texas": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MSUM": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MWSU": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Maryville (MO)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Maryville (Mo.)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "McKendree": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "McMurry": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "MidAmerica Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Midwestern St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Midwestern State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Minnesota St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Minnesota State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Minot State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Mississippi Col.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Mississippi College": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Missouri S&T": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Missouri Southern": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Missouri Western": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Missouri Western St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Mo. Southern St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Mo. Western St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Mo.-St. Louis": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "N.M. Highlands": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "NC": {
+      "adjudicated": true,
+      "classification": "institution_slug",
+      "institution_slug": "newman",
+      "note": "Truncated Newman team label in eight event rows; evidence: game_id 1201914."
+    },
+    "NSU": {
+      "adjudicated": true,
+      "classification": "institution_slug",
+      "institution_slug": "northeastern-state",
+      "note": "Northeastern State abbreviation in northeastern-state-university source data; evidence: game_id 12201704."
+    },
+    "NU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "newman",
+      "note": null
+    },
+    "NU Cli": {
+      "adjudicated": true,
+      "classification": "artifact",
+      "institution_slug": null,
+      "note": "Malformed context-only team label; evidence: game_id 3202103."
+    },
+    "NW Oklahoma St.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "NW Oklahoma State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "NWOSU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "NWOSU18": {
+      "adjudicated": true,
+      "classification": "artifact",
+      "institution_slug": null,
+      "note": "Season-tagged context-only team code; evidence: game_id 8201807."
+    },
+    "Neb.-Kearney": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Newman": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "newman",
+      "note": null
+    },
+    "Newman  NU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "newman",
+      "note": null
+    },
+    "Northeastern St.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northeastern-state",
+      "note": null
+    },
+    "Northeastern State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northeastern-state",
+      "note": null
+    },
+    "Northwest Mo. St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Northwest Oklahoma": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "Northwestern OSU": {
+      "adjudicated": true,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": "Alternate Northwestern Oklahoma State spelling observed in source rows."
+    },
+    "Northwestern Okla St": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "Northwestern Okla.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "Northwestern Oklahom": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "Northwestern Oklahoma": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "northwestern-oklahoma-state",
+      "note": null
+    },
+    "Notre Dame de Namur": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "OK Chr": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "OKBU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "oklahoma-baptist",
+      "note": null
+    },
+    "OKLA. BA": {
+      "adjudicated": true,
+      "classification": "artifact",
+      "institution_slug": null,
+      "note": "Truncated context-only team label; evidence: game_id 11201812."
+    },
+    "OU": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Ozarks (Arkansas), not Oklahoma or Ouachita; evidence: game_id 8202103."
+    },
+    "OUA": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "ouachita-baptist",
+      "note": null
+    },
+    "OUAM": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "ouachita-baptist",
+      "note": null
+    },
+    "OUAW": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "ouachita-baptist",
+      "note": null
+    },
+    "OUAWSOC": {
+      "adjudicated": true,
+      "classification": "artifact",
+      "institution_slug": null,
+      "note": "Source-system team code rather than an institution name; evidence: game_id 8201809."
+    },
+    "Okla. Baptist": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "oklahoma-baptist",
+      "note": null
+    },
+    "Okla. Baptist  OKLA.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "oklahoma-baptist",
+      "note": null
+    },
+    "Okla. Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Okla. Christian  OK": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Okla. Panhandle": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Okla. Wesleyan": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Oklahoma Baptist": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "oklahoma-baptist",
+      "note": null
+    },
+    "Oklahoma Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Oklahoma Christian U": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Oklahoma City": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Oklahoma Panhandle S": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Oral Roberts": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Ouachita": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "ouachita-baptist",
+      "note": null
+    },
+    "Ouachita Baptist": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "ouachita-baptist",
+      "note": null
+    },
+    "Ouachita Baptist (Ark.)": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "ouachita-baptist",
+      "note": null
+    },
+    "Ozarks (AR)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Pittsburg St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Point Loma": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Quincy": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "RANDALL": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Randall": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Regis (CO)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Rockhurst": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Rogers St.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "rogers-state",
+      "note": null
+    },
+    "Rogers State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "rogers-state",
+      "note": null
+    },
+    "Rollins": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "SNU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southern-nazarene",
+      "note": null
+    },
+    "SOUTHWES": {
+      "adjudicated": true,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": "Truncated SWOSU label in Harding women's data; evidence: game_id 8201817."
+    },
+    "SW Christian": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Southwestern Christian University; not Southwestern Oklahoma State."
+    },
+    "SW Minnesota State": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "SW Oklahoma State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "SWOSU": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "Saginaw Valley": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Saint Martin's": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Science & Arts Okla.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Science and Arts": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Sioux Falls": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Southern Nazarene": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southern-nazarene",
+      "note": null
+    },
+    "Southern Nazarene Un": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southern-nazarene",
+      "note": null
+    },
+    "Southern Nazarene University": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southern-nazarene",
+      "note": null
+    },
+    "Southwest Baptist": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Southwest Baptist University; distinct from Oklahoma and Ouachita Baptist."
+    },
+    "Southwestern": {
+      "adjudicated": true,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": "All 18 source rows occur in SWOSU context on swosuathletics.com."
+    },
+    "Southwestern (KS)": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Southwestern College in Kansas; evidence: game_id 10202403."
+    },
+    "Southwestern Christ.": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Southwestern Christian University; not Southwestern Oklahoma State."
+    },
+    "Southwestern Christi": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "20-character truncation of Southwestern Christian University."
+    },
+    "Southwestern OKlahoma": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "Southwestern OSU": {
+      "adjudicated": true,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": "Alternate Southwestern Oklahoma State spelling observed in source rows."
+    },
+    "Southwestern Okla": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "Southwestern Okla.": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "Southwestern Oklahoma State": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "Southwestern Oklahoma State University": {
+      "adjudicated": false,
+      "classification": "institution_slug",
+      "institution_slug": "southwestern-oklahoma-state",
+      "note": null
+    },
+    "St. Mary's (TX)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "TAMIU": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "TAMUC": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Tex. A&M Int'l": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Tex. A&M-Commerce": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Tex. A&M-Texarkana": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Tex. Permian Basin": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Texas A&M Int'l": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Texas Woman's": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Texas-Dallas": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Texas-Tyler": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Thomas More": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Trinity Christian": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Tulsa": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UAPB": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UAPBWS17": {
+      "adjudicated": true,
+      "classification": "artifact",
+      "institution_slug": null,
+      "note": "Season-tagged context-only team code; evidence: game_id 8201706."
+    },
+    "UC-Colo. Springs": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UCM": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UIndy": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UT Tyler": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UTT": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "UU": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Union": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Union (TN)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Union (Tenn.)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Upper Iowa": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "WBC": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Williams Baptist College abbreviation; not a mapped GAC institution."
+    },
+    "WJC": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "WSC": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "WU": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Washburn": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Wayne St. (NE)": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "West Tex. A&M": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "West Texas A&M": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Western": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Western Colorado University; evidence: game_id 14202501."
+    },
+    "Western Ore.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "William Jewell": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Williams Baptist": {
+      "adjudicated": true,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": "Williams Baptist University; not a mapped GAC institution."
+    },
+    "Winona St.": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    },
+    "Wis.-Parkside": {
+      "adjudicated": false,
+      "classification": "non_member",
+      "institution_slug": null,
+      "note": null
+    }
+  },
+  "programmes": {
+    "east-central:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "east-central",
+      "school_row": true
+    },
+    "fort-hays-state:men": {
+      "enabled": true,
+      "gender": "men",
+      "institution_slug": "fort-hays-state",
+      "school_row": true
+    },
+    "fort-hays-state:women": {
+      "enabled": null,
+      "gender": "women",
+      "institution_slug": "fort-hays-state",
+      "school_row": false
+    },
+    "harding:men": {
+      "enabled": true,
+      "gender": "men",
+      "institution_slug": "harding",
+      "school_row": true
+    },
+    "harding:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "harding",
+      "school_row": true
+    },
+    "newman:men": {
+      "enabled": true,
+      "gender": "men",
+      "institution_slug": "newman",
+      "school_row": true
+    },
+    "newman:women": {
+      "enabled": null,
+      "gender": "women",
+      "institution_slug": "newman",
+      "school_row": false
+    },
+    "northeastern-state:men": {
+      "enabled": false,
+      "gender": "men",
+      "institution_slug": "northeastern-state",
+      "school_row": true
+    },
+    "northeastern-state:women": {
+      "enabled": null,
+      "gender": "women",
+      "institution_slug": "northeastern-state",
+      "school_row": false
+    },
+    "northwestern-oklahoma-state:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "northwestern-oklahoma-state",
+      "school_row": true
+    },
+    "oklahoma-baptist:men": {
+      "enabled": null,
+      "gender": "men",
+      "institution_slug": "oklahoma-baptist",
+      "school_row": false
+    },
+    "oklahoma-baptist:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "oklahoma-baptist",
+      "school_row": true
+    },
+    "ouachita-baptist:men": {
+      "enabled": true,
+      "gender": "men",
+      "institution_slug": "ouachita-baptist",
+      "school_row": true
+    },
+    "ouachita-baptist:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "ouachita-baptist",
+      "school_row": true
+    },
+    "rogers-state:men": {
+      "enabled": true,
+      "gender": "men",
+      "institution_slug": "rogers-state",
+      "school_row": true
+    },
+    "rogers-state:women": {
+      "enabled": null,
+      "gender": "women",
+      "institution_slug": "rogers-state",
+      "school_row": false
+    },
+    "southern-nazarene:men": {
+      "enabled": true,
+      "gender": "men",
+      "institution_slug": "southern-nazarene",
+      "school_row": true
+    },
+    "southern-nazarene:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "southern-nazarene",
+      "school_row": true
+    },
+    "southwestern-oklahoma-state:women": {
+      "enabled": true,
+      "gender": "women",
+      "institution_slug": "southwestern-oklahoma-state",
+      "school_row": true
+    }
+  },
+  "source_columns": [
+    "games.home_team",
+    "games.away_team",
+    "team_game_stats.team",
+    "player_game_stats.team",
+    "game_events.team"
+  ],
+  "version": 1
+}
