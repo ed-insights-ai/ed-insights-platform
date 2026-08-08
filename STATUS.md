@@ -157,8 +157,8 @@ python3 scripts/roadmap.py     # regenerate ROADMAP.md
 There are two live boards in Keelson — open `http://127.0.0.1:7878`, the **Chamber**
 surface: the **`touchline-queue`** lens (the work queue, read directly from beads) and the
 **`data-vitals`** lens (every repair metric measured against Postgres, with a computed
-verdict per row — the numbers this file deliberately no longer carries). Both refresh
-every 30 minutes while pinned.
+verdict per row — the *live* values; this file keeps only the frozen pre-repair
+baselines). Both refresh every 30 minutes while pinned.
 
 Keelson also carries the project's standing constitution in its **project notebook**,
 injected into every agent turn it runs, and a **governed memory**: `bead-work` runs leave
