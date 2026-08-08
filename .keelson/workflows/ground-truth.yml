@@ -383,8 +383,17 @@ nodes:
         exit 0
       fi
       [ "$AWAYSRC" -gt 0 ] && [ "$STORED" -eq "$HUTOTAL" ] && V=alarm
-      printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s box scores of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page"}\n' \
-        "$V" "$CONTRA" "$PAIRSETS" "$WITHVENUE" "$AWAYSRC" "$STORED" "$HUTOTAL" "$SELFHOME"
+      # SRCFILES IS THE DENOMINATOR, and until now it was printed only on the
+      # failure path. The guards above reject a programme directory with nothing
+      # scannable, but they pass on one holding a SINGLE readable file, and a
+      # partial cache is the ordinary state of this tree — mid-scrape, just after
+      # a school is added, or with one athletics site down. That is legitimate and
+      # must NOT alarm; what must not happen is reporting "a venue for 2 box
+      # scores, 0 away from Searcy" in the same sentence shape as a full corpus.
+      # WITHVENUE, ATHOME and the AWAYSRC derived from them now all state what
+      # they were measured over, so a thin corpus is self-evident in the headline.
+      printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s of %s cached HU+HUW box scores read, of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page. Read the venue figures against the box-score denominator: they are a claim about the corpus that was actually read, not about every box score that should exist"}\n' \
+        "$V" "$CONTRA" "$PAIRSETS" "$WITHVENUE" "$SRCFILES" "$AWAYSRC" "$STORED" "$HUTOTAL" "$SELFHOME"
 
   # ── 3. Independent corroboration ────────────────────────────────────────
   # The only check in the suite that tests whether the numbers are TRUE rather
@@ -523,7 +532,15 @@ nodes:
         exit 0
       fi
       SRCRED=0; DBRED=0; BLIND=0; BLINDLIST=""; MENRED=0; WOMENRED=0
-      SEEN=0; NORUN=
+      # NFILES is the DENOMINATOR, and it is not decoration. The guards below
+      # refuse a programme with nothing scannable, but they pass on a programme
+      # with ONE readable file, and a partial corpus is the normal state of this
+      # cache: mid-scrape, just after adding a school, or with one athletics site
+      # down. "cached source marks 0 red cards" and "0 red cards across 3 box
+      # scores read" are the same verdict and obviously different statements, so
+      # every source-side count in this node carries the number of files it was
+      # actually measured over. Do NOT alarm on a partial corpus — make it visible.
+      SEEN=0; NORUN=; NFILES=0
       while IFS='|' read -r SLUG GEN NRED NYEL; do
         [ -z "${SLUG:-}" ] && continue
         [ -d "$R/$SLUG" ] || continue
@@ -545,8 +562,23 @@ nodes:
         NHTML=$(find "$R/$SLUG" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
         FRC=$?
         if [ "$FRC" -ne 0 ] || [ "${NHTML:-0}" -eq 0 ]; then NORUN="$NORUN $SLUG:no-readable-html"; continue; fi
-        SEEN=$(( SEEN + 1 ))
-        HTMLRED=$(grep -rho 'penalty-type red' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
+        SEEN=$(( SEEN + 1 )); NFILES=$(( NFILES + NHTML ))
+        # UNCHECKED EXIT STATUS — the third fail-open class, and the last one.
+        # `grep ... | wc -l` throws grep's status away. grep exits 0 on match, 1 on
+        # no match and 2 when it could not READ something: permission denied, an
+        # I/O error, a path that vanished mid-walk. `wc -l` prints 0 for all three,
+        # so a corpus that EXISTS and passes every guard above but cannot be read
+        # arrived here as a confident "0 red cards" with verdict ok — a verifier
+        # drove HTMLRED from 166 to 0 with the directories fully intact.
+        # PIPESTATUS is invisible across a command substitution, so restructure
+        # instead: capture the matches, check the producing command, then count the
+        # capture separately. `-gt 1` is the boundary and it matters — exit 1 means
+        # "no matches", which is a real and legitimate measurement of zero, and
+        # treating it as failure would turn every clean programme into a false
+        # alarm. Only exit 2 and above is a search that did not happen.
+        REDHITS=$(grep -rho 'penalty-type red' "$R/$SLUG" 2>/dev/null); GRC=$?
+        if [ "$GRC" -gt 1 ]; then NORUN="$NORUN $SLUG:red-grep-exit-$GRC"; continue; fi
+        HTMLRED=$(printf '%s' "$REDHITS" | grep -c .)
         SRCRED=$(( SRCRED + HTMLRED ))
         DBRED=$(( DBRED + NRED ))
         [ "$GEN" = men ] && MENRED=$(( MENRED + HTMLRED ))
@@ -558,12 +590,12 @@ nodes:
       done < "$DBF"
       [ "$SEEN" -eq 0 ] && NORUN="$NORUN no-programme-matched-a-cached-HTML-directory"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"card-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows or unreadable source directories, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 red cards exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
+        printf '{"check":"card-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows, unreadable source directories or failed searches, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or grep exited 2 or above and so could not read files that are present (permission denied, an I/O error, a path that vanished), or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 red cards exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
         exit 0
       fi
       V=ok; [ "$BLIND" -gt 0 ] && V=alarm
-      printf '{"check":"card-fidelity","verdict":"%s","headline":"cached source marks %s red cards (men %s / women %s); the database stores %s; %s programmes show reds in their own HTML and zero in the DB:%s","cause":"sidearm_parser.py:339-348 hardcodes event_type=yellow_card for every caution row — the red marker is a CSS class on an empty td that pandas.read_html drops, shifting the row (see the column-shift note at sidearm_parser.py:320-328). Recoverable in place with re.findall on the penalty-type class; no re-scrape needed"}\n' \
-        "$V" "$SRCRED" "$MENRED" "$WOMENRED" "$DBRED" "$BLIND" "${BLINDLIST:- none}"
+      printf '{"check":"card-fidelity","verdict":"%s","headline":"cached source marks %s red cards (men %s / women %s) across %s cached box scores read from %s programmes; the database stores %s; %s programmes show reds in their own HTML and zero in the DB:%s","cause":"sidearm_parser.py:339-348 hardcodes event_type=yellow_card for every caution row — the red marker is a CSS class on an empty td that pandas.read_html drops, shifting the row (see the column-shift note at sidearm_parser.py:320-328). Recoverable in place with re.findall on the penalty-type class; no re-scrape needed. Read the red-card count against the box-score denominator: a low count over a small denominator is an unfinished corpus, not a clean parser"}\n' \
+        "$V" "$SRCRED" "$MENRED" "$WOMENRED" "$NFILES" "$SEEN" "$DBRED" "$BLIND" "${BLINDLIST:- none}"
 
   # ── 6. Substitution coverage vs cached HTML ─────────────────────────────
   # Substitutions are not a StatCrew-only feature of the SOURCE, only of our
@@ -588,7 +620,11 @@ nodes:
         exit 0
       fi
       SRCSUB=0; DBSUB=0; BLIND=0; BLINDLIST=""; MENBLIND=0; WOMENBLIND=0
-      SEEN=0; NORUN=
+      # NFILES is the denominator — see the long note in card-fidelity. The guards
+      # here pass on a programme with a single readable file, and a half-scraped
+      # cache is normal rather than exotic, so the headline must say how much
+      # source produced the number.
+      SEEN=0; NORUN=; NFILES=0
       while IFS='|' read -r SLUG GEN NSUB; do
         [ -z "${SLUG:-}" ] && continue
         [ -d "$R/$SLUG" ] || continue
@@ -602,8 +638,15 @@ nodes:
         NHTML=$(find "$R/$SLUG" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
         FRC=$?
         if [ "$FRC" -ne 0 ] || [ "${NHTML:-0}" -eq 0 ]; then NORUN="$NORUN $SLUG:no-readable-html"; continue; fi
-        SEEN=$(( SEEN + 1 ))
-        HTMLSUB=$(grep -rho 'substitution:' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
+        SEEN=$(( SEEN + 1 )); NFILES=$(( NFILES + NHTML ))
+        # Same unchecked-exit-status fix as card-fidelity, same reason and same
+        # boundary — see the long comment there. A verifier drove HTMLSUB from
+        # 130,862 to 0 with every directory intact, because `| wc -l` discarded the
+        # grep exit 2 that said it had not read anything. Exit 1 ("no matches")
+        # must stay a legitimate zero; only exit 2 and above is a failed search.
+        SUBHITS=$(grep -rho 'substitution:' "$R/$SLUG" 2>/dev/null); GRC=$?
+        if [ "$GRC" -gt 1 ]; then NORUN="$NORUN $SLUG:sub-grep-exit-$GRC"; continue; fi
+        HTMLSUB=$(printf '%s' "$SUBHITS" | grep -c .)
         SRCSUB=$(( SRCSUB + HTMLSUB ))
         DBSUB=$(( DBSUB + NSUB ))
         if [ "$HTMLSUB" -gt 0 ] && [ "$NSUB" -eq 0 ]; then
@@ -615,12 +658,12 @@ nodes:
       done < "$DBF"
       [ "$SEEN" -eq 0 ] && NORUN="$NORUN no-programme-matched-a-cached-HTML-directory"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows or unreadable source directories, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 substitutions exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
+        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows, unreadable source directories or failed searches, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or grep exited 2 or above and so could not read files that are present (permission denied, an I/O error, a path that vanished), or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 substitutions exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
         exit 0
       fi
       V=ok; [ "$BLIND" -gt 0 ] && V=alarm
-      printf '{"check":"substitution-coverage","verdict":"%s","headline":"cached source mentions substitution: %s times (SideArm renders each play-by-play row twice, so halve it); the database stores %s substitution events; %s programmes (%s men / %s women) have substitutions in their own HTML and none stored:%s","cause":"sidearm_parser.py:12 dismisses the play-by-play as not used for structured data — parse_sidearm_game builds events only from the scoring summary (:469) and the cautions table (:474). The same tables also carry correctly-typed cards and use the exact TEAM substitution: X for Y. wording parser.py:725-738 already handles"}\n' \
-        "$V" "$SRCSUB" "$DBSUB" "$BLIND" "$MENBLIND" "$WOMENBLIND" "${BLINDLIST:- none}"
+      printf '{"check":"substitution-coverage","verdict":"%s","headline":"cached source mentions substitution: %s times across %s cached box scores read from %s programmes (SideArm renders each play-by-play row twice, so halve it); the database stores %s substitution events; %s programmes (%s men / %s women) have substitutions in their own HTML and none stored:%s","cause":"sidearm_parser.py:12 dismisses the play-by-play as not used for structured data — parse_sidearm_game builds events only from the scoring summary (:469) and the cautions table (:474). The same tables also carry correctly-typed cards and use the exact TEAM substitution: X for Y. wording parser.py:725-738 already handles. Read the mention count against the box-score denominator: a small count over a small denominator is an unfinished corpus, not a parser that is keeping up"}\n' \
+        "$V" "$SRCSUB" "$NFILES" "$SEEN" "$DBSUB" "$BLIND" "$MENBLIND" "$WOMENBLIND" "${BLINDLIST:- none}"
 
   # ── 7. Goal completeness and attributability ────────────────────────────
   # The scoreline is an independent oracle for the event stream: every goal that
@@ -787,19 +830,51 @@ nodes:
       # hits: NSEASON is how many season directories were walked, NLINKED how many
       # actually yielded a /stats/YYYY/ link, SHAS the raw digest rows. All three
       # are asserted in the guard below.
-      YEARBAD=""; NBAD=0; NSEASON=0; NLINKED=0
+      YEARBAD=""; NBAD=0; NSEASON=0; NLINKED=0; NG01=0; READFAIL=
       for D in "$R"/*/[0-9][0-9][0-9][0-9]; do
         [ -d "$D" ] || continue
         NSEASON=$(( NSEASON + 1 ))
         Y=${D##*/}
-        LINKS=$(grep -ohE '/stats/[0-9]{4}/' "$D"/game_01.html 2>/dev/null | sort -u | tr -d '\n')
+        F="$D/game_01.html"
+        # UNCHECKED EXIT STATUS, with the one twist that makes this node different
+        # from card-fidelity. The old pipeline `grep | sort -u | tr` reported
+        # grep's status nowhere, so an unreadable game_01.html produced an empty
+        # LINKS and fell straight into the benign '' arm below — a verifier drove
+        # NBAD from 2 to 0 that way, with every directory in place.
+        #
+        # But a per-directory alarm would be WRONG here, because grep exits 2 for
+        # "no such file" and for "permission denied" alike, and both of those are
+        # ordinary: 2 of the 119 season directories legitimately hold no
+        # game_01.html at all, and 20 more hold one that carries no /stats/YYYY/
+        # link. Alarming on any of those would condemn a healthy archive. So the
+        # absent file is filtered with `[ -f ]` FIRST and simply skipped; past that
+        # test an exit of 2 or above means grep could not read a file that IS
+        # there, which is a failed search and is collected in READFAIL. Exit 1
+        # ("no matches") stays a legitimate zero and feeds the '' arm as before.
+        # The honest answer to the partial case is the denominator below, not a
+        # per-directory guard.
+        [ -f "$F" ] || continue
+        NG01=$(( NG01 + 1 ))
+        LRAW=$(grep -ohE '/stats/[0-9]{4}/' "$F" 2>/dev/null); LRC=$?
+        if [ "$LRC" -gt 1 ]; then READFAIL="$READFAIL ${D#"$R"/}(grep-exit-$LRC)"; continue; fi
+        LINKS=$(printf '%s' "$LRAW" | sort -u | tr -d '\n')
         [ -n "$LINKS" ] && NLINKED=$(( NLINKED + 1 ))
         case "$LINKS" in
           *"/stats/$Y/"*|'') ;;
           *) NBAD=$(( NBAD + 1 )); YEARBAD="$YEARBAD ${D#"$R"/}->$LINKS" ;;
         esac
       done
-      SHAS=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) | sort )
+      # shasum SKIPS what it cannot read: it warns on stderr (discarded here),
+      # hashes the rest and exits 1. `[ -z "$SHAS" ]` therefore passes on a single
+      # readable file, so an archive that is 99% unreadable still reported "0
+      # pair(s) share a byte-identical game_01" — the sentence an operator reads as
+      # proof the cache is sound. Take the digests on their own so the status is
+      # visible, then check BOTH the status and the row count against NG01, the
+      # number of game_01.html files the walk above proved are present. A partial
+      # hash can no longer masquerade as a complete one.
+      SHARAW=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) ); SHARC=$?
+      NSHA=$(printf '%s' "$SHARAW" | grep -c .)
+      SHAS=$(printf '%s' "$SHARAW" | sort)
       DUPES=$(printf '%s\n' "$SHAS" | awk '{c[$1]=c[$1]" "$2} END {for (h in c) {n=split(c[h],a," "); if (n>1) printf "%s;", c[h]}}')
       NDUP=$(printf '%s' "$DUPES" | tr -cd ';' | wc -c | tr -d ' ')
       PHANTOM=$(psql -U lume -d ed_insights -At -c "SELECT coalesce(string_agg(x,', '),'none') FROM (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||' holds '||count(*)||' rows dated '||min(extract(year FROM g.date))::int AS x FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL AND extract(year FROM g.date)::int NOT IN (g.season_year, g.season_year+1) GROUP BY s.abbreviation, s.gender, g.season_year) z" 2>/dev/null)
@@ -825,16 +900,26 @@ nodes:
       [ "${DBN:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN DBN=0(database answered nothing)"
       [ "$NSEASON" -eq 0 ] && NORUN="$NORUN NSEASON=0(no season directory walked, so NBAD=0 counts nothing)"
       [ "$NSEASON" -gt 0 ] && [ "$NLINKED" -eq 0 ] && NORUN="$NORUN NLINKED=0(no game_01.html yielded a season link, so NBAD=0 counts nothing)"
+      [ -n "$READFAIL" ] && NORUN="$NORUN unreadable-game_01:$READFAIL"
       [ -z "$SHAS" ] && NORUN="$NORUN SHAS=empty(shasum hashed no game_01.html, so NDUP=0 counts nothing)"
+      [ "$SHARC" -ne 0 ] && NORUN="$NORUN shasum-exit-$SHARC(it skipped files it could not read, so NDUP counts an incomplete archive)"
+      [ "$NSHA" -ne "$NG01" ] && NORUN="$NORUN shasum-hashed-$NSHA-of-$NG01-game_01-files"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"cache-provenance","verdict":"alarm","headline":"CHECK DID NOT RUN — the provenance probes returned nothing for:%s. Those are failed queries or unwalked directories, not a verdict about the cache. Do NOT read this as cached files never loaded, and do NOT read a zero counter as a clean archive.","cause":"DBN/CACHEN/NOSRC/NOROW come from the one-line uv run python above, whose psql sub-call hides its stderr behind capture_output, and PHANTOM comes from a direct psql with stderr discarded. NSEASON/NLINKED/SHAS are filesystem probes: they come back empty when the cache directories are missing or unreadable, or when this node ran from a cwd that is not the repository root. Re-run the psql by hand against ed_insights, and re-run the python from packages/pipeline, to see the actual error."}\n' "$NORUN"
+        printf '{"check":"cache-provenance","verdict":"alarm","headline":"CHECK DID NOT RUN — the provenance probes returned nothing for:%s. Those are failed queries, unwalked directories or failed searches, not a verdict about the cache. Do NOT read this as cached files never loaded, and do NOT read a zero counter as a clean archive.","cause":"DBN/CACHEN/NOSRC/NOROW come from the one-line uv run python above, whose psql sub-call hides its stderr behind capture_output, and PHANTOM comes from a direct psql with stderr discarded. NSEASON/NLINKED/SHAS are filesystem probes: they come back empty when the cache directories are missing or unreadable, or when this node ran from a cwd that is not the repository root. unreadable-game_01 means grep exited 2 or above on a game_01.html that is present, and a shasum exit or a hashed-N-of-M mismatch means shasum silently skipped files — in both cases the archive was not fully read, so no clean verdict can be drawn from it. A season directory that simply holds no game_01.html is normal and is NOT reported here. Re-run the psql by hand against ed_insights, and re-run the python from packages/pipeline, to see the actual error."}\n' "$NORUN"
         exit 0
       fi
       V=ok
       { [ "$NOSRC" -gt 0 ] || [ "$NOROW" -gt 0 ] || [ "$NBAD" -gt 0 ] || [ "$NDUP" -gt 0 ]; } && V=alarm
       [ "$PHANTOM" != none ] && V=alarm
-      printf '{"check":"cache-provenance","verdict":"%s","headline":"%s stored games vs %s cached files (%s rows with no cached source, %s cached files never loaded); %s season directories link a different year:%s; %s season-directory pair(s) share a byte-identical game_01; phantom seasons: %s","cause":"sidearm_discovery.py followed a 302 from an unrecognised season slug (FHSU and OBU mens 2020 is slugged 2020-21) and fetcher.py:35-48 keys the cache on the REQUESTED year, so the archive itself is poisoned. The PR #14 year guard (sidearm_discovery.py:68-105) stops new ones but the stale rows AND the mislabelled cache files must both be deleted — re-parsing cannot fix this"}\n' \
-        "$V" "$DBN" "$CACHEN" "$NOSRC" "$NOROW" "$NBAD" "${YEARBAD:- none}" "$NDUP" "$PHANTOM"
+      # DENOMINATORS. The season walk is the known partial case: guarding each
+      # directory individually would condemn the 22 that legitimately yield no
+      # link, so coverage is made VISIBLE instead. NBAD only has meaning against
+      # NLINKED, and NDUP only against NSHA — "0 season directories link a
+      # different year" out of 97 linked and "out of 3" are the same words and
+      # completely different claims.
+      printf '{"check":"cache-provenance","verdict":"%s","headline":"%s stored games vs %s cached files (%s rows with no cached source, %s cached files never loaded); %s season directories link a different year:%s (of %s walked, %s hold a game_01.html and %s of those yielded a /stats/YYYY/ link); %s season-directory pair(s) share a byte-identical game_01, across %s game_01.html files hashed; phantom seasons: %s","cause":"sidearm_discovery.py followed a 302 from an unrecognised season slug (FHSU and OBU mens 2020 is slugged 2020-21) and fetcher.py:35-48 keys the cache on the REQUESTED year, so the archive itself is poisoned. The PR #14 year guard (sidearm_discovery.py:68-105) stops new ones but the stale rows AND the mislabelled cache files must both be deleted — re-parsing cannot fix this. Read the year and duplicate counts against the walked/linked/hashed denominators: a zero measured over a handful of directories is an unfinished cache, not a clean one"}\n' \
+        "$V" "$DBN" "$CACHEN" "$NOSRC" "$NOROW" "$NBAD" "${YEARBAD:- none}" \
+        "$NSEASON" "$NG01" "$NLINKED" "$NDUP" "$NSHA" "$PHANTOM"
 
   # ── 11. Exported artifact vs source of record ───────────────────────────
   # data-integrity.yml sums data/structured/*/all/ and never opens the merged

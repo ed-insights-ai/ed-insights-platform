@@ -271,6 +271,11 @@ nodes:
     bash: |
       set -uo pipefail
       DB=$(psql -U lume -d ed_insights -At -c "SELECT count(*) FROM games" 2>/dev/null)
+      # The database half needs none of the filesystem, so do not throw away a working
+      # measurement to report a broken one: DBHALF is computed up front and carried into
+      # whichever not-run headline fires below.
+      DBHALF="unavailable — psql returned nothing"
+      [ -n "${DB:-}" ] && DBHALF="$DB games in ed_insights"
       # One line deliberately: a multi-line heredoc here would break out of the
       # YAML block scalar at column 1 and silently unregister this workflow.
       # Print the number of MATCHED FILES alongside the row sum. sum([]) is 0, so a glob
@@ -279,13 +284,34 @@ nodes:
       # what a real but empty export reports. The file count is the only thing that
       # separates "the export holds no rows" from "there is no export to read".
       PY='import glob,pandas as pd; fs=sorted(glob.glob("data/structured/*/all/games.parquet")); print(len(fs), sum(len(pd.read_parquet(f,columns=["game_id"])) for f in fs))'
-      PQOUT=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Piping straight into `tail -1` threw python's EXIT STATUS away. A run that dies
+      # partway — one corrupt or unreadable parquet out of thirteen — can have printed to
+      # stdout before it failed, and tail hands that line on as though it were the answer.
+      # Capture the whole stream, branch on the status, and only then take the last line.
+      PQRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); PQRC=$?
+      if [ "$PQRC" -ne 0 ]; then
+        printf '{"check":"archive","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — uv run python exited %s under packages/pipeline (cwd %s), so anything it printed before dying is not a measurement. Database half did run: %s.","cause":"python and uv stderr are discarded here — re-run the same one-liner by hand from packages/pipeline to see it. Typically a missing or unreadable data/structured, a corrupt parquet, or a broken uv environment."}\n' "$PQRC" "$(pwd)" "$DBHALF"
+        exit 0
+      fi
+      PQOUT=$(printf '%s' "$PQRAW" | tail -1)
       # Split only a well-formed two-integer line. Anything else — a truncated line, a
       # traceback tail, a uv diagnostic — leaves BOTH empty and trips the assertion,
       # rather than being silently parsed as a count.
       PQFILES=$(printf '%s' "$PQOUT" | awk 'NF==2 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1}')
       PQ=$(printf '%s' "$PQOUT" | awk 'NF==2 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $2}')
-      RAW=$(du -sh packages/pipeline/data/raw_html 2>/dev/null | cut -f1)
+      # du keeps walking after a permission error, prints a total for what it COULD read,
+      # and exits nonzero — so `du -sh ... | cut` yields a plausible undercount with no
+      # signal in the value itself: `1.1G` and `4.0K` are equally well-formed. Piping to
+      # cut discarded that status. Branch on du's own status instead and leave RAW empty
+      # on a partial walk, so the assertion below names it.
+      RAW=
+      DUOUT=$(du -sh packages/pipeline/data/raw_html 2>/dev/null) && RAW=$(printf '%s' "$DUOUT" | cut -f1)
+      # TRACKED is a count of a bad thing (raw HTML committed to git) with no denominator:
+      # `2140 git-tracked files` does not say whether that is all of raw_html or a corner
+      # of it. Count what is actually on disk under the same path, exit status checked, so
+      # the headline can say `N of M`. This measures nothing that entered the verdict.
+      ONDISK=
+      DISKLS=$(find packages/pipeline/data/raw_html -type f 2>/dev/null) && ONDISK=$(printf '%s' "$DISKLS" | grep -c . | tr -d ' ')
       # `git ls-files ... | wc -l` reports 0 when git ITSELF fails, which is
       # indistinguishable from "nothing is tracked". Branch on git's exit status
       # so a git failure leaves TRACKED empty and trips the assertion below.
@@ -294,15 +320,11 @@ nodes:
       TRACKEDLS=$(git ls-files packages/pipeline/data/raw_html 2>/dev/null) && TRACKED=$(printf '%s' "$TRACKEDLS" | grep -c . | tr -d ' ')
       # DB is the whole point of this check and never entered the verdict at all —
       # it appeared only as ${DB:-?} in the headline, so a dead database read
-      # "db ? games" with verdict ok. All five captures are asserted here.
-      # The database half needs none of the filesystem, so do not throw away a working
-      # measurement to report a broken one: carry DB into whichever not-run headline fires.
-      DBHALF="unavailable — psql returned nothing"
-      [ -n "${DB:-}" ] && DBHALF="$DB games in ed_insights"
+      # "db ? games" with verdict ok. All six captures are asserted here.
       MISSING=
-      for v in DB PQ PQFILES RAW TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      for v in DB PQ PQFILES RAW ONDISK TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
       if [ -n "$MISSING" ]; then
-        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ and PQFILES from uv run python over data/structured/*/all/games.parquet, RAW from du, TRACKED from git ls-files). Those are failures, not measurements of zero. Database half: %s.","cause":"stderr is discarded on all of them, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing raw_html directory, an unexpected working directory, or git failing. Re-run the commands by hand from the repo root."}\n' "$MISSING" "$DBHALF"
+        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ and PQFILES from uv run python over data/structured/*/all/games.parquet, RAW from du, ONDISK from find, TRACKED from git ls-files). Those are failures, not measurements of zero. Database half: %s.","cause":"stderr is discarded on all of them, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing or partly unreadable raw_html directory, an unexpected working directory, or git failing. Re-run the commands by hand from the repo root."}\n' "$MISSING" "$DBHALF"
         exit 0
       fi
       # PQFILES is non-empty here, so it is a real count and 0 means the glob genuinely
@@ -315,8 +337,12 @@ nodes:
       V=ok
       [ "${PQ:-0}" -lt 0 ] 2>/dev/null && V=warn
       [ "${TRACKED:-0}" -gt 0 ] 2>/dev/null && V=warn
-      printf '{"check":"archive","verdict":"%s","headline":"db %s games vs parquet all/ %s rows; raw_html %s across %s git-tracked files","cause":"a twice-weekly in-season refresh adds ~260 tracked files per run"}\n' \
-        "$V" "${DB:-?}" "${PQ:-?}" "${RAW:-?}" "${TRACKED:-0}"
+      # Same numbers, each now stated over the corpus it was measured on: the parquet row
+      # sum over the files it read, and the git-tracked count over the files on disk.
+      # `parquet all/ 2140 rows` and `parquet all/ 2140 rows across 13 files` are the same
+      # measurement; `across 1 file` and `across 13 files` are not the same news.
+      printf '{"check":"archive","verdict":"%s","headline":"db %s games vs parquet all/ %s rows across %s parquet files read; raw_html %s, %s of %s files on disk git-tracked","cause":"a twice-weekly in-season refresh adds ~260 tracked files per run"}\n' \
+        "$V" "${DB:-?}" "${PQ:-?}" "${PQFILES:-?}" "${RAW:-?}" "${TRACKED:-0}" "${ONDISK:-?}"
 
   # ── Report ──────────────────────────────────────────────────────────────
   - id: report
