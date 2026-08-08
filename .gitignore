@@ -44,3 +44,6 @@ packages/pipeline/data/raw_html/
 .logs/
 state.json
 .beads/
+
+# Keelson workflow run worktrees (created by isolated runs)
+.worktrees/

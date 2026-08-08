@@ -33,18 +33,28 @@ Six findings reorder the priorities:
    (`conferences.py:55-59`) applies no conference filter and returns an *overall*
    record labelled "standings".
 
-2. **Five schools' records are inverted.** `_ilike_pattern`, duplicated verbatim at
-   `conferences.py:14-21` and `teams.py:14`, reduces "Oklahoma Baptist" to
-   `%Oklahoma%`, which matches none of the 104 home games stored as "Okla. Baptist".
-   When the match fails the API reads the opponent's score as theirs. Live match
-   rates: NWOSU 0/163, SWOSU 2/188, FHSU 12/150, OKBU 41/191, RSU 47/132.
+2. **School identification fails open, inverting results.** `conferences.py:69` and
+   `teams.py:79` both do `is_home = _matches_pattern(g.home_team, pattern)` and then
+   read `own_score = g.home_score if is_home else g.away_score`. A *match failure* is
+   therefore silently indistinguishable from "we are the away team," and the
+   opponent's score is read as the school's own. `_ilike_pattern`
+   (`conferences.py:14-21`, duplicated at `teams.py:14`) takes the first token of
+   length ≥ 4 that is not a stop word, so "Oklahoma Baptist" becomes `%Oklahoma%`,
+   which matches none of the 104 home games stored as "Okla. Baptist".
+
+   Measured: **164 scored games** in which the pattern matches *neither* team slot,
+   so the school cannot identify itself at all — OKBU 150/191, SWOSU 6/188,
+   NWOSU 4/163, SNUW 2/171, OBU 1/173, SNU 1/179. The defect is overwhelmingly
+   OKBU's; the others are a handful of games each, and FHSU and RSU are unaffected.
 
 3. **176 duplicate `(date, home, away)` groups.** A fixture scraped from both schools
    becomes two rows. Every aggregate over the base tables is inflated.
 
-4. **FHSU's stored 2020 season holds 24 games dated 2025.** `sidearm_discovery.py:42`
-   fetches `/schedule/{year}` with no assertion; when that year's page is absent the
-   site serves the current season. Those rows carry `/stats/2025/` source URLs.
+4. **Two program-seasons are mislabelled — 42 rows.** FHSU's stored 2020 holds 24
+   games dated 2025, and OBU's stored 2020 holds a further 18. `sidearm_discovery.py`
+   fetches `/schedule/{year}` and never asserts the year segment of the paths that
+   come back; when that year's page is absent the site serves the current season.
+   All 42 rows carry `/stats/2025/` source URLs.
 
 5. **Red cards are invisible outside Harding.** `sidearm_parser.py:339-348` hardcodes
    `yellow_card` for every caution row at the eleven SideArm programs. All 43

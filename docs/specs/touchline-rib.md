@@ -36,9 +36,9 @@ live `ed_insights` database, not inferred:
 | # | Defect | Evidence | Cause |
 |---|--------|----------|-------|
 | 1 | Conference play unmarked | `is_conference_game` NULL for **2140/2140** rows | Nothing populates it; `conferences.py:55-59` therefore returns an *overall* record labelled "standings" |
-| 2 | Five schools' records inverted | NWOSU 0/163 games matched, SWOSU 2/188, FHSU 12/150, OKBU 41/191, RSU 47/132 | `_ilike_pattern` duplicated at `conferences.py:14-21` and `teams.py:14` reduces "Oklahoma Baptist" → `%Oklahoma%`, missing the 104 home games stored as "Okla. Baptist". Failed match ⇒ opponent's score read as theirs |
+| 2 | School identification fails open, inverting results | **164 scored games** where the pattern matches neither team slot: OKBU 150/191, SWOSU 6/188, NWOSU 4/163, SNUW 2/171, OBU 1/173, SNU 1/179 | `conferences.py:69` / `teams.py:79` do `is_home = _matches_pattern(g.home_team, pattern)`, so a match *failure* is indistinguishable from "we are away" and the opponent's score is read as the school's own. `_ilike_pattern` (`conferences.py:14-21`, duplicated `teams.py:14`) reduces "Oklahoma Baptist" → `%Oklahoma%`, missing the 104 home games stored as "Okla. Baptist" |
 | 3 | Matches double-counted | **176** duplicate `(date, home, away)` groups | One fixture scraped from both schools; no canonical match key exists |
-| 4 | Season labels wrong | FHSU's stored **2020** season holds 24 games dated 2025-09-04 … 2025-12-12 with `/stats/2025/` source URLs | `sidearm_discovery.py:42` fetches `/schedule/{year}` with no assertion; the site serves the current season when that year's page is absent |
+| 4 | Season labels wrong | **2 program-seasons, 42 rows** — FHSU's stored 2020 holds 24 games dated 2025, OBU's stored 2020 holds 18. All 42 carry `/stats/2025/` source URLs | `sidearm_discovery.py` fetches `/schedule/{year}` and never asserts the year segment of the returned paths; the site serves the current season when that year's page is absent |
 | 5 | Red cards invisible outside Harding | All **43** `red_card` rows are HU (41) + HUW (2) | `sidearm_parser.py:339-348` hardcodes `yellow_card` for every caution row at the eleven SideArm programs |
 
 **3. The database has no memory.** `scripts/load_db.py:186-201` DELETEs then re-INSERTs
@@ -102,9 +102,9 @@ it is no longer carrying corruption that could have been fixed at the source.
 **Rationale:** A read-time overlay means every consumer that is not the rib —
 `apps/api`, `apps/web`, any notebook, any future tool — still sees the wrong numbers.
 `is_conference_game` NULL for 2140/2140 rows is not a rendering problem; it is a field
-nobody populated. FHSU's 2020 season holding 2025 games is not a display bug; it is 24
-rows attributed to the wrong year. Those are cheaper to fix once in the data than to
-compensate for forever in every reader.
+nobody populated. FHSU's and OBU's stored 2020 seasons holding 2025 games is not a
+display bug; it is 42 rows attributed to the wrong year. Those are cheaper to fix once
+in the data than to compensate for forever in every reader.
 
 **Still routed around, deliberately:** the red-card `Type` column
 (`sidearm_parser.py:339-348`) needs parser work across eleven programs and would require
@@ -125,8 +125,11 @@ silently mean something different depending on a setting you cannot see — or d
 every region, which puts fourteen regions on one surface. Deciding out loud costs
 nothing and can be undone.
 
-**Note:** this is where the canon would pay off most. The four schools with the worst
-identity defects — NWOSU 0/163, SWOSU 2/188, OKBU 41/191 — are all women's programs.
+**Note:** this is where the canon would pay off most. Every school carrying the
+identity defect is a **women's** programme — OKBU (150 of 191 games unidentifiable),
+SWOSU (6/188), NWOSU (4/163), SNUW (2/171). The men's side is clean apart from one
+game each for OBU and SNU. Deferring women's soccer therefore defers the defect, it
+does not avoid it.
 
 **Revisit if:** the canon work in S1 proves cheap enough that doubling the regions costs
 under a day, or after the 2026 season closes.
@@ -387,6 +390,37 @@ Each of these was confirmed in source. Each has a plausible-looking wrong versio
 
 ---
 
+## The verification harness
+
+`.keelson/workflows/data-integrity.yml` — a Keelson workflow in this repo, runnable now:
+
+```
+keelson workflow run data-integrity          # or workflow_run over MCP, project-scoped
+```
+
+Nine deterministic read-only checks (`freshness`, `conference-flag`, `duplication`,
+`season-label`, `identity`, `discipline`, `orphans`, `parse-failures`, `archive`) run in
+parallel against the live Postgres and the parquet archive, then one report node prints a
+per-check verdict with the causing `file:line`. No model turns, so it costs nothing to run
+and is safe to run often. `mutates_checkout: false` — it never writes.
+
+It exists for three reasons: it is the before/after evidence for every repair in S0 and
+S0.5; it is the working prototype of the rib's `src/integrity.ts` (Stage S2), so that
+stage is mostly a port; and it is the thing that catches a regression when the scheduled
+refresh starts running unattended.
+
+It has already earned its keep — it found that **OBU 2020 is mislabelled too**, not just
+FHSU, and it forced a correction to the identity numbers this spec originally carried.
+
+> **Authoring note, learned the hard way.** Do not name a shell variable `GROUPS` in a
+> bash node. It is a readonly bash builtin array holding the caller's group ids;
+> assignment is silently ignored and `$GROUPS` expands to a gid — `20` on macOS — which
+> reads as a perfectly plausible count. And keep heredocs out of YAML block scalars: an
+> embedded script at column 1 terminates the scalar and silently unregisters the whole
+> workflow. Validate with a real YAML parse before trusting that a workflow exists.
+
+---
+
 ## Implementation Plan
 
 Dependency-ordered. No dates — each stage lands when the one before it works.
@@ -427,10 +461,12 @@ recoverable from data on disk versus what requires re-fetching.
 members in that season. This is a derivation over data we already have, not a re-scrape.
 Ships as a migration plus a loader change so it stays populated.
 
-**Task 2 — Re-scrape mislabeled seasons.** FHSU's stored 2020 is the confirmed instance
-(24 games dated 2025 with `/stats/2025/` source URLs). Audit every program-season for the
-same signature — a season whose games' dates or source URLs disagree with its label —
-before deciding scope. With S0 Task 1 in place, the re-scrape cannot repeat the error.
+**Task 2 — Re-scrape mislabeled seasons.** Two confirmed instances totalling 42 rows:
+FHSU 2020 (24 games dated 2025) and OBU 2020 (18 games dated 2025), all carrying
+`/stats/2025/` source URLs. The `data-integrity` workflow's `season-label` check finds
+these by comparing each program-season's label against both its game dates and its
+source-URL year segment; re-run it after any repair. With S0 Task 1 in place, the
+re-scrape cannot repeat the error.
 
 **Task 3 — Canonical match key.** `sha1(date | sorted normalized team pair)` as a column
 on `games`, populated by the loader. Collapses the 176 duplicate groups into one match
@@ -438,9 +474,9 @@ with N source perspectives — which is strictly better than picking a winner, b
 schools' box scores for the same fixture sometimes disagree on shots, and showing both is
 more honest than showing either.
 
-**Task 4 — Verification.** Re-run the audit and record before/after counts for every
-defect in the spec's Problem Statement table. Those numbers become the S2 integrity
-board's first baseline.
+**Task 4 — Verification.** Re-run `keelson workflow run data-integrity` and record
+before/after counts for every defect in the Problem Statement table. Those numbers become
+the S2 integrity board's first baseline.
 
 **Done when:** `is_conference_game` is non-NULL for every game between two GAC programs;
 no program-season contains games dated outside it; and the duplicate-group count is
