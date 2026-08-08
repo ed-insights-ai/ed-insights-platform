@@ -232,12 +232,33 @@ nodes:
         printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — no directory at %s (cwd %s). A missing directory is not an empty one.","cause":"the path is relative to the repo root, so either this node ran from an unexpected working directory or data/errors was moved, renamed or deleted"}\n' "$D" "$(pwd)"
         exit 0
       fi
-      N=$(find "$D" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
-      OLDEST=$(find "$D" -name '*.json' 2>/dev/null | sort | head -1 | sed 's|.*/||')
+      # The -d test above is necessary but NOT sufficient. A directory that exists but
+      # cannot be listed sends find to stderr, which is discarded, and leaves the pipe
+      # empty — so `wc -l` prints 0 and the node reported `0 unparsed box scores` with
+      # verdict ok. An UNREADABLE directory is no more an empty one than a missing one
+      # is. Listing entries needs r; descending into them needs x; find needs both.
+      if [ ! -r "$D" ] || [ ! -x "$D" ]; then
+        printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — %s exists but is not both readable and searchable by this user (cwd %s). find prints nothing and the count reads 0, which is indistinguishable from a clean errors/.","cause":"permissions or ownership on the directory changed, or the node ran as a user that cannot list it — check with ls -ld on the path. An unreadable directory is not an empty one."}\n' "$D" "$(pwd)"
+        exit 0
+      fi
+      # One walk, and branch on find EXIT STATUS rather than on the count. The top-level
+      # permission test above cannot see a subdirectory under data/errors that find
+      # cannot descend into; that yields a partial walk, an undercount, and no signal at
+      # all in the count itself. A count taken from a failed walk is not a measurement.
+      FLIST=$(find "$D" -name '*.json' 2>/dev/null)
+      FRC=$?
+      if [ "$FRC" -ne 0 ]; then
+        printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — find exited %s while walking %s (cwd %s), so the tree was only partly read and any count from it is an undercount, not a measurement of zero.","cause":"find stderr is discarded here — re-run the same find by hand from the repo root to see which subdirectory it could not descend into, typically a permissions change somewhere under data/errors"}\n' "$FRC" "$D" "$(pwd)"
+        exit 0
+      fi
+      # Same count as before: one line per matched file. grep -c . also counts a final
+      # line with no trailing newline, which is what command substitution leaves behind.
+      N=$(printf '%s' "$FLIST" | grep -c . | tr -d ' ')
+      OLDEST=$(printf '%s' "$FLIST" | sort | head -1 | sed 's|.*/||')
       # OLDEST is deliberately NOT asserted: it is legitimately empty exactly when
       # N=0, which is the genuine clean state. N is asserted anyway.
       if [ -z "$N" ]; then
-        printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — could not count *.json under %s. That is a failed count, not a measurement of zero.","cause":"find or wc produced no output for a directory that exists — check read permissions on the path"}\n' "$D"
+        printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — could not count *.json under %s. That is a failed count, not a measurement of zero.","cause":"find succeeded but grep or tr produced no output for a directory that exists and is readable — re-run the count by hand"}\n' "$D"
         exit 0
       fi
       V=ok; [ "$N" -gt 0 ] && V=warn
@@ -252,8 +273,18 @@ nodes:
       DB=$(psql -U lume -d ed_insights -At -c "SELECT count(*) FROM games" 2>/dev/null)
       # One line deliberately: a multi-line heredoc here would break out of the
       # YAML block scalar at column 1 and silently unregister this workflow.
-      PY='import glob,pandas as pd; print(sum(len(pd.read_parquet(f,columns=["game_id"])) for f in glob.glob("data/structured/*/all/games.parquet")))'
-      PQ=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Print the number of MATCHED FILES alongside the row sum. sum([]) is 0, so a glob
+      # that matched nothing used to render as `parquet all/ 0 rows` — a fabricated
+      # measurement that sails through the non-empty assertion below, because 0 is also
+      # what a real but empty export reports. The file count is the only thing that
+      # separates "the export holds no rows" from "there is no export to read".
+      PY='import glob,pandas as pd; fs=sorted(glob.glob("data/structured/*/all/games.parquet")); print(len(fs), sum(len(pd.read_parquet(f,columns=["game_id"])) for f in fs))'
+      PQOUT=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Split only a well-formed two-integer line. Anything else — a truncated line, a
+      # traceback tail, a uv diagnostic — leaves BOTH empty and trips the assertion,
+      # rather than being silently parsed as a count.
+      PQFILES=$(printf '%s' "$PQOUT" | awk 'NF==2 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $1}')
+      PQ=$(printf '%s' "$PQOUT" | awk 'NF==2 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ {print $2}')
       RAW=$(du -sh packages/pipeline/data/raw_html 2>/dev/null | cut -f1)
       # `git ls-files ... | wc -l` reports 0 when git ITSELF fails, which is
       # indistinguishable from "nothing is tracked". Branch on git's exit status
@@ -263,11 +294,22 @@ nodes:
       TRACKEDLS=$(git ls-files packages/pipeline/data/raw_html 2>/dev/null) && TRACKED=$(printf '%s' "$TRACKEDLS" | grep -c . | tr -d ' ')
       # DB is the whole point of this check and never entered the verdict at all —
       # it appeared only as ${DB:-?} in the headline, so a dead database read
-      # "db ? games" with verdict ok. All four captures are asserted here.
+      # "db ? games" with verdict ok. All five captures are asserted here.
+      # The database half needs none of the filesystem, so do not throw away a working
+      # measurement to report a broken one: carry DB into whichever not-run headline fires.
+      DBHALF="unavailable — psql returned nothing"
+      [ -n "${DB:-}" ] && DBHALF="$DB games in ed_insights"
       MISSING=
-      for v in DB PQ RAW TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      for v in DB PQ PQFILES RAW TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
       if [ -n "$MISSING" ]; then
-        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ from uv run python over data/structured/*/all/games.parquet, RAW from du, TRACKED from git ls-files). Those are failures, not measurements of zero.","cause":"stderr is discarded on all four, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing raw_html directory, an unexpected working directory, or git failing. Re-run the four commands by hand from the repo root."}\n' "$MISSING"
+        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ and PQFILES from uv run python over data/structured/*/all/games.parquet, RAW from du, TRACKED from git ls-files). Those are failures, not measurements of zero. Database half: %s.","cause":"stderr is discarded on all of them, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing raw_html directory, an unexpected working directory, or git failing. Re-run the commands by hand from the repo root."}\n' "$MISSING" "$DBHALF"
+        exit 0
+      fi
+      # PQFILES is non-empty here, so it is a real count and 0 means the glob genuinely
+      # matched nothing. That is the parquet half failing to run, not an export of zero
+      # rows — and it is reported as such, with the database half preserved.
+      if [ "$PQFILES" -lt 1 ] 2>/dev/null; then
+        printf '{"check":"archive","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — the glob data/structured/*/all/games.parquet matched no files under packages/pipeline (cwd %s), so there is no export to compare against. The 0 rows this used to print was an absent export, not an empty one. Database half did run: %s.","cause":"data/structured was moved, renamed, or never generated, or the node ran from an unexpected working directory. Re-run the pipeline export, or list the glob by hand from packages/pipeline, then re-run this check."}\n' "$(pwd)" "$DBHALF"
         exit 0
       fi
       V=ok

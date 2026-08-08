@@ -35,6 +35,29 @@ tags: [data, fidelity, source-of-truth, soccer]
 # at a glance. Past that guard the verdict tests use bare "$VAR", because the
 # `${VAR:-0}` defaults are what made the check fail open in the first place.
 #
+# THAT CONVENTION IS ONLY HALF OF IT, and the missing half is the one that bit.
+# Asserting non-empty works for a psql capture because a dead query yields the
+# empty string. It is USELESS for a capture built from `find | wc -l`, from
+# `grep -rl | wc -l`, from a python sum() over a glob, or from a shell counter
+# initialised to 0 and incremented in a loop. None of those can ever produce an
+# empty string. They produce `0` — the same `0` a healthy, genuinely-clean check
+# reports. "The directory was missing, unreadable, or the cwd was wrong" and "I
+# looked and everything is fine" render identically, in the same sentence, with
+# the same verdict.
+#
+# THE RULE: a check must be able to distinguish "I measured zero" from "I did not
+# measure". For a counter, that means guarding the SOURCE, not the value — does
+# the directory exist, is it readable, did the glob match a file, did the command
+# run — and then either withholding the number or refusing to print a verdict.
+# `[ -d "$D" ]` is NOT such a guard: test -d succeeds on a chmod-000 directory
+# and grep reads nothing out of it. Count the files first.
+#
+# Where a node has a database half and a filesystem half, split the verdict
+# rather than gate the whole node on the fragile half: home-away-truth reports
+# its 471 contradictory fixtures from Postgres and separately marks the StatCrew
+# venue evidence as not run. Do not throw away a working measurement to guard a
+# broken one.
+#
 # The accumulator is named NORUN, not data-integrity.yml's MISSING, because
 # gender-fidelity captures a SQL result into $MISSING. One name across this file
 # beats matching the sibling file exactly — do not "harmonise" it.
@@ -293,18 +316,48 @@ nodes:
                           FROM games g JOIN schools s ON s.id=g.school_id GROUP BY 1) t
                     WHERE selfh = n")
       R=packages/pipeline/data/raw_html
-      WITHVENUE=0; ATHOME=0
-      if [ -d "$R/hu" ] || [ -d "$R/huw" ]; then
-        WITHVENUE=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at [^)<]*\)' "$R/hu" "$R/huw" 2>/dev/null | wc -l | tr -d ' ')
-        ATHOME=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at Searcy' "$R/hu" "$R/huw" 2>/dev/null | wc -l | tr -d ' ')
+      # SOURCE-SIDE GUARD. WITHVENUE/ATHOME come from `grep -rl | wc -l`, which
+      # can never return the empty string the psql guard below looks for: it
+      # prints 0 for a missing, empty or unreadable directory exactly as loudly as
+      # for a corpus that genuinely states no venue. `[ -d ]` does not save it —
+      # test -d succeeds on a chmod-000 directory, grep then reads nothing, and
+      # this node reports "a venue for 0 box scores of which 0 are away from
+      # Searcy" as a measured fact. Count the files that WOULD be scanned before
+      # trusting any count of what is inside them; zero scannable files is "did
+      # not measure", and it is left EMPTY here so it cannot be printed as a
+      # number. Do not re-initialise these to 0.
+      # Both directories are required, not either: the database side of the
+      # sentence counts HU+HUW together, so a source side that silently covered
+      # only the men's cache would be compared against a denominator spanning
+      # both. The old `[ -d hu ] || [ -d huw ]` made that undercount invisible.
+      HUDIRS=; HUMISS=; SRCFILES=0
+      for d in hu huw; do
+        N=
+        if [ -d "$R/$d" ] && [ -r "$R/$d" ] && [ -x "$R/$d" ]; then
+          N=$(find "$R/$d" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
+          [ $? -eq 0 ] || N=
+        fi
+        if [ -n "$N" ] && [ "$N" -gt 0 ]; then
+          HUDIRS="$HUDIRS $R/$d"; SRCFILES=$(( SRCFILES + N ))
+        else
+          HUMISS="$HUMISS $d"
+        fi
+      done
+      WITHVENUE=; ATHOME=; AWAYSRC=
+      if [ -z "$HUMISS" ]; then
+        # pipefail is set, so these carry grep's status: 1 is "no file matched"
+        # (a real zero) and 2 is "grep could not read something" (not a zero).
+        WITHVENUE=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at [^)<]*\)' $HUDIRS 2>/dev/null | wc -l | tr -d ' ')
+        [ $? -gt 1 ] && WITHVENUE=
+        ATHOME=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at Searcy' $HUDIRS 2>/dev/null | wc -l | tr -d ' ')
+        [ $? -gt 1 ] && ATHOME=
       fi
       STORED=$(Q "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id
                   WHERE s.abbreviation IN ('HU','HUW') AND g.home_team ILIKE '%Harding%'")
       HUTOTAL=$(Q "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id WHERE s.abbreviation IN ('HU','HUW')")
-      AWAYSRC=$(( ${WITHVENUE:-0} - ${ATHOME:-0} ))
-      # WITHVENUE/ATHOME come from grep|wc so they are always numeric; the five
-      # psql captures are the ones that can arrive empty. SELFHOME coalesces to
-      # the literal 'none' on success, so empty means the query failed.
+      [ -n "$WITHVENUE" ] && [ -n "$ATHOME" ] && AWAYSRC=$(( WITHVENUE - ATHOME ))
+      # The five psql captures arrive empty when their query fails. SELFHOME
+      # coalesces to the literal 'none' on success, so empty means it failed.
       NORUN=
       for v in PAIRSETS CONTRA SELFHOME STORED HUTOTAL; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
       if [ -n "$NORUN" ]; then
@@ -318,6 +371,17 @@ nodes:
       # detection, and it evaporated the moment the HTML side read 0 as well.
       V=ok
       [ "$CONTRA" -gt 0 ] && V=alarm
+      # SPLIT VERDICT. The database half above needs no HTML and its 471
+      # contradictory fixtures are a real finding, so an unreadable cache must not
+      # suppress it — but the source half must not be reported either, and least
+      # of all as zero. Print the database numbers, name the source half as not
+      # run, and alarm because half of this check did not happen.
+      if [ -z "$WITHVENUE" ] || [ -z "$ATHOME" ]; then
+        printf '{"check":"home-away-truth","verdict":"alarm","headline":"DATABASE HALF ONLY — %s of %s twice-scraped same-gender fixtures have both rows claiming home; %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s. SOURCE HALF DID NOT RUN — the StatCrew venue line was never counted (%s scannable .html files under %s; unusable programme directories:%s), so the venue and away-from-Searcy figures are withheld rather than reported as zero.","cause":"the cached HU/HUW box scores were missing, empty or unreadable, or this node ran from a cwd that is not the repository root — grep prints 0 for every one of those and it is indistinguishable from a source that states no venue. The database counts above stand on their own. Where the contradictory-fixture count is non-zero the mechanism is parser.py:859-862 swapping whenever the school name matches the away slot, and sidearm_parser.py:127-134 assigning score-table row 0 to home."}\n' \
+          "$CONTRA" "$PAIRSETS" "$STORED" "$HUTOTAL" "$SELFHOME" "$SRCFILES" "$R" \
+          "${HUMISS:- none — grep could not finish reading the corpus}"
+        exit 0
+      fi
       [ "$AWAYSRC" -gt 0 ] && [ "$STORED" -eq "$HUTOTAL" ] && V=alarm
       printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s box scores of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page"}\n' \
         "$V" "$CONTRA" "$PAIRSETS" "$WITHVENUE" "$AWAYSRC" "$STORED" "$HUTOTAL" "$SELFHOME"
@@ -469,6 +533,18 @@ nodes:
         [ -n "${GEN:-}" ] || { NORUN="$NORUN $SLUG:gender"; continue; }
         case "${NRED:-}" in ''|*[!0-9]*) NORUN="$NORUN $SLUG:red_card"; continue ;; esac
         case "${NYEL:-}" in ''|*[!0-9]*) NORUN="$NORUN $SLUG:yellow_card"; continue ;; esac
+        # SEEN alone is not enough. `[ -d ]` above succeeds on a chmod-000
+        # directory and on an empty one, so a programme can be counted as SEEN
+        # while grep reads nothing at all — HTMLRED comes back 0, it adds 0 to
+        # SRCRED, and the programme silently drops out of BLIND. Thirteen such
+        # directories render as "cached source marks 0 red cards, 0 programmes
+        # show reds in their own HTML" with verdict ok, which is this check
+        # reporting a clean bill of health for a corpus it never opened. Count the
+        # files grep will be handed; a programme with nothing to scan is
+        # unmeasured, not clean.
+        NHTML=$(find "$R/$SLUG" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
+        FRC=$?
+        if [ "$FRC" -ne 0 ] || [ "${NHTML:-0}" -eq 0 ]; then NORUN="$NORUN $SLUG:no-readable-html"; continue; fi
         SEEN=$(( SEEN + 1 ))
         HTMLRED=$(grep -rho 'penalty-type red' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
         SRCRED=$(( SRCRED + HTMLRED ))
@@ -482,7 +558,7 @@ nodes:
       done < "$DBF"
       [ "$SEEN" -eq 0 ] && NORUN="$NORUN no-programme-matched-a-cached-HTML-directory"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"card-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — the card query returned rows this check could not use:%s. Those are unusable rows, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or no abbreviation in schools matched a directory under packages/pipeline/data/raw_html so nothing was compared at all."}\n' "$NORUN"
+        printf '{"check":"card-fidelity","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows or unreadable source directories, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 red cards exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
         exit 0
       fi
       V=ok; [ "$BLIND" -gt 0 ] && V=alarm
@@ -518,6 +594,14 @@ nodes:
         [ -d "$R/$SLUG" ] || continue
         [ -n "${GEN:-}" ] || { NORUN="$NORUN $SLUG:gender"; continue; }
         case "${NSUB:-}" in ''|*[!0-9]*) NORUN="$NORUN $SLUG:substitution"; continue ;; esac
+        # Same source guard as card-fidelity, same reason — see the long comment
+        # there. `[ -d ]` passing is not evidence that grep could read anything,
+        # and 13 empty directories otherwise print "cached source mentions
+        # substitution: 0 times ... 0 programmes have substitutions in their own
+        # HTML and none stored" with verdict ok.
+        NHTML=$(find "$R/$SLUG" -type f -name '*.html' 2>/dev/null | wc -l | tr -d ' ')
+        FRC=$?
+        if [ "$FRC" -ne 0 ] || [ "${NHTML:-0}" -eq 0 ]; then NORUN="$NORUN $SLUG:no-readable-html"; continue; fi
         SEEN=$(( SEEN + 1 ))
         HTMLSUB=$(grep -rho 'substitution:' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
         SRCSUB=$(( SRCSUB + HTMLSUB ))
@@ -531,7 +615,7 @@ nodes:
       done < "$DBF"
       [ "$SEEN" -eq 0 ] && NORUN="$NORUN no-programme-matched-a-cached-HTML-directory"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"CHECK DID NOT RUN — the substitution query returned rows this check could not use:%s. Those are unusable rows, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or no abbreviation in schools matched a directory under packages/pipeline/data/raw_html so nothing was compared at all."}\n' "$NORUN"
+        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"CHECK DID NOT RUN — this check could not use:%s. Those are unusable rows or unreadable source directories, not measurements of zero.","cause":"either a programme row came back short or non-numeric (the column list changed, or gender is NULL), or a programme directory under packages/pipeline/data/raw_html held no readable .html for grep to count, or no abbreviation in schools matched a directory there at all. A grep over an empty or unreadable directory reports 0 substitutions exactly as it reports a clean one, so those programmes are withheld instead of summed."}\n' "$NORUN"
         exit 0
       fi
       V=ok; [ "$BLIND" -gt 0 ] && V=alarm
@@ -694,17 +778,29 @@ nodes:
       CACHEN=$(printf '%s' "$BIJ" | cut -d'|' -f2)
       NOSRC=$(printf '%s' "$BIJ" | cut -d'|' -f3)
       NOROW=$(printf '%s' "$BIJ" | cut -d'|' -f4)
-      YEARBAD=""; NBAD=0
+      # NBAD and NDUP are COUNTERS, and a counter that was never incremented is
+      # indistinguishable from a clean scan: both are 0. A season glob that
+      # matched nothing, a game_01.html nobody could read, or a shasum that never
+      # ran all render as "0 season directories link a different year" and "0
+      # pair(s) share a byte-identical game_01" — the two sentences an operator
+      # reads as proof the archive is sound. So count the INPUTS as well as the
+      # hits: NSEASON is how many season directories were walked, NLINKED how many
+      # actually yielded a /stats/YYYY/ link, SHAS the raw digest rows. All three
+      # are asserted in the guard below.
+      YEARBAD=""; NBAD=0; NSEASON=0; NLINKED=0
       for D in "$R"/*/[0-9][0-9][0-9][0-9]; do
         [ -d "$D" ] || continue
+        NSEASON=$(( NSEASON + 1 ))
         Y=${D##*/}
         LINKS=$(grep -ohE '/stats/[0-9]{4}/' "$D"/game_01.html 2>/dev/null | sort -u | tr -d '\n')
+        [ -n "$LINKS" ] && NLINKED=$(( NLINKED + 1 ))
         case "$LINKS" in
           *"/stats/$Y/"*|'') ;;
           *) NBAD=$(( NBAD + 1 )); YEARBAD="$YEARBAD ${D#"$R"/}->$LINKS" ;;
         esac
       done
-      DUPES=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) | sort | awk '{c[$1]=c[$1]" "$2} END {for (h in c) {n=split(c[h],a," "); if (n>1) printf "%s;", c[h]}}' )
+      SHAS=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) | sort )
+      DUPES=$(printf '%s\n' "$SHAS" | awk '{c[$1]=c[$1]" "$2} END {for (h in c) {n=split(c[h],a," "); if (n>1) printf "%s;", c[h]}}')
       NDUP=$(printf '%s' "$DUPES" | tr -cd ';' | wc -c | tr -d ' ')
       PHANTOM=$(psql -U lume -d ed_insights -At -c "SELECT coalesce(string_agg(x,', '),'none') FROM (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||' holds '||count(*)||' rows dated '||min(extract(year FROM g.date))::int AS x FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL AND extract(year FROM g.date)::int NOT IN (g.season_year, g.season_year+1) GROUP BY s.abbreviation, s.gender, g.season_year) z" 2>/dev/null)
       # This node was already the house pattern via `${NOSRC:-1}` — defaults that
@@ -719,14 +815,19 @@ nodes:
       #     table: BIJ still parses, DBN is a real 0, and the operator is sent to
       #     look at the cache. DBN=0 is treated as "the database answered nothing".
       #
-      # YEARBAD and DUPES are legitimately empty when there is nothing to report
-      # (NBAD/NDUP are their counts), so they stay out of the guard and keep their
-      # printf defaults.
+      # (3) YEARBAD and DUPES are legitimately empty when there is nothing to
+      #     report, so they still stay out of the non-empty loop and keep their
+      #     printf defaults — but the counters derived from them do NOT, because
+      #     an unwalked directory and a clean directory both count 0. NSEASON,
+      #     NLINKED and SHAS are the evidence that the walk happened at all.
       NORUN=
       for v in DBN CACHEN NOSRC NOROW PHANTOM; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
       [ "${DBN:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN DBN=0(database answered nothing)"
+      [ "$NSEASON" -eq 0 ] && NORUN="$NORUN NSEASON=0(no season directory walked, so NBAD=0 counts nothing)"
+      [ "$NSEASON" -gt 0 ] && [ "$NLINKED" -eq 0 ] && NORUN="$NORUN NLINKED=0(no game_01.html yielded a season link, so NBAD=0 counts nothing)"
+      [ -z "$SHAS" ] && NORUN="$NORUN SHAS=empty(shasum hashed no game_01.html, so NDUP=0 counts nothing)"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"cache-provenance","verdict":"alarm","headline":"CHECK DID NOT RUN — the provenance probe returned nothing for:%s. Those are failed queries, not a verdict about the cache. Do NOT read this as cached files never loaded.","cause":"DBN/CACHEN/NOSRC/NOROW come from the one-line uv run python above, whose psql sub-call hides its stderr behind capture_output, and PHANTOM comes from a direct psql with stderr discarded. Re-run the psql by hand against ed_insights, and re-run the python from packages/pipeline, to see the actual error."}\n' "$NORUN"
+        printf '{"check":"cache-provenance","verdict":"alarm","headline":"CHECK DID NOT RUN — the provenance probes returned nothing for:%s. Those are failed queries or unwalked directories, not a verdict about the cache. Do NOT read this as cached files never loaded, and do NOT read a zero counter as a clean archive.","cause":"DBN/CACHEN/NOSRC/NOROW come from the one-line uv run python above, whose psql sub-call hides its stderr behind capture_output, and PHANTOM comes from a direct psql with stderr discarded. NSEASON/NLINKED/SHAS are filesystem probes: they come back empty when the cache directories are missing or unreadable, or when this node ran from a cwd that is not the repository root. Re-run the psql by hand against ed_insights, and re-run the python from packages/pipeline, to see the actual error."}\n' "$NORUN"
         exit 0
       fi
       V=ok
@@ -746,7 +847,14 @@ nodes:
       DBGAMES=$(Q "SELECT count(*) FROM games")
       DBEVENTS=$(Q "SELECT count(*) FROM game_events")
       DBPLAYERS=$(Q "SELECT count(*) FROM player_game_stats")
-      PY='import glob,os,tomllib,pandas as pd; ok={s["ordinal"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; F=[f for f in ("data/structured/all/games.parquet","data/games.parquet") if os.path.exists(f)]; D=[pd.read_parquet(f,columns=["game_id"]) for f in F]; ev=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/events.parquet")); gm=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/games.parquet")); pl=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/player_stats.parquet")); print("%d|%d|%d|%d|%d|%d"%(len(F),max([len(d) for d in D]+[0]),max([int((~d.game_id.floordiv(1000000).isin(ok)).sum()) for d in D]+[0]),gm,ev,pl))'
+      # Fields 7/8/9 are the number of parquet FILES each glob matched. They exist
+      # only to guard fields 4/5/6: `sum(...)` over an empty glob is 0, and a
+      # missing export therefore claims "per-season parquet 0 games / 0 players /
+      # 0 events" in the same breath and the same font as a real count. Same for
+      # len(F): with no merged export on disk, max([]+[0]) makes EXPROWS and STALE
+      # both 0, and STALE is the 712-row stale-ordinal finding this whole check
+      # exists to produce. Fields 1-6 are byte-identical to before.
+      PY='import glob,os,tomllib,pandas as pd; ok={s["ordinal"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; F=[f for f in ("data/structured/all/games.parquet","data/games.parquet") if os.path.exists(f)]; D=[pd.read_parquet(f,columns=["game_id"]) for f in F]; GE=sorted(glob.glob("data/structured/*/[0-9]*/events.parquet")); GG=sorted(glob.glob("data/structured/*/[0-9]*/games.parquet")); GP=sorted(glob.glob("data/structured/*/[0-9]*/player_stats.parquet")); ev=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GE); gm=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GG); pl=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GP); print("%d|%d|%d|%d|%d|%d|%d|%d|%d"%(len(F),max([len(d) for d in D]+[0]),max([int((~d.game_id.floordiv(1000000).isin(ok)).sum()) for d in D]+[0]),gm,ev,pl,len(GG),len(GE),len(GP)))'
       OUT=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
       NFILES=$(printf '%s' "$OUT" | cut -d'|' -f1)
       EXPROWS=$(printf '%s' "$OUT" | cut -d'|' -f2)
@@ -754,16 +862,30 @@ nodes:
       PQGAMES=$(printf '%s' "$OUT" | cut -d'|' -f4)
       PQEVENTS=$(printf '%s' "$OUT" | cut -d'|' -f5)
       PQPLAYERS=$(printf '%s' "$OUT" | cut -d'|' -f6)
+      NPQGAMES=$(printf '%s' "$OUT" | cut -d'|' -f7)
+      NPQEVENTS=$(printf '%s' "$OUT" | cut -d'|' -f8)
+      NPQPLAYERS=$(printf '%s' "$OUT" | cut -d'|' -f9)
       # Two independent sources here: three psql counts and one uv run python over
       # the parquet. Either side can fail alone, and each partial failure used to
       # MANUFACTURE a number rather than withhold one — a dead DB with readable
       # parquet reported "22782 events lost at merge", which is PQEVENTS minus an
       # empty string. Both sides are asserted before any arithmetic happens, so
       # EVLOST is computed only from two numbers that actually exist.
+      #
+      # Non-empty is necessary but NOT sufficient on the parquet side: every field
+      # the python prints is a count, and a count of an absent artifact is a
+      # confident 0, never a blank. NFILES=0 sailed straight through the loop
+      # below and took EXPROWS and the load-bearing STALE=712 down to 0 with it,
+      # which reads as a merged export that is clean rather than one that is not
+      # there. Assert that each probe actually opened a file.
       NORUN=
-      for v in DBGAMES DBEVENTS DBPLAYERS NFILES EXPROWS STALE PQGAMES PQEVENTS PQPLAYERS; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      for v in DBGAMES DBEVENTS DBPLAYERS NFILES EXPROWS STALE PQGAMES PQEVENTS PQPLAYERS NPQGAMES NPQEVENTS NPQPLAYERS; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
+      [ "${NFILES:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN NFILES=0(no merged export on disk, so the stale-ordinal count measured nothing)"
+      [ "${NPQGAMES:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-games.parquet-glob-matched-no-files"
+      [ "${NPQEVENTS:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-events.parquet-glob-matched-no-files"
+      [ "${NPQPLAYERS:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-player_stats.parquet-glob-matched-no-files"
       if [ -n "$NORUN" ]; then
-        printf '{"check":"export-staleness","verdict":"alarm","headline":"CHECK DID NOT RUN — no value came back for:%s. Those are failed probes, not measurements, and no export-drift number below would have been a comparison of two real counts.","cause":"DBGAMES/DBEVENTS/DBPLAYERS come from Q() with psql stderr discarded; NFILES/EXPROWS/STALE/PQGAMES/PQEVENTS/PQPLAYERS come from the one-line uv run python above with its stderr discarded, which also fails when the cwd holds no packages/pipeline. Re-run each by hand to see the error."}\n' "$NORUN"
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"CHECK DID NOT RUN — no usable value came back for:%s. Those are failed or empty probes, not measurements, and no export-drift number below would have been a comparison of two real counts.","cause":"DBGAMES/DBEVENTS/DBPLAYERS come from Q() with psql stderr discarded; NFILES/EXPROWS/STALE/PQGAMES/PQEVENTS/PQPLAYERS come from the one-line uv run python above with its stderr discarded, which also fails when the cwd holds no packages/pipeline. A glob that matched no parquet sums to 0 rather than to nothing, so an absent export would otherwise have been reported as an export holding zero rows. Re-run each by hand to see the error."}\n' "$NORUN"
         exit 0
       fi
       EVLOST=$(( PQEVENTS - DBEVENTS ))
