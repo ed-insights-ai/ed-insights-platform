@@ -9,6 +9,26 @@ requiresProject: true
 mutates_checkout: false
 tags: [data, integrity, soccer]
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FAIL CLOSED. Every check in this file must alarm when it cannot run.
+#
+# Q() sends psql stderr to /dev/null, so a dead database, a dropped table, a
+# permissions change or one timed-out query all arrive in the shell as an EMPTY
+# STRING. `[ "" -gt 0 ]` is then a test ERROR (exit 2) — not false — so an
+# unguarded `&& V=alarm` never fires and V keeps its initialised `ok`. That is
+# how a nonexistent database used to render as `[ OK   ]` with blank numbers.
+#
+# The convention, inherited from ground-truth.yml's cache-provenance check:
+# after the queries run, assert every captured variable is non-empty; if any is
+# empty, print an explicit `CHECK DID NOT RUN` alarm naming the empty captures
+# and exit 0. The failure headline is deliberately NOT the measurement headline
+# with blanks in it — a reader must be able to tell "the query failed" from
+# "the data is bad" at a glance.
+#
+# `${!v}` is bash indirect expansion; Keelson runs bash nodes under bash (3.2 on
+# this machine), where it is supported. Do not port these loops to sh.
+# ─────────────────────────────────────────────────────────────────────────────
+
 nodes:
   # ── 1. Freshness ────────────────────────────────────────────────────────
   - id: freshness
@@ -20,6 +40,12 @@ nodes:
       NEWEST=$(Q "SELECT coalesce(max(date)::text,'none') FROM games")
       DAYS=$(Q "SELECT coalesce((CURRENT_DATE - max(date))::text,'-1') FROM games")
       SEASONS=$(Q "SELECT count(DISTINCT season_year) FROM games")
+      MISSING=
+      for v in TOTAL NEWEST DAYS SEASONS; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"freshness","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; [ "$DAYS" -gt 14 ] 2>/dev/null && V=warn
       printf '{"check":"freshness","verdict":"%s","headline":"%s games, newest %s (%s days ago), %s seasons","cause":""}\n' \
         "$V" "$TOTAL" "$NEWEST" "$DAYS" "$SEASONS"
@@ -33,6 +59,12 @@ nodes:
       NULLS=$(Q "SELECT count(*) FROM games WHERE is_conference_game IS NULL")
       TOTAL=$(Q "SELECT count(*) FROM games")
       AWAYC=$(Q "SELECT count(*) FROM games WHERE away_conference IS NULL")
+      MISSING=
+      for v in NULLS TOTAL AWAYC; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"conference-flag","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; [ "$NULLS" -gt 0 ] && V=alarm
       printf '{"check":"conference-flag","verdict":"%s","headline":"is_conference_game NULL for %s of %s rows; away_conference NULL for %s","cause":"nothing populates it — conferences.py:55-59 therefore returns an OVERALL record labelled standings"}\n' \
         "$V" "$NULLS" "$TOTAL" "$AWAYC"
@@ -50,6 +82,12 @@ nodes:
       EXTRA=$(Q "SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) AS n FROM games WHERE date IS NOT NULL GROUP BY date, home_team, away_team HAVING count(*) > 1) d")
       DISAGREE=$(Q "SELECT count(*) FROM (SELECT date, home_team, away_team FROM games WHERE date IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1 AND (count(DISTINCT home_score) > 1 OR count(DISTINCT away_score) > 1)) d")
       NODATE=$(Q "SELECT count(*) FROM games WHERE date IS NULL")
+      MISSING=
+      for v in DUPGROUPS EXTRA DISAGREE NODATE; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"duplication","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; [ "$DUPGROUPS" -gt 0 ] && V=warn; [ "$DISAGREE" -gt 0 ] && V=alarm
       printf '{"check":"duplication","verdict":"%s","headline":"%s duplicate (date,home,away) groups, %s extra rows, %s disagree on score; %s rows have no date and cannot be checked","cause":"a fixture scraped from both schools becomes two rows; no canonical match key exists"}\n' \
         "$V" "$DUPGROUPS" "$EXTRA" "$DISAGREE" "$NODATE"
@@ -64,6 +102,14 @@ nodes:
       ROWS=$(Q "SELECT coalesce(sum(n),0) FROM (SELECT g.season_year sy, EXTRACT(YEAR FROM g.date)::int dy, count(*) n FROM games g WHERE g.date IS NOT NULL GROUP BY 1,2) t WHERE dy NOT IN (sy, sy+1)")
       BYURL=$(Q "SELECT count(*) FROM games WHERE source_url ~ '/stats/[0-9]{4}/' AND substring(source_url from '/stats/([0-9]{4})/')::int <> season_year")
       WORST=$(Q "SELECT coalesce(string_agg(x,'; '),'none') FROM (SELECT s.abbreviation||' '||g.season_year||' holds '||count(*)||' games dated '||EXTRACT(YEAR FROM g.date)::int AS x FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY s.abbreviation, g.season_year, EXTRACT(YEAR FROM g.date) HAVING EXTRACT(YEAR FROM g.date)::int NOT IN (g.season_year, g.season_year+1) ORDER BY count(*) DESC LIMIT 5) t")
+      # WORST coalesces to the literal 'none' on success-with-no-findings, so an
+      # empty WORST means the query failed, never that there is nothing to report.
+      MISSING=
+      for v in BYDATE ROWS BYURL WORST; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"season-label","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; { [ "$BYDATE" -gt 0 ] || [ "$BYURL" -gt 0 ]; } && V=alarm
       printf '{"check":"season-label","verdict":"%s","headline":"%s program-seasons mislabelled (%s rows); %s rows whose source_url year disagrees. %s","cause":"sidearm_discovery.py — the schedule page year segment was never asserted against the requested year"}\n' \
         "$V" "$BYDATE" "$ROWS" "$BYURL" "$WORST"
@@ -110,6 +156,13 @@ nodes:
                 SELECT count(*) FROM games g JOIN pat p ON p.id=g.school_id
                 WHERE g.home_score IS NOT NULL
                   AND g.home_team NOT ILIKE '%'||p.tok||'%' AND g.away_team NOT ILIKE '%'||p.tok||'%'")
+      # DUPNAME and SELF coalesce to 'none' on success, so empty means query failure.
+      MISSING=
+      for v in STRINGS DUPNAME SELF WORSTN; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"identity","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; [ "$WORSTN" -gt 0 ] && V=alarm
       printf '{"check":"identity","verdict":"%s","headline":"%s distinct team strings; non-unique school names: %s; %s scored games where the school cannot identify itself in either team slot (blind/total: %s)","cause":"_ilike_pattern (conferences.py:14-21, teams.py:14) fails open — conferences.py:69 treats a non-match as away and reads the OPPONENT score as the school own"}\n' \
         "$V" "$STRINGS" "$DUPNAME" "$WORSTN" "$SELF"
@@ -124,6 +177,15 @@ nodes:
       SCHOOLS=$(Q "SELECT count(DISTINCT school_id) FROM game_events WHERE event_type='red_card'")
       TOTAL=$(Q "SELECT count(*) FROM schools WHERE enabled")
       WHO=$(Q "SELECT coalesce(string_agg(s.abbreviation||'='||c,', '),'none') FROM (SELECT school_id, count(*) c FROM game_events WHERE event_type='red_card' GROUP BY 1) e JOIN schools s ON s.id=e.school_id")
+      # Two-sided test: if EITHER operand is empty the comparison errors and the
+      # verdict silently stays ok, so a readable schools table plus a dropped
+      # game_events table used to pass. Both operands are asserted here.
+      MISSING=
+      for v in REDS SCHOOLS TOTAL WHO; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"discipline","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; [ "$SCHOOLS" -lt "$TOTAL" ] && V=alarm
       printf '{"check":"discipline","verdict":"%s","headline":"%s red cards across only %s of %s enabled programs (%s)","cause":"sidearm_parser.py:339-348 hardcodes yellow_card for every caution row at the SideArm programs"}\n' \
         "$V" "$REDS" "$SCHOOLS" "$TOTAL" "$WHO"
@@ -138,6 +200,18 @@ nodes:
       NOPLAYER=$(Q "SELECT count(*) FROM games g WHERE NOT EXISTS (SELECT 1 FROM player_game_stats p WHERE p.game_id=g.game_id)")
       NOEVENT=$(Q "SELECT count(*) FROM games g WHERE NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id)")
       OVERLONG=$(Q "SELECT coalesce(string_agg(a||' '||sy||'='||n,', '),'none') FROM (SELECT s.abbreviation a, g.season_year sy, count(*) n FROM games g JOIN schools s ON s.id=g.school_id GROUP BY 1,2 HAVING count(*) > 28) t")
+      # This check used to fail closed BY ACCIDENT: OVERLONG coalesces to 'none'
+      # on success, so on query failure it was empty and `[ "" != "none" ]` was a
+      # valid string comparison that happened to be true. That put the only
+      # safety net in this file inside a SQL sentinel. The guard below makes it
+      # deliberate; the `!= "none"` test now means only what it says — a season
+      # is implausibly long — and no longer doubles as the failure detector.
+      MISSING=
+      for v in NOTEAM NOPLAYER NOEVENT OVERLONG; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"orphans","verdict":"alarm","headline":"CHECK DID NOT RUN — psql returned nothing for:%s. Those are failed queries, not measurements of zero.","cause":"Q() discards psql stderr, so the reason is not captured here — database down, table dropped, permissions changed, or the query timed out. Re-run it by hand against ed_insights to see the error."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok; [ "$NOTEAM" -gt 0 ] && V=warn
       [ "$OVERLONG" != "none" ] && V=alarm
       printf '{"check":"orphans","verdict":"%s","headline":"%s games with no team stats, %s with no player stats, %s with no events; implausibly long seasons: %s","cause":"sidearm_discovery.py assigns game_num by enumerate() position — a late-published box score shifts every subsequent id and orphans the old rows"}\n' \
@@ -149,11 +223,22 @@ nodes:
     bash: |
       set -uo pipefail
       D=packages/pipeline/data/errors
-      if [ -d "$D" ]; then
-        N=$(find "$D" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
-        OLDEST=$(find "$D" -name '*.json' 2>/dev/null | sort | head -1 | sed 's|.*/||')
-      else
-        N=0; OLDEST=none
+      # This node reads the filesystem, so it fails open by a different mechanism
+      # than the psql checks: N can never be empty. The old else-branch set N=0 on
+      # a missing directory, which renders identically to a genuinely clean
+      # errors/ — so an unexpected cwd, or a moved directory, read as "clean".
+      # A missing directory is not an empty one.
+      if [ ! -d "$D" ]; then
+        printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — no directory at %s (cwd %s). A missing directory is not an empty one.","cause":"the path is relative to the repo root, so either this node ran from an unexpected working directory or data/errors was moved, renamed or deleted"}\n' "$D" "$(pwd)"
+        exit 0
+      fi
+      N=$(find "$D" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+      OLDEST=$(find "$D" -name '*.json' 2>/dev/null | sort | head -1 | sed 's|.*/||')
+      # OLDEST is deliberately NOT asserted: it is legitimately empty exactly when
+      # N=0, which is the genuine clean state. N is asserted anyway.
+      if [ -z "$N" ]; then
+        printf '{"check":"parse-failures","verdict":"alarm","headline":"CHECK DID NOT RUN — could not count *.json under %s. That is a failed count, not a measurement of zero.","cause":"find or wc produced no output for a directory that exists — check read permissions on the path"}\n' "$D"
+        exit 0
       fi
       V=ok; [ "$N" -gt 0 ] && V=warn
       printf '{"check":"parse-failures","verdict":"%s","headline":"%s unparsed box scores in data/errors (oldest %s)","cause":"permanently failed parses — invisible to every consumer until retried"}\n' \
@@ -170,7 +255,21 @@ nodes:
       PY='import glob,pandas as pd; print(sum(len(pd.read_parquet(f,columns=["game_id"])) for f in glob.glob("data/structured/*/all/games.parquet")))'
       PQ=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
       RAW=$(du -sh packages/pipeline/data/raw_html 2>/dev/null | cut -f1)
-      TRACKED=$(git ls-files packages/pipeline/data/raw_html 2>/dev/null | wc -l | tr -d ' ')
+      # `git ls-files ... | wc -l` reports 0 when git ITSELF fails, which is
+      # indistinguishable from "nothing is tracked". Branch on git's exit status
+      # so a git failure leaves TRACKED empty and trips the assertion below.
+      # The count is unchanged: grep -c . over the same file list.
+      TRACKED=
+      TRACKEDLS=$(git ls-files packages/pipeline/data/raw_html 2>/dev/null) && TRACKED=$(printf '%s' "$TRACKEDLS" | grep -c . | tr -d ' ')
+      # DB is the whole point of this check and never entered the verdict at all —
+      # it appeared only as ${DB:-?} in the headline, so a dead database read
+      # "db ? games" with verdict ok. All four captures are asserted here.
+      MISSING=
+      for v in DB PQ RAW TRACKED; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"archive","verdict":"alarm","headline":"CHECK DID NOT RUN — no result for:%s (DB from psql, PQ from uv run python over data/structured/*/all/games.parquet, RAW from du, TRACKED from git ls-files). Those are failures, not measurements of zero.","cause":"stderr is discarded on all four, so the reason is not captured here — a dead database, a missing or unreadable parquet export, a missing raw_html directory, an unexpected working directory, or git failing. Re-run the four commands by hand from the repo root."}\n' "$MISSING"
+        exit 0
+      fi
       V=ok
       [ "${PQ:-0}" -lt 0 ] 2>/dev/null && V=warn
       [ "${TRACKED:-0}" -gt 0 ] 2>/dev/null && V=warn
