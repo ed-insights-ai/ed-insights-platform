@@ -1,11 +1,10 @@
-"""reset schools table with correct 14 GAC programs
+"""idempotently seed the 14 canonical GAC soccer programs
 
 Revision ID: 005
 Revises: 004
 Create Date: 2026-03-16
 
-Deletes all child data (game_events, player_game_stats, team_game_stats, games)
-and all schools, then re-seeds with the correct 14 GAC soccer programs per ADR-007.
+Data-preserving per ADR-007: upserts canonical schools by abbreviation and deletes nothing.
 """
 from typing import Sequence, Union
 
@@ -48,21 +47,25 @@ CORRECT_SCHOOLS = [
 
 
 def upgrade() -> None:
-    # Delete all child data first (order matters for FK constraints)
-    op.execute(sa.text("DELETE FROM game_events"))
-    op.execute(sa.text("DELETE FROM player_game_stats"))
-    op.execute(sa.text("DELETE FROM team_game_stats"))
-    op.execute(sa.text("DELETE FROM games"))
-    op.execute(sa.text("DELETE FROM schools"))
-
-    # Re-seed with correct 14 schools
-    op.execute(schools_table.insert().values(CORRECT_SCHOOLS))
+    # One-time forward correction (ADR-007): ensure the 14 canonical GAC
+    # programs exist with canonical metadata while preserving IDs and related data.
+    for school in CORRECT_SCHOOLS:
+        op.execute(
+            sa.text(
+                "INSERT INTO schools "
+                "(name, abbreviation, conference, mascot, gender, enabled) "
+                "VALUES (:name, :abbreviation, :conference, :mascot, :gender, :enabled) "
+                "ON CONFLICT (abbreviation) DO UPDATE SET "
+                "name = EXCLUDED.name, "
+                "conference = EXCLUDED.conference, "
+                "mascot = EXCLUDED.mascot, "
+                "gender = EXCLUDED.gender, "
+                "enabled = EXCLUDED.enabled"
+            ).bindparams(**school)
+        )
 
 
 def downgrade() -> None:
-    # Downgrade just clears everything — previous migrations will re-seed
-    op.execute(sa.text("DELETE FROM game_events"))
-    op.execute(sa.text("DELETE FROM player_game_stats"))
-    op.execute(sa.text("DELETE FROM team_game_stats"))
-    op.execute(sa.text("DELETE FROM games"))
-    op.execute(sa.text("DELETE FROM schools"))
+    # No-op: reversing upserts would risk rows and metadata this migration
+    # did not create.
+    pass

@@ -10,20 +10,32 @@ interface SmartInsightsCardProps {
 }
 
 export function SmartInsightsCard({ schoolAbbr, season }: SmartInsightsCardProps) {
-  const [insights, setInsights] = useState<Insight[]>([]);
-  const [loading, setLoading] = useState(true);
+  const requestKey = `${schoolAbbr}:${season}`;
+  const [result, setResult] = useState<{
+    requestKey: string;
+    insights: Insight[];
+  } | null>(null);
 
   useEffect(() => {
     if (!schoolAbbr) {
-      setInsights([]);
-      setLoading(false);
       return;
     }
-    setLoading(true);
-    getInsights(schoolAbbr, season)
-      .then(setInsights)
-      .finally(() => setLoading(false));
-  }, [schoolAbbr, season]);
+
+    let ignore = false;
+    getInsights(schoolAbbr, season).then((insights) => {
+      if (!ignore) {
+        setResult({ requestKey, insights });
+      }
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [requestKey, schoolAbbr, season]);
+
+  const isCurrentResult = result?.requestKey === requestKey;
+  const insights = isCurrentResult ? result.insights : [];
+  const loading = Boolean(schoolAbbr) && !isCurrentResult;
 
   return (
     <div className="lg:col-span-1 bento-card p-5 bg-teal-50 border-teal-200">
