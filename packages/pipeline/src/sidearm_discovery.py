@@ -54,16 +54,58 @@ def discover_sidearm_season(year: int, base_url: str) -> list[GameURL]:
     # Extract sport path from base_url for the regex pattern
     # e.g. "https://obutigers.com/sports/mens-soccer" -> "mens-soccer"
     sport_slug = base_url.rstrip("/").rsplit("/", 1)[-1]
-    pattern = rf"/sports/{re.escape(sport_slug)}/stats/\d+/[^/]+/boxscore/\d+"
-    paths = re.findall(pattern, html)
+    pattern = rf"/sports/{re.escape(sport_slug)}/stats/(\d+)/[^/]+/boxscore/\d+"
+    matches = list(re.finditer(pattern, html))
+    if not matches:
+        logger.info("[%d] No boxscore links present for that year", year)
+        return []
 
     # Deduplicate while preserving order
     seen: set[str] = set()
     unique_paths: list[str] = []
-    for p in paths:
-        if p not in seen:
-            seen.add(p)
-            unique_paths.append(p)
+    rejected = 0
+    observed_years: set[int] = set()
+    for match in matches:
+        path = match.group(0)
+        found_year = int(match.group(1))
+        if found_year != year:
+            rejected += 1
+            observed_years.add(found_year)
+            continue
+        if path not in seen:
+            seen.add(path)
+            unique_paths.append(path)
+
+    total = len(matches)
+    if rejected == total:
+        if len(observed_years) == 1:
+            served_year = next(iter(observed_years))
+            logger.error(
+                "[%d] Rejected %d of %d boxscore URLs — schedule page served season %d. "
+                "Not ingesting.",
+                year,
+                rejected,
+                total,
+                served_year,
+            )
+        else:
+            served_years = ", ".join(str(value) for value in sorted(observed_years))
+            logger.error(
+                "[%d] Rejected %d of %d boxscore URLs — schedule page served seasons %s. "
+                "Not ingesting.",
+                year,
+                rejected,
+                total,
+                served_years,
+            )
+        return []
+    if rejected:
+        logger.warning(
+            "[%d] Rejected %d of %d boxscore URLs with a different season",
+            year,
+            rejected,
+            total,
+        )
 
     # Build the host from base_url
     # e.g. "https://obutigers.com/sports/mens-soccer" -> "https://obutigers.com"
