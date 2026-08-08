@@ -70,11 +70,15 @@ def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") ->
     return out
 
 
-def merge_all_seasons(years: list[int], school_abbrev: str = "") -> Path:
-    """Read per-season parquets, concatenate, and write merged files.
+def merge_all_seasons(years: list[int] | None = None, school_abbrev: str = "") -> Path:
+    """Read all on-disk season parquets, concatenate, and write merged files.
 
     When *school_abbrev* is provided, reads from ``data/structured/{abbrev}/{year}/``
     and writes to ``data/structured/{abbrev}/all/``.
+
+    The *years* parameter is deprecated and ignored. Every numeric season
+    directory on disk is included so updating one season cannot truncate the
+    merged archive.
     """
     if school_abbrev:
         base = Path("data/structured") / school_abbrev.lower()
@@ -84,10 +88,16 @@ def merge_all_seasons(years: list[int], school_abbrev: str = "") -> Path:
         out = base / "all"
     out.mkdir(parents=True, exist_ok=True)
 
+    season_dirs = sorted(
+        directory
+        for directory in base.iterdir()
+        if directory.is_dir() and directory.name != "all" and directory.name.isdigit()
+    )
+
     for kind in ("games", "player_stats", "events", "team_stats"):
         frames: list[pd.DataFrame] = []
-        for year in years:
-            path = base / str(year) / f"{kind}.parquet"
+        for season_dir in season_dirs:
+            path = season_dir / f"{kind}.parquet"
             if path.exists():
                 frames.append(pd.read_parquet(path))
         if frames:
