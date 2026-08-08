@@ -134,6 +134,16 @@ valid row does this throw away?*
   review-bot pass — and the run itself found a constraint nobody had written down
   (Postgres rejects the raw `Sep. 1, 2016` form, so dates must be normalised before load).
   The `data-vitals` lens shows the first repair metric at target.
+- **The identity canon landed (8 Aug)** — one authoritative answer to "which programme is
+  this row about?", committed as `canon.json`
+  ([#46](https://github.com/ed-insights-ai/ed-insights-platform/pull/46)): all 221 distinct
+  opponent strings across five columns resolve to a gender-free institution slug, an explicit
+  non-member mark, or an evidence-backed artifact note, with 26 hand-adjudicated near-misses.
+  The pre-dispatch audit mattered again: the bead as filed would have covered only the 193
+  strings in `games` and keyed on gendered abbreviations — passing its own acceptance criteria
+  while silently failing player-team attribution, its primary consumer. This unlocks the
+  widest gate in the tracker: the canonical match key, roster attribution, matcher
+  unification, and the conference backfill lane all sit directly behind it.
 
 ## What is next
 
