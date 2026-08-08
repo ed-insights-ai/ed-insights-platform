@@ -808,6 +808,11 @@ nodes:
     timeout: 300000
     bash: |
       set -uo pipefail
+      # Declared here, not at the collection point further down, because the probe
+      # guards below append to it. `set -u` would abort on an unbound NORUN, and it
+      # would abort only on the failure path — so the guard would be broken in exactly
+      # the case it exists for, and green every other run.
+      NORUN=
       R=packages/pipeline/data/raw_html
       if [ ! -d "$R" ]; then
         printf '{"check":"cache-provenance","verdict":"alarm","headline":"no cached HTML at %s — nothing to establish provenance against","cause":""}\n' "$R"
@@ -816,7 +821,19 @@ nodes:
       # One line deliberately: a multi-line heredoc here would break out of the
       # YAML block scalar at column 1 and silently unregister this workflow.
       PY='import subprocess,tomllib; from pathlib import Path; o2a={s["ordinal"]:s["abbreviation"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; db={int(g) for g in subprocess.run(["psql","-U","lume","-d","ed_insights","-At","-c","SELECT game_id FROM games"],capture_output=True,text=True).stdout.split()}; dbk={(o2a.get(g//1000000,"?"),(g%1000000)//100,g%100) for g in db}; ck={(p.parent.parent.name.upper(),int(p.parent.name),int(p.stem.split("_")[1])) for p in Path("data/raw_html").rglob("game_*.html")}; print("%d|%d|%d|%d"%(len(db),len(ck),len(dbk-ck),len(ck-dbk)))'
-      BIJ=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Capture-then-check-then-parse. `... | tail -1` throws the producer's exit
+      # status away, so a python that died AFTER printing something well-formed was
+      # accepted verbatim, and one that died before it printed handed its error text
+      # to cut, which yields the whole message as field 1. Both read as measurements.
+      # Shape-check as well as status-check: only a four-field pipe-delimited line of
+      # digits is a result. Anything else is a failure wearing a result's clothes.
+      BIJRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); BIJRC=$?
+      BIJ=$(printf '%s' "$BIJRAW" | tail -1)
+      if [ "$BIJRC" -ne 0 ]; then NORUN="$NORUN bijection-python-exit-$BIJRC"; BIJ=; fi
+      case "$BIJ" in
+        [0-9]*'|'[0-9]*'|'[0-9]*'|'[0-9]*) : ;;
+        *) [ -n "$BIJ" ] && NORUN="$NORUN bijection-malformed-output"; BIJ= ;;
+      esac
       DBN=$(printf '%s' "$BIJ" | cut -d'|' -f1)
       CACHEN=$(printf '%s' "$BIJ" | cut -d'|' -f2)
       NOSRC=$(printf '%s' "$BIJ" | cut -d'|' -f3)
@@ -895,7 +912,9 @@ nodes:
       #     printf defaults — but the counters derived from them do NOT, because
       #     an unwalked directory and a clean directory both count 0. NSEASON,
       #     NLINKED and SHAS are the evidence that the walk happened at all.
-      NORUN=
+      # Preserve, do not reset — the bijection probe above may already have recorded
+      # a failure here, and a bare `NORUN=` would silently discard it.
+      NORUN="${NORUN:-}"
       for v in DBN CACHEN NOSRC NOROW PHANTOM; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
       [ "${DBN:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN DBN=0(database answered nothing)"
       [ "$NSEASON" -eq 0 ] && NORUN="$NORUN NSEASON=0(no season directory walked, so NBAD=0 counts nothing)"
@@ -928,6 +947,9 @@ nodes:
     timeout: 300000
     bash: |
       set -uo pipefail
+      # See cache-provenance: declared up here because the python-probe guard below
+      # appends to it, and `set -u` would abort on the failure path only.
+      NORUN=
       Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
       DBGAMES=$(Q "SELECT count(*) FROM games")
       DBEVENTS=$(Q "SELECT count(*) FROM game_events")
@@ -940,7 +962,18 @@ nodes:
       # both 0, and STALE is the 712-row stale-ordinal finding this whole check
       # exists to produce. Fields 1-6 are byte-identical to before.
       PY='import glob,os,tomllib,pandas as pd; ok={s["ordinal"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; F=[f for f in ("data/structured/all/games.parquet","data/games.parquet") if os.path.exists(f)]; D=[pd.read_parquet(f,columns=["game_id"]) for f in F]; GE=sorted(glob.glob("data/structured/*/[0-9]*/events.parquet")); GG=sorted(glob.glob("data/structured/*/[0-9]*/games.parquet")); GP=sorted(glob.glob("data/structured/*/[0-9]*/player_stats.parquet")); ev=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GE); gm=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GG); pl=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in GP); print("%d|%d|%d|%d|%d|%d|%d|%d|%d"%(len(F),max([len(d) for d in D]+[0]),max([int((~d.game_id.floordiv(1000000).isin(ok)).sum()) for d in D]+[0]),gm,ev,pl,len(GG),len(GE),len(GP)))'
-      OUT=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      # Same trap as cache-provenance's bijection probe: `... | tail -1` discards the
+      # producer's exit status, so a pandas that raised after printing, or one that
+      # printed only a traceback, was parsed as though it were nine measurements.
+      # Check the status, then check the shape — nine pipe-delimited digit fields.
+      OUTRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); OUTRC=$?
+      OUT=$(printf '%s' "$OUTRAW" | tail -1)
+      if [ "$OUTRC" -ne 0 ]; then NORUN="$NORUN export-python-exit-$OUTRC"; OUT=; fi
+      NFIELDS=$(printf '%s' "$OUT" | tr '|' '\n' | grep -c .)
+      case "$OUT" in
+        *[!0-9|]*) [ -n "$OUT" ] && NORUN="$NORUN export-malformed-output"; OUT= ;;
+        *) [ -n "$OUT" ] && [ "$NFIELDS" -ne 9 ] && { NORUN="$NORUN export-field-count-$NFIELDS"; OUT=; } ;;
+      esac
       NFILES=$(printf '%s' "$OUT" | cut -d'|' -f1)
       EXPROWS=$(printf '%s' "$OUT" | cut -d'|' -f2)
       STALE=$(printf '%s' "$OUT" | cut -d'|' -f3)
@@ -963,7 +996,9 @@ nodes:
       # below and took EXPROWS and the load-bearing STALE=712 down to 0 with it,
       # which reads as a merged export that is clean rather than one that is not
       # there. Assert that each probe actually opened a file.
-      NORUN=
+      # Preserve, do not reset — the python probe above may already have recorded a
+      # failure here, and a bare `NORUN=` would silently discard it.
+      NORUN="${NORUN:-}"
       for v in DBGAMES DBEVENTS DBPLAYERS NFILES EXPROWS STALE PQGAMES PQEVENTS PQPLAYERS NPQGAMES NPQEVENTS NPQPLAYERS; do [ -n "${!v:-}" ] || NORUN="$NORUN $v"; done
       [ "${NFILES:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN NFILES=0(no merged export on disk, so the stale-ordinal count measured nothing)"
       [ "${NPQGAMES:-0}" -eq 0 ] 2>/dev/null && NORUN="$NORUN per-season-games.parquet-glob-matched-no-files"
