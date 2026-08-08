@@ -15,9 +15,18 @@ __pycache__/
 .env.local
 .env.*.local
 
-# Data outputs (scratch/temp only — pipeline parquets are tracked)
+# Data outputs (scratch/temp only — pipeline parquets are tracked, see ADR-004)
 data/
 !packages/pipeline/data/
+
+# Raw scraped HTML is a re-fetchable cache, not an artifact. The blanket negation
+# above swept it into git by accident: 2,140 files / 1.1 GB. This rule stops the
+# GROWTH without rewriting history — .gitignore is only consulted for UNTRACKED
+# files, so every already-committed page stays tracked (old box scores may no
+# longer be served, and re-parsing them offline is how we repair 2016-2025),
+# while every page fetched from the 2026 season onward is ignored. Without this,
+# a twice-weekly in-season refresh adds ~260 files per run.
+packages/pipeline/data/raw_html/
 
 # IDE
 .vscode/
