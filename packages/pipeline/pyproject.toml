@@ -20,6 +20,7 @@ load-db = "scripts.load_db:main"
 export = "scripts.export:main"
 audit = "scripts.audit:main"
 pipeline-run = "scripts.run:main"
+build-canon = "scripts.build_canon:main"
 
 [build-system]
 requires = ["hatchling"]
