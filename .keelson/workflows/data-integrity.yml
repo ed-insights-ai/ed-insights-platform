@@ -1,0 +1,220 @@
+name: data-integrity
+description: |
+  Use when: you need to know which numbers in ed_insights are currently trustworthy — before believing a report, and before and after any data repair.
+  Triggers: "data integrity", "check the data", "is the data right", "integrity report", "did the repair work".
+  Does: runs nine deterministic read-only checks against the live Postgres and the parquet archive in parallel, then prints one report with a per-check verdict and the file:line that causes each failure.
+  NOT for: repairing anything (this never writes), scraping, or judging code quality.
+
+requiresProject: true
+mutates_checkout: false
+tags: [data, integrity, soccer]
+
+nodes:
+  # ── 1. Freshness ────────────────────────────────────────────────────────
+  - id: freshness
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      TOTAL=$(Q "SELECT count(*) FROM games")
+      NEWEST=$(Q "SELECT coalesce(max(date)::text,'none') FROM games")
+      DAYS=$(Q "SELECT coalesce((CURRENT_DATE - max(date))::text,'-1') FROM games")
+      SEASONS=$(Q "SELECT count(DISTINCT season_year) FROM games")
+      V=ok; [ "$DAYS" -gt 14 ] 2>/dev/null && V=warn
+      printf '{"check":"freshness","verdict":"%s","headline":"%s games, newest %s (%s days ago), %s seasons","cause":""}\n' \
+        "$V" "$TOTAL" "$NEWEST" "$DAYS" "$SEASONS"
+
+  # ── 2. Conference flagging ──────────────────────────────────────────────
+  - id: conference-flag
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      NULLS=$(Q "SELECT count(*) FROM games WHERE is_conference_game IS NULL")
+      TOTAL=$(Q "SELECT count(*) FROM games")
+      AWAYC=$(Q "SELECT count(*) FROM games WHERE away_conference IS NULL")
+      V=ok; [ "$NULLS" -gt 0 ] && V=alarm
+      printf '{"check":"conference-flag","verdict":"%s","headline":"is_conference_game NULL for %s of %s rows; away_conference NULL for %s","cause":"nothing populates it — conferences.py:55-59 therefore returns an OVERALL record labelled standings"}\n' \
+        "$V" "$NULLS" "$TOTAL" "$AWAYC"
+
+  # ── 3. Match duplication ────────────────────────────────────────────────
+  - id: duplication
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      # NOT `GROUPS` — that is a readonly bash builtin array (the caller's gids).
+      # Assigning to it is silently ignored and $GROUPS expands to a gid (20 on
+      # macOS/staff), which reads as a plausible count. Cost us a wrong number once.
+      DUPGROUPS=$(Q "SELECT count(*) FROM (SELECT date, home_team, away_team FROM games WHERE date IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1) d")
+      EXTRA=$(Q "SELECT coalesce(sum(n-1),0) FROM (SELECT count(*) AS n FROM games WHERE date IS NOT NULL GROUP BY date, home_team, away_team HAVING count(*) > 1) d")
+      DISAGREE=$(Q "SELECT count(*) FROM (SELECT date, home_team, away_team FROM games WHERE date IS NOT NULL GROUP BY 1,2,3 HAVING count(*) > 1 AND (count(DISTINCT home_score) > 1 OR count(DISTINCT away_score) > 1)) d")
+      NODATE=$(Q "SELECT count(*) FROM games WHERE date IS NULL")
+      V=ok; [ "$DUPGROUPS" -gt 0 ] && V=warn; [ "$DISAGREE" -gt 0 ] && V=alarm
+      printf '{"check":"duplication","verdict":"%s","headline":"%s duplicate (date,home,away) groups, %s extra rows, %s disagree on score; %s rows have no date and cannot be checked","cause":"a fixture scraped from both schools becomes two rows; no canonical match key exists"}\n' \
+        "$V" "$DUPGROUPS" "$EXTRA" "$DISAGREE" "$NODATE"
+
+  # ── 4. Season labelling ─────────────────────────────────────────────────
+  - id: season-label
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      BYDATE=$(Q "SELECT count(*) FROM (SELECT s.abbreviation a, g.season_year sy, EXTRACT(YEAR FROM g.date)::int dy FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3) t WHERE dy NOT IN (sy, sy+1)")
+      ROWS=$(Q "SELECT coalesce(sum(n),0) FROM (SELECT g.season_year sy, EXTRACT(YEAR FROM g.date)::int dy, count(*) n FROM games g WHERE g.date IS NOT NULL GROUP BY 1,2) t WHERE dy NOT IN (sy, sy+1)")
+      BYURL=$(Q "SELECT count(*) FROM games WHERE source_url ~ '/stats/[0-9]{4}/' AND substring(source_url from '/stats/([0-9]{4})/')::int <> season_year")
+      WORST=$(Q "SELECT coalesce(string_agg(x,'; '),'none') FROM (SELECT s.abbreviation||' '||g.season_year||' holds '||count(*)||' games dated '||EXTRACT(YEAR FROM g.date)::int AS x FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY s.abbreviation, g.season_year, EXTRACT(YEAR FROM g.date) HAVING EXTRACT(YEAR FROM g.date)::int NOT IN (g.season_year, g.season_year+1) ORDER BY count(*) DESC LIMIT 5) t")
+      V=ok; { [ "$BYDATE" -gt 0 ] || [ "$BYURL" -gt 0 ]; } && V=alarm
+      printf '{"check":"season-label","verdict":"%s","headline":"%s program-seasons mislabelled (%s rows); %s rows whose source_url year disagrees. %s","cause":"sidearm_discovery.py — the schedule page year segment was never asserted against the requested year"}\n' \
+        "$V" "$BYDATE" "$ROWS" "$BYURL" "$WORST"
+
+  # ── 5. Team identity resolution ─────────────────────────────────────────
+  - id: identity
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      STRINGS=$(Q "SELECT count(*) FROM (SELECT home_team t FROM games UNION SELECT away_team FROM games UNION SELECT team FROM team_game_stats UNION SELECT team FROM player_game_stats) u WHERE t IS NOT NULL")
+      DUPNAME=$(Q "SELECT coalesce(string_agg(name||' x'||n,', '),'none') FROM (SELECT name, count(*) n FROM schools GROUP BY 1 HAVING count(*) > 1) d")
+      # Reproduce _ilike_pattern (conferences.py:14-21) EXACTLY: the first token
+      # whose paren-stripped lowercase form is >= 4 chars and is not a stop word.
+      # What matters is not "does the pattern match something" but "does it match
+      # NEITHER team" — because conferences.py:69 and teams.py:79 both do
+      #   is_home = _matches_pattern(g.home_team, pattern)
+      # so a match FAILURE is silently indistinguishable from "we are the away
+      # team", and the away score is then read as the school's own. Fail-open.
+      SELF=$(Q "WITH pat AS (
+                  SELECT s.id, s.abbreviation ab,
+                    COALESCE((SELECT btrim(w,'()') FROM unnest(string_to_array(s.name,' ')) WITH ORDINALITY AS t(w,ord)
+                              WHERE length(btrim(lower(w),'()')) >= 4
+                                AND btrim(lower(w),'()') NOT IN ('university','college','state','of','the','and','at','women','lady')
+                              ORDER BY ord LIMIT 1),
+                             split_part(s.name,' ',1)) tok
+                  FROM schools s),
+                agg AS (
+                  SELECT p.ab, count(*) total,
+                         count(*) FILTER (WHERE g.home_team NOT ILIKE '%'||p.tok||'%'
+                                            AND g.away_team NOT ILIKE '%'||p.tok||'%') blind
+                  FROM games g JOIN pat p ON p.id=g.school_id
+                  WHERE g.home_score IS NOT NULL GROUP BY 1)
+                SELECT coalesce(string_agg(ab||' '||blind||'/'||total,', ' ORDER BY blind DESC),'none')
+                FROM agg WHERE blind > 0")
+      WORSTN=$(Q "WITH pat AS (
+                  SELECT s.id,
+                    COALESCE((SELECT btrim(w,'()') FROM unnest(string_to_array(s.name,' ')) WITH ORDINALITY AS t(w,ord)
+                              WHERE length(btrim(lower(w),'()')) >= 4
+                                AND btrim(lower(w),'()') NOT IN ('university','college','state','of','the','and','at','women','lady')
+                              ORDER BY ord LIMIT 1),
+                             split_part(s.name,' ',1)) tok
+                  FROM schools s)
+                SELECT count(*) FROM games g JOIN pat p ON p.id=g.school_id
+                WHERE g.home_score IS NOT NULL
+                  AND g.home_team NOT ILIKE '%'||p.tok||'%' AND g.away_team NOT ILIKE '%'||p.tok||'%'")
+      V=ok; [ "$WORSTN" -gt 0 ] && V=alarm
+      printf '{"check":"identity","verdict":"%s","headline":"%s distinct team strings; non-unique school names: %s; %s scored games where the school cannot identify itself in either team slot (blind/total: %s)","cause":"_ilike_pattern (conferences.py:14-21, teams.py:14) fails open — conferences.py:69 treats a non-match as away and reads the OPPONENT score as the school own"}\n' \
+        "$V" "$STRINGS" "$DUPNAME" "$WORSTN" "$SELF"
+
+  # ── 6. Discipline coverage ──────────────────────────────────────────────
+  - id: discipline
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      REDS=$(Q "SELECT count(*) FROM game_events WHERE event_type='red_card'")
+      SCHOOLS=$(Q "SELECT count(DISTINCT school_id) FROM game_events WHERE event_type='red_card'")
+      TOTAL=$(Q "SELECT count(*) FROM schools WHERE enabled")
+      WHO=$(Q "SELECT coalesce(string_agg(s.abbreviation||'='||c,', '),'none') FROM (SELECT school_id, count(*) c FROM game_events WHERE event_type='red_card' GROUP BY 1) e JOIN schools s ON s.id=e.school_id")
+      V=ok; [ "$SCHOOLS" -lt "$TOTAL" ] && V=alarm
+      printf '{"check":"discipline","verdict":"%s","headline":"%s red cards across only %s of %s enabled programs (%s)","cause":"sidearm_parser.py:339-348 hardcodes yellow_card for every caution row at the SideArm programs"}\n' \
+        "$V" "$REDS" "$SCHOOLS" "$TOTAL" "$WHO"
+
+  # ── 7. Orphaned games ───────────────────────────────────────────────────
+  - id: orphans
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      NOTEAM=$(Q "SELECT count(*) FROM games g WHERE NOT EXISTS (SELECT 1 FROM team_game_stats t WHERE t.game_id=g.game_id)")
+      NOPLAYER=$(Q "SELECT count(*) FROM games g WHERE NOT EXISTS (SELECT 1 FROM player_game_stats p WHERE p.game_id=g.game_id)")
+      NOEVENT=$(Q "SELECT count(*) FROM games g WHERE NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id)")
+      OVERLONG=$(Q "SELECT coalesce(string_agg(a||' '||sy||'='||n,', '),'none') FROM (SELECT s.abbreviation a, g.season_year sy, count(*) n FROM games g JOIN schools s ON s.id=g.school_id GROUP BY 1,2 HAVING count(*) > 28) t")
+      V=ok; [ "$NOTEAM" -gt 0 ] && V=warn
+      [ "$OVERLONG" != "none" ] && V=alarm
+      printf '{"check":"orphans","verdict":"%s","headline":"%s games with no team stats, %s with no player stats, %s with no events; implausibly long seasons: %s","cause":"sidearm_discovery.py assigns game_num by enumerate() position — a late-published box score shifts every subsequent id and orphans the old rows"}\n' \
+        "$V" "$NOTEAM" "$NOPLAYER" "$NOEVENT" "$OVERLONG"
+
+  # ── 8. Parse failures ───────────────────────────────────────────────────
+  - id: parse-failures
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      D=packages/pipeline/data/errors
+      if [ -d "$D" ]; then
+        N=$(find "$D" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+        OLDEST=$(find "$D" -name '*.json' 2>/dev/null | sort | head -1 | sed 's|.*/||')
+      else
+        N=0; OLDEST=none
+      fi
+      V=ok; [ "$N" -gt 0 ] && V=warn
+      printf '{"check":"parse-failures","verdict":"%s","headline":"%s unparsed box scores in data/errors (oldest %s)","cause":"permanently failed parses — invisible to every consumer until retried"}\n' \
+        "$V" "$N" "${OLDEST:-none}"
+
+  # ── 9. Archive vs database agreement ────────────────────────────────────
+  - id: archive
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      DB=$(psql -U lume -d ed_insights -At -c "SELECT count(*) FROM games" 2>/dev/null)
+      # One line deliberately: a multi-line heredoc here would break out of the
+      # YAML block scalar at column 1 and silently unregister this workflow.
+      PY='import glob,pandas as pd; print(sum(len(pd.read_parquet(f,columns=["game_id"])) for f in glob.glob("data/structured/*/all/games.parquet")))'
+      PQ=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      RAW=$(du -sh packages/pipeline/data/raw_html 2>/dev/null | cut -f1)
+      TRACKED=$(git ls-files packages/pipeline/data/raw_html 2>/dev/null | wc -l | tr -d ' ')
+      V=ok
+      [ "${PQ:-0}" -lt 0 ] 2>/dev/null && V=warn
+      [ "${TRACKED:-0}" -gt 0 ] 2>/dev/null && V=warn
+      printf '{"check":"archive","verdict":"%s","headline":"db %s games vs parquet all/ %s rows; raw_html %s across %s git-tracked files","cause":"a twice-weekly in-season refresh adds ~260 tracked files per run"}\n' \
+        "$V" "${DB:-?}" "${PQ:-?}" "${RAW:-?}" "${TRACKED:-0}"
+
+  # ── Report ──────────────────────────────────────────────────────────────
+  - id: report
+    runtime: bun
+    always_run: true
+    trigger_rule: all_done
+    depends_on:
+      [freshness, conference-flag, duplication, season-label, identity,
+       discipline, orphans, parse-failures, archive]
+    script: |
+      const IDS = ['freshness','conference_flag','duplication','season_label','identity',
+                   'discipline','orphans','parse_failures','archive']
+      const MARK = { ok: '[ OK   ]', warn: '[ WARN ]', alarm: '[ ALARM]' }
+      const rows = []
+      for (const id of IDS) {
+        const raw = (process.env[`KEELSON_NODE_${id}_OUTPUT`] || '').trim()
+        if (!raw) { rows.push({ check: id, verdict: 'alarm', headline: 'check did not run', cause: '' }); continue }
+        try {
+          rows.push(JSON.parse(raw.split('\n').filter(l => l.trim().startsWith('{')).pop()))
+        } catch {
+          rows.push({ check: id, verdict: 'alarm', headline: `unparseable output: ${raw.slice(0, 160)}`, cause: '' })
+        }
+      }
+      const n = v => rows.filter(r => r.verdict === v).length
+      const worst = n('alarm') ? 'ALARM' : n('warn') ? 'WARN' : 'CLEAR'
+
+      console.log('')
+      console.log('  ED INSIGHTS — DATA INTEGRITY')
+      console.log('  ' + '─'.repeat(72))
+      console.log(`  ${worst}   ${n('ok')} clear · ${n('warn')} warn · ${n('alarm')} alarm   (${rows.length} checks)`)
+      console.log('  ' + '─'.repeat(72))
+      console.log('')
+      for (const r of rows) {
+        console.log(`  ${MARK[r.verdict] || '[  ?   ]'}  ${String(r.check).toUpperCase().replace(/_/g, '-')}`)
+        console.log(`            ${r.headline}`)
+        if (r.cause && r.verdict !== 'ok') console.log(`            └ ${r.cause}`)
+        console.log('')
+      }
+      console.log('  ' + '─'.repeat(72))
+      console.log('  Read-only. Repairs are planned as Stage S0/S0.5 in docs/specs/touchline-rib.md')
+      console.log('')
+      console.log(JSON.stringify({ verdict: worst, clear: n('ok'), warn: n('warn'), alarm: n('alarm'), checks: rows }))

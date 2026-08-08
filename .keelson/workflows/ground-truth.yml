@@ -1,0 +1,677 @@
+name: ground-truth
+description: |
+  Use when: you need to know whether what Postgres holds actually matches what the source box score said — before building a season-long system on it, and after any parser, loader or scraper change.
+  Triggers: "ground truth", "is the data true", "source fidelity", "does the DB match the HTML", "did the parser fix work", "re-parse check".
+  Does: runs twelve deterministic read-only checks against the cached box-score HTML, the parquet archive and the live Postgres, then prints one report with a per-check verdict and the file:line that causes each failure. Covers both men's and women's programmes.
+  NOT for: internal consistency (that is data-integrity.yml), repairing anything (this never writes), scraping, or anything that touches the network.
+
+requiresProject: true
+mutates_checkout: false
+tags: [data, fidelity, source-of-truth, soccer]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# data-integrity.yml asks "is the data self-consistent". This workflow asks the
+# different, harder question: "is the data TRUE to its source". Ground truth
+# here means the 2,140 cached box scores under packages/pipeline/data/raw_html
+# and the independent second transcription that exists whenever two schools
+# scraped the same fixture. Nothing here fetches. The athletics sites are small
+# and a durable check must never hammer them.
+#
+# Conventions inherited from data-integrity.yml, all learned the hard way:
+#   * every node prints exactly one JSON line on stdout
+#   * NEVER name a bash variable GROUPS (readonly builtin array of the caller's
+#     gids — assignment is silently ignored and $GROUPS expands to a gid, 20 on
+#     macOS, which reads as a plausible count). Same for UID/PWD/SECONDS/RANDOM/
+#     LINENO/PPID/HOSTNAME/REPLY.
+#   * NEVER put a multi-line heredoc in a YAML block scalar — content landing at
+#     column 1 terminates the scalar and silently unregisters the whole file.
+#     Embedded python is either one line, or a `script:` node with runtime: uv.
+#   * bash nodes read upstream output from KEELSON_NODE_<id>_OUTPUT, never from
+#     $<id>.output substitution.
+# ─────────────────────────────────────────────────────────────────────────────
+
+nodes:
+  # ── 1. Full re-derivation from cached source ────────────────────────────
+  # The single command that answers "did this edit change what we would store?".
+  # Re-parses every cached box score with the LIVE parser functions and diffs
+  # the 7 game fields, both team-stat rows x 5 metrics, the player-row multiset
+  # and the event multiset against Postgres. ~85s for all 2,140 games.
+  # Set GROUND_TRUTH_SAMPLE=1 for a fast per-(school,season) smoke pass.
+  - id: reparse-fidelity
+    runtime: uv
+    timeout: 900000
+    deps: [psycopg2-binary, pandas, numpy, beautifulsoup4, lxml]
+    script: |
+      import json, os, sys
+      from collections import Counter
+      from datetime import datetime
+      from pathlib import Path
+      import psycopg2
+
+      def bail(msg, cause=""):
+          print(json.dumps({"check": "reparse-fidelity", "verdict": "alarm",
+                            "headline": msg, "cause": cause}))
+          raise SystemExit(0)
+
+      def find_root():
+          cands = []
+          if os.environ.get("KEELSON_PROJECT_DIR"):
+              cands.append(Path(os.environ["KEELSON_PROJECT_DIR"]))
+          here = Path.cwd().resolve()
+          cands.append(here)
+          cands.extend(here.parents)
+          for c in cands:
+              b = Path(c).resolve()
+              if (b / "packages/pipeline/src/parser.py").exists():
+                  return b
+          return None
+
+      ROOT = find_root()
+      if ROOT is None:
+          bail("could not locate packages/pipeline from cwd " + str(Path.cwd()))
+
+      PIPE = ROOT / "packages" / "pipeline"
+      sys.path.insert(0, str(PIPE))
+      os.chdir(PIPE)
+
+      try:
+          from src.config import load_schools
+          from src.parser import parse_game
+          from src.sidearm_parser import parse_sidearm_game
+      except Exception as exc:
+          bail("parser import failed: %s: %s" % (type(exc).__name__, exc), str(PIPE))
+
+      RAW = PIPE / "data" / "raw_html"
+      SCH = {s.abbreviation.upper(): s for s in load_schools(PIPE / "config" / "schools.toml")}
+      K = int(os.environ.get("GROUND_TRUTH_SAMPLE", "999"))
+      DSN = os.environ.get("DATABASE_URL", "postgresql://lume@localhost:5432/ed_insights")
+
+      conn = psycopg2.connect(DSN)
+      cur = conn.cursor()
+      cur.execute("""SELECT abbreviation, gender, game_id, season_year, source_url, date,
+                            venue, attendance, home_team, away_team, home_score, away_score
+                     FROM (SELECT s.abbreviation, s.gender, g.*,
+                                  row_number() OVER (PARTITION BY g.school_id, g.season_year
+                                                     ORDER BY md5(g.game_id::text)) rn
+                           FROM games g JOIN schools s ON s.id = g.school_id) t
+                     WHERE rn <= %s ORDER BY abbreviation, season_year, game_id""", (K,))
+      sample = cur.fetchall()
+      if not sample:
+          bail("games table is empty — nothing to compare against source")
+      ids = tuple(r[2] for r in sample)
+
+      cur.execute("SELECT game_id, is_home, team, shots, shots_on_goal, goals, corners, saves "
+                  "FROM team_game_stats WHERE game_id IN %s", (ids,))
+      dbt = {}
+      for gid, ih, tname, *metrics in cur.fetchall():
+          dbt.setdefault(gid, {})[ih] = (tname, tuple(metrics))
+
+      cur.execute("SELECT game_id, player_name, shots, shots_on_goal, goals, assists "
+                  "FROM player_game_stats WHERE game_id IN %s", (ids,))
+      dbp = {}
+      for gid, *rest in cur.fetchall():
+          dbp.setdefault(gid, []).append(tuple(str(x) for x in rest))
+
+      cur.execute("SELECT game_id, event_type, clock, player FROM game_events WHERE game_id IN %s", (ids,))
+      dbe = {}
+      for gid, *rest in cur.fetchall():
+          dbe.setdefault(gid, []).append(tuple(str(x) for x in rest))
+
+      def norm_date(s):
+          if s in (None, "", "Unknown"):
+              return None
+          for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d"):
+              try:
+                  return datetime.strptime(s.strip(), fmt).date()
+              except ValueError:
+                  pass
+          return ("UNPARSEABLE", s)
+
+      # '' and 'Unknown' are normalised because they mean the same absence on both
+      # sides. The literal string 'NaN' is deliberately NOT normalised: it is a real
+      # storage infidelity and must surface here as well as in nan-sentinel.
+      def nz(v):
+          if isinstance(v, str):
+              v = v.strip()
+              return None if v in ("", "Unknown", "nan", "None") else v
+          return v
+
+      GFIELDS = ["date", "venue", "attendance", "home_team", "away_team", "home_score", "away_score"]
+      TFIELDS = ["shots", "shots_on_goal", "goals", "corners", "saves"]
+      PKEYS = ("player_name", "shots", "shots_on_goal", "goals", "assists")
+
+      fieldcount, errs, per_gender = Counter(), [], Counter()
+      clean = 0
+      reparsed = 0
+      no_html = 0
+
+      for (ab, gender, gid, season, url, d_date, d_venue, d_att,
+           d_home, d_away, d_hs, d_as) in sample:
+          cfg = SCH.get(ab.upper())
+          if cfg is None:
+              errs.append("%s NO_CONFIG" % ab)
+              continue
+          path = RAW / ab.lower() / str((gid % 1000000) // 100) / ("game_%02d.html" % (gid % 100))
+          if not path.exists():
+              no_html += 1
+              errs.append("%s %s MISSING_HTML" % (ab, gid))
+              continue
+          try:
+              html = path.read_text(encoding="utf-8", errors="replace")
+              if cfg.scraper == "sidearm":
+                  r = parse_sidearm_game(html, gid, url or "", season,
+                                         school_abbrev=cfg.abbreviation, school_name=cfg.name)
+              else:
+                  r = parse_game(html, gid, url or "", season, school_name=cfg.name)
+          except Exception as exc:
+              errs.append("%s %s REPARSE_FAILED %s: %s" % (ab, gid, type(exc).__name__, str(exc)[:70]))
+              continue
+
+          reparsed += 1
+          per_gender[gender] += 1
+          diffs = []
+          g = r["game"]
+          derived = {"date": norm_date(g.date), "venue": nz(g.venue), "attendance": g.attendance,
+                     "home_team": nz(g.home_team), "away_team": nz(g.away_team),
+                     "home_score": g.home_score, "away_score": g.away_score}
+          stored = {"date": d_date, "venue": nz(d_venue), "attendance": d_att,
+                    "home_team": nz(d_home), "away_team": nz(d_away),
+                    "home_score": d_hs, "away_score": d_as}
+          for f in GFIELDS:
+              if derived[f] != stored[f]:
+                  diffs.append(f)
+
+          # match team rows by is_home so a name swap shows as a name diff, not a misalignment
+          pteam = {t.is_home: t for t in r["team_stats"]}
+          steam = dbt.get(gid, {})
+          for is_home in (True, False):
+              side = "home" if is_home else "away"
+              a, b = pteam.get(is_home), steam.get(is_home)
+              if a is None or b is None:
+                  diffs.append("tgs_%s_row" % side)
+                  continue
+              if nz(a.team) != nz(b[0]):
+                  diffs.append("tgs_%s_team" % side)
+              for i, f in enumerate(TFIELDS):
+                  if getattr(a, f) != b[1][i]:
+                      diffs.append("tgs_%s_%s" % (side, f))
+
+          pp = Counter(tuple(str(getattr(p, k)) for k in PKEYS) for p in r["player_stats"])
+          ps = Counter(dbp.get(gid, []))
+          if pp != ps:
+              diffs.append("player_rows(+%d/-%d)" % (sum((pp - ps).values()), sum((ps - pp).values())))
+
+          ep = Counter((e.event_type, str(e.clock), str(e.player)) for e in r["events"])
+          es = Counter(tuple(x) for x in dbe.get(gid, []))
+          if ep != es:
+              diffs.append("events(+%d/-%d)" % (sum((ep - es).values()), sum((es - ep).values())))
+
+          if not diffs:
+              clean += 1
+          for x in diffs:
+              fieldcount[x.split("(")[0]] += 1
+
+      total = len(sample)
+      top = ", ".join("%s=%d" % (k, v) for k, v in fieldcount.most_common(6)) or "none"
+      verdict = "ok"
+      if reparsed < total:
+          verdict = "alarm"
+      elif fieldcount:
+          verdict = "warn"
+      headline = ("%d/%d cached box scores re-parsed (men %d / women %d), %d exact, %d differ, "
+                  "%d parse errors, %d missing HTML; disagreeing fields: %s"
+                  % (reparsed, total, per_gender.get("men", 0), per_gender.get("women", 0),
+                     clean, reparsed - clean, len(errs) - no_html, no_html, top))
+      cause = ("; ".join(errs[:4]) if errs else
+               "a non-empty field list means Postgres no longer equals what the current parsers derive from the cached source")
+      print(json.dumps({"check": "reparse-fidelity", "verdict": verdict,
+                        "headline": headline, "cause": cause}))
+
+  # ── 2. Home / away is observed, not fabricated ──────────────────────────
+  # Two truths, neither of which needs the network: (a) two schools' independent
+  # scrapes of one fixture must agree on who was home; (b) the StatCrew header
+  # states the venue in plain text, and Harding's home venue is Searcy, Ark.
+  - id: home-away-truth
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      PAIRSETS=$(Q "WITH p AS (SELECT g.game_id, g.school_id, s.gender, g.date, g.home_team,
+                                      least(g.home_team,g.away_team) t1, greatest(g.home_team,g.away_team) t2
+                               FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL)
+                    SELECT count(*) FROM (SELECT date,gender,t1,t2 FROM p GROUP BY 1,2,3,4
+                                          HAVING count(*)>1 AND count(DISTINCT school_id)>1) q")
+      CONTRA=$(Q "WITH p AS (SELECT g.game_id, g.school_id, s.gender, g.date, g.home_team,
+                                    least(g.home_team,g.away_team) t1, greatest(g.home_team,g.away_team) t2
+                             FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL)
+                  SELECT count(*) FROM (SELECT date,gender,t1,t2,count(DISTINCT home_team) nh FROM p
+                                        GROUP BY 1,2,3,4 HAVING count(*)>1 AND count(DISTINCT school_id)>1) q
+                  WHERE nh>1")
+      SELFHOME=$(Q "SELECT coalesce(string_agg(ab||' '||selfh||'/'||n,', ' ORDER BY selfh DESC),'none')
+                    FROM (SELECT s.abbreviation ab, count(*) n,
+                                 count(*) FILTER (WHERE g.home_team ILIKE '%'||split_part(s.name,' ',1)||'%') selfh
+                          FROM games g JOIN schools s ON s.id=g.school_id GROUP BY 1) t
+                    WHERE selfh = n")
+      R=packages/pipeline/data/raw_html
+      WITHVENUE=0; ATHOME=0
+      if [ -d "$R/hu" ] || [ -d "$R/huw" ]; then
+        WITHVENUE=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at [^)<]*\)' "$R/hu" "$R/huw" 2>/dev/null | wc -l | tr -d ' ')
+        ATHOME=$(grep -rlE '\([0-9]{1,2}/[0-9]{1,2}/[0-9]{2,4} at Searcy' "$R/hu" "$R/huw" 2>/dev/null | wc -l | tr -d ' ')
+      fi
+      STORED=$(Q "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id
+                  WHERE s.abbreviation IN ('HU','HUW') AND g.home_team ILIKE '%Harding%'")
+      HUTOTAL=$(Q "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id WHERE s.abbreviation IN ('HU','HUW')")
+      AWAYSRC=$(( ${WITHVENUE:-0} - ${ATHOME:-0} ))
+      V=ok
+      [ "${CONTRA:-0}" -gt 0 ] 2>/dev/null && V=alarm
+      [ "$AWAYSRC" -gt 0 ] && [ "${STORED:-0}" -eq "${HUTOTAL:-0}" ] 2>/dev/null && V=alarm
+      printf '{"check":"home-away-truth","verdict":"%s","headline":"%s of %s twice-scraped same-gender fixtures have both rows claiming home; StatCrew source states a venue for %s box scores of which %s are away from Searcy, yet %s of %s HU+HUW rows store Harding as home; always-self-home programmes: %s","cause":"parser.py:859-862 swaps whenever the school name matches the away slot (StatCrew titles are Visitor vs Home, the reverse of the comment); sidearm_parser.py:127-134 assigns score-table row 0 to home and the corrective swap at :414-443 is gated on an is_home hint that sidearm_parser.py:369 derives from a vs/at regex that returns True for every SideArm page"}\n' \
+        "$V" "${CONTRA:-?}" "${PAIRSETS:-?}" "${WITHVENUE:-0}" "$AWAYSRC" "${STORED:-?}" "${HUTOTAL:-?}" "${SELFHOME:-none}"
+
+  # ── 3. Independent corroboration ────────────────────────────────────────
+  # The only check in the suite that tests whether the numbers are TRUE rather
+  # than merely self-consistent: the same match transcribed by two unrelated
+  # athletics websites. The join accepts either orientation so it keeps working
+  # after the home/away bug above is fixed.
+  - id: cross-source
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      SQL="WITH pairs AS (
+             SELECT a.game_id ga, b.game_id gb
+             FROM games a JOIN schools sa ON sa.id=a.school_id
+             JOIN games b ON b.date=a.date AND b.school_id<>a.school_id
+               AND ((b.home_team=a.away_team AND b.away_team=a.home_team)
+                 OR (b.home_team=a.home_team AND b.away_team=a.away_team))
+             JOIN schools sb ON sb.id=b.school_id AND sb.gender=sa.gender
+             WHERE a.date IS NOT NULL AND a.game_id<b.game_id)
+           SELECT count(*)
+                ||'|'||count(*) FILTER (WHERE x.shots=y.shots AND x.shots_on_goal=y.shots_on_goal
+                                          AND x.goals=y.goals AND x.corners=y.corners AND x.saves=y.saves)
+                ||'|'||count(*) FILTER (WHERE x.goals<>y.goals)
+                ||'|'||count(*) FILTER (WHERE x.shots_on_goal<>y.shots_on_goal)
+           FROM pairs p JOIN team_game_stats x ON x.game_id=p.ga
+           JOIN team_game_stats y ON y.game_id=p.gb AND y.team=x.team"
+      OUT=$(Q "$SQL")
+      NROWS=$(printf '%s' "$OUT" | cut -d'|' -f1)
+      ALL5=$(printf '%s' "$OUT" | cut -d'|' -f2)
+      GDIFF=$(printf '%s' "$OUT" | cut -d'|' -f3)
+      SOGDIFF=$(printf '%s' "$OUT" | cut -d'|' -f4)
+      EVOUT=$(Q "WITH pairs AS (SELECT g1.game_id id1, g1.school_id s1, g2.game_id id2, g2.school_id s2
+                                FROM games g1 JOIN games g2 ON g1.date=g2.date AND g1.school_id<g2.school_id
+                                  AND ((g1.home_team=g2.home_team AND g1.away_team=g2.away_team)
+                                    OR (g1.home_team=g2.away_team AND g1.away_team=g2.home_team))
+                                JOIN schools c1 ON c1.id=g1.school_id JOIN schools c2 ON c2.id=g2.school_id
+                                WHERE c1.gender=c2.gender AND g1.date IS NOT NULL),
+                      a AS (SELECT p.id1,p.id2,e.event_type,e.clock FROM pairs p JOIN game_events e
+                            ON e.game_id=p.id1 AND e.school_id=p.s1 WHERE e.event_type<>'substitution'),
+                      b AS (SELECT p.id1,p.id2,e.event_type,e.clock FROM pairs p JOIN game_events e
+                            ON e.game_id=p.id2 AND e.school_id=p.s2 WHERE e.event_type<>'substitution')
+                 SELECT (SELECT count(*) FROM pairs)||'|'||(SELECT count(*) FROM a)
+                        ||'|'||(SELECT count(*) FROM (SELECT * FROM a EXCEPT ALL SELECT * FROM b) x)")
+      EVPAIRS=$(printf '%s' "$EVOUT" | cut -d'|' -f1)
+      EVROWS=$(printf '%s' "$EVOUT" | cut -d'|' -f2)
+      EVONLY=$(printf '%s' "$EVOUT" | cut -d'|' -f3)
+      V=ok
+      [ "${GDIFF:-0}" -gt 0 ] 2>/dev/null && V=alarm
+      { [ "${SOGDIFF:-0}" -gt 0 ] || [ "${EVONLY:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      printf '{"check":"cross-source","verdict":"%s","headline":"%s team-sides transcribed twice from unrelated sites: %s agree on all five metrics, %s disagree on goals, %s on shots-on-goal; %s twice-scraped fixtures yield %s non-sub events of which %s appear on only one side","cause":"a goals disagreement means one transcription is simply wrong; shots-on-goal drift is parser.py:886-888 coercing an absent SOG column to 0 instead of NULL"}\n' \
+        "$V" "${NROWS:-?}" "${ALL5:-?}" "${GDIFF:-?}" "${SOGDIFF:-?}" "${EVPAIRS:-?}" "${EVROWS:-?}" "${EVONLY:-?}"
+
+  # ── 4. Roster attribution ───────────────────────────────────────────────
+  # Whether a player row is attached to the right team. Detected purely from
+  # internal arithmetic (player sums must equal that team's team_game_stats row,
+  # not the opponent's) so it is cheap enough to gate every load.
+  - id: roster-attribution
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      OUT=$(Q "WITH p AS (SELECT game_id, team, sum(coalesce(shots,0)) sh, sum(coalesce(goals,0)) gl
+                          FROM player_game_stats GROUP BY 1,2),
+                    t AS (SELECT game_id, team, sum(coalesce(shots,0)) sh, sum(coalesce(goals,0)) gl
+                          FROM team_game_stats GROUP BY 1,2),
+                    pr AS (SELECT p.game_id, p.sh psh, p.gl pgl, t.sh tsh, t.gl tgl, o.sh osh, o.gl ogl
+                           FROM p JOIN t ON t.game_id=p.game_id AND t.team=p.team
+                           JOIN t o ON o.game_id=p.game_id AND o.team<>p.team)
+               SELECT count(*) FILTER (WHERE NOT aligned AND swapped)
+                    ||'|'||count(*) FILTER (WHERE aligned AND NOT swapped)
+                    ||'|'||count(*) FILTER (WHERE NOT aligned AND NOT swapped)
+                    ||'|'||count(*)
+               FROM (SELECT game_id, bool_and(psh=tsh AND pgl=tgl) aligned,
+                            bool_and(psh=osh AND pgl=ogl) swapped FROM pr GROUP BY 1) x")
+      SWAPPED=$(printf '%s' "$OUT" | cut -d'|' -f1)
+      ALIGNED=$(printf '%s' "$OUT" | cut -d'|' -f2)
+      UNREC=$(printf '%s' "$OUT" | cut -d'|' -f3)
+      NGAMES=$(printf '%s' "$OUT" | cut -d'|' -f4)
+      SCRAPER=$(Q "SELECT count(*) FILTER (WHERE p.school_id=g.school_id)||'/'||count(*)
+                   FROM player_game_stats p JOIN games g ON g.game_id=p.game_id")
+      BOTHROSTERS=$(Q "SELECT count(*) FROM (SELECT game_id FROM player_game_stats
+                       GROUP BY 1 HAVING count(DISTINCT school_id)=1 AND count(DISTINCT team)=2) z")
+      OVERSIZE=$(Q "SELECT count(*) FROM (SELECT p.school_id, g.season_year FROM player_game_stats p
+                    JOIN games g ON g.game_id=p.game_id GROUP BY 1,2
+                    HAVING count(DISTINCT p.player_name) > 60) z")
+      V=ok
+      { [ "${SWAPPED:-0}" -gt 0 ] || [ "${BOTHROSTERS:-0}" -gt 0 ]; } 2>/dev/null && V=alarm
+      printf '{"check":"roster-attribution","verdict":"%s","headline":"%s of %s games have the two rosters wearing each other name (%s aligned, %s unreconciled); school_id equals the SCRAPING school for %s player rows; %s games hold two teams under one school_id; %s school-seasons return more than 60 distinct players for a ~25-player roster","cause":"sidearm_parser.py:414-441 swaps home_team/away_team but :458-460 still labels player_stats[0] with home_team; player_game_stats has no player-team key at all, so storage.py stamps the scraper (stats.py:124, players.py:37/60/135, teams.py:305 then return both rosters)"}\n' \
+        "$V" "${SWAPPED:-?}" "${NGAMES:-?}" "${ALIGNED:-?}" "${UNREC:-?}" "${SCRAPER:-?}" "${BOTHROSTERS:-?}" "${OVERSIZE:-?}"
+
+  # ── 5. Card fidelity vs cached HTML ─────────────────────────────────────
+  # The card type lives ONLY in a CSS class on an empty <td>, which pandas
+  # renders as NaN. Count what the source says, per programme, and compare.
+  - id: card-fidelity
+    timeout: 300000
+    bash: |
+      set -uo pipefail
+      R=packages/pipeline/data/raw_html
+      if [ ! -d "$R" ]; then
+        printf '{"check":"card-fidelity","verdict":"alarm","headline":"no cached HTML at %s — ground truth unavailable","cause":""}\n' "$R"
+        exit 0
+      fi
+      psql -U lume -d ed_insights -At -F'|' -c "SELECT lower(s.abbreviation), s.gender, count(*) FILTER (WHERE e.event_type='red_card'), count(*) FILTER (WHERE e.event_type='yellow_card') FROM schools s LEFT JOIN game_events e ON e.school_id=s.id GROUP BY 1,2" 2>/dev/null > /tmp/gt_cards_db.txt
+      SRCRED=0; DBRED=0; BLIND=0; BLINDLIST=""; MENRED=0; WOMENRED=0
+      while IFS='|' read -r SLUG GEN NRED NYEL; do
+        [ -z "${SLUG:-}" ] && continue
+        [ -d "$R/$SLUG" ] || continue
+        HTMLRED=$(grep -rho 'penalty-type red' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
+        SRCRED=$(( SRCRED + HTMLRED ))
+        DBRED=$(( DBRED + NRED ))
+        [ "$GEN" = men ] && MENRED=$(( MENRED + HTMLRED ))
+        [ "$GEN" = women ] && WOMENRED=$(( WOMENRED + HTMLRED ))
+        if [ "$HTMLRED" -gt 0 ] && [ "$NRED" -eq 0 ]; then
+          BLIND=$(( BLIND + 1 ))
+          BLINDLIST="$BLINDLIST $SLUG/$GEN=$HTMLRED"
+        fi
+      done < /tmp/gt_cards_db.txt
+      V=ok; [ "$BLIND" -gt 0 ] && V=alarm
+      printf '{"check":"card-fidelity","verdict":"%s","headline":"cached source marks %s red cards (men %s / women %s); the database stores %s; %s programmes show reds in their own HTML and zero in the DB:%s","cause":"sidearm_parser.py:339-348 hardcodes event_type=yellow_card for every caution row — the red marker is a CSS class on an empty td that pandas.read_html drops, shifting the row (see the column-shift note at sidearm_parser.py:320-328). Recoverable in place with re.findall on the penalty-type class; no re-scrape needed"}\n' \
+        "$V" "$SRCRED" "$MENRED" "$WOMENRED" "$DBRED" "$BLIND" "${BLINDLIST:- none}"
+
+  # ── 6. Substitution coverage vs cached HTML ─────────────────────────────
+  # Substitutions are not a StatCrew-only feature of the SOURCE, only of our
+  # parser: the SideArm play-by-play tables carry them and are never read.
+  - id: substitution-coverage
+    timeout: 300000
+    bash: |
+      set -uo pipefail
+      R=packages/pipeline/data/raw_html
+      if [ ! -d "$R" ]; then
+        printf '{"check":"substitution-coverage","verdict":"alarm","headline":"no cached HTML at %s — ground truth unavailable","cause":""}\n' "$R"
+        exit 0
+      fi
+      psql -U lume -d ed_insights -At -F'|' -c "SELECT lower(s.abbreviation), s.gender, count(*) FILTER (WHERE e.event_type='substitution') FROM schools s LEFT JOIN game_events e ON e.school_id=s.id GROUP BY 1,2" 2>/dev/null > /tmp/gt_subs_db.txt
+      SRCSUB=0; DBSUB=0; BLIND=0; BLINDLIST=""; MENBLIND=0; WOMENBLIND=0
+      while IFS='|' read -r SLUG GEN NSUB; do
+        [ -z "${SLUG:-}" ] && continue
+        [ -d "$R/$SLUG" ] || continue
+        HTMLSUB=$(grep -rho 'substitution:' "$R/$SLUG" 2>/dev/null | wc -l | tr -d ' ')
+        SRCSUB=$(( SRCSUB + HTMLSUB ))
+        DBSUB=$(( DBSUB + NSUB ))
+        if [ "$HTMLSUB" -gt 0 ] && [ "$NSUB" -eq 0 ]; then
+          BLIND=$(( BLIND + 1 ))
+          BLINDLIST="$BLINDLIST $SLUG/$GEN"
+          [ "$GEN" = men ] && MENBLIND=$(( MENBLIND + 1 ))
+          [ "$GEN" = women ] && WOMENBLIND=$(( WOMENBLIND + 1 ))
+        fi
+      done < /tmp/gt_subs_db.txt
+      V=ok; [ "$BLIND" -gt 0 ] && V=alarm
+      printf '{"check":"substitution-coverage","verdict":"%s","headline":"cached source mentions substitution: %s times (SideArm renders each play-by-play row twice, so halve it); the database stores %s substitution events; %s programmes (%s men / %s women) have substitutions in their own HTML and none stored:%s","cause":"sidearm_parser.py:12 dismisses the play-by-play as not used for structured data — parse_sidearm_game builds events only from the scoring summary (:469) and the cautions table (:474). The same tables also carry correctly-typed cards and use the exact TEAM substitution: X for Y. wording parser.py:725-738 already handles"}\n' \
+        "$V" "$SRCSUB" "$DBSUB" "$BLIND" "$MENBLIND" "$WOMENBLIND" "${BLINDLIST:- none}"
+
+  # ── 7. Goal completeness and attributability ────────────────────────────
+  # The scoreline is an independent oracle for the event stream: every goal that
+  # was actually scored must have a goal event, with a scorer and a resolvable team.
+  - id: goal-completeness
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      OUT=$(Q "SELECT (SELECT count(*) FROM games)||'|'||count(*)||'|'||coalesce(sum(scoreline-goals),0)
+                     ||'|'||count(*) FILTER (WHERE goals>scoreline)
+               FROM (SELECT coalesce(g.home_score,0)+coalesce(g.away_score,0) AS scoreline,
+                            (SELECT count(*) FROM game_events e WHERE e.game_id=g.game_id
+                             AND e.school_id=g.school_id AND e.event_type='goal') AS goals
+                     FROM games g) t WHERE goals<>scoreline")
+      NGAMES=$(printf '%s' "$OUT" | cut -d'|' -f1)
+      MISMATCH=$(printf '%s' "$OUT" | cut -d'|' -f2)
+      SHORTFALL=$(printf '%s' "$OUT" | cut -d'|' -f3)
+      PHANTOM=$(printf '%s' "$OUT" | cut -d'|' -f4)
+      ATTR=$(Q "SELECT (SELECT count(*) FROM game_events WHERE event_type='goal' AND btrim(coalesce(player,''))='')
+                     ||'|'||(SELECT count(*) FROM game_events WHERE event_type='goal')
+                     ||'|'||(SELECT count(*) FROM game_events e JOIN games g ON g.game_id=e.game_id
+                             AND g.school_id=e.school_id WHERE e.team NOT IN (g.home_team,g.away_team))
+                     ||'|'||(SELECT count(*) FROM game_events)")
+      NOSCORER=$(printf '%s' "$ATTR" | cut -d'|' -f1)
+      NGOALS=$(printf '%s' "$ATTR" | cut -d'|' -f2)
+      NOTEAM=$(printf '%s' "$ATTR" | cut -d'|' -f3)
+      NEVENTS=$(printf '%s' "$ATTR" | cut -d'|' -f4)
+      BADCLOCK=$(Q "SELECT count(*) FILTER (WHERE clock !~ '^[0-9]{1,3}:[0-5][0-9]$')||' malformed / '
+                         ||count(*) FILTER (WHERE split_part(clock,':',1)::int > 110)||' beyond double-OT' FROM game_events")
+      BYGENDER=$(Q "SELECT coalesce(string_agg(gender||' '||n,', '),'none') FROM
+                    (SELECT s.gender, count(*) n FROM games g JOIN schools s ON s.id=g.school_id
+                     WHERE NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id) GROUP BY 1) t")
+      V=ok
+      [ "${PHANTOM:-0}" -gt 0 ] 2>/dev/null && V=alarm
+      { [ "${MISMATCH:-0}" -gt 0 ] || [ "${NOSCORER:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      printf '{"check":"goal-completeness","verdict":"%s","headline":"%s of %s games disagree with their own scoreline (%s goals missing, %s invented); %s of %s goal events have no scorer; %s of %s events carry a team string matching neither side of their game; clocks malformed/over-110 %s; games with no events at all: %s","cause":"parser.py:115-118 refuses to classify a scoring-summary table holding fewer than two mm:ss values, so 1-0 StatCrew games lose their only goal; sidearm_parser.py:287 drops the scorer when the (N) season-count suffix is absent; parser.py:397-399 falls through to the raw abbreviation so game_events.team never joins to games"}\n' \
+        "$V" "${MISMATCH:-?}" "${NGAMES:-?}" "${SHORTFALL:-?}" "${PHANTOM:-?}" "${NOSCORER:-?}" "${NGOALS:-?}" \
+        "${NOTEAM:-?}" "${NEVENTS:-?}" "${BADCLOCK:-?}" "${BYGENDER:-none}"
+
+  # ── 8. Physically impossible rows ───────────────────────────────────────
+  # Facts about football that no source can contradict. A drift here means a
+  # column moved in a source layout and the parser is reading the wrong one.
+  - id: impossible-rows
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      OUT=$(Q "SELECT count(*) FILTER (WHERE shots_on_goal>shots)
+                    ||'|'||count(*) FILTER (WHERE goals>shots_on_goal)
+                    ||'|'||count(*) FILTER (WHERE shots_on_goal=0 AND shots>0)
+                    ||'|'||count(*) FILTER (WHERE shots=0 AND shots_on_goal=0 AND corners=0 AND saves=0)
+                    ||'|'||count(*) FROM team_game_stats")
+      SOGGT=$(printf '%s' "$OUT" | cut -d'|' -f1)
+      GOALGT=$(printf '%s' "$OUT" | cut -d'|' -f2)
+      SOGZERO=$(printf '%s' "$OUT" | cut -d'|' -f3)
+      ALLZERO=$(printf '%s' "$OUT" | cut -d'|' -f4)
+      NROWS=$(printf '%s' "$OUT" | cut -d'|' -f5)
+      # A doubled space is the signature of an abbreviation that was never split
+      # off. Do NOT widen this to a trailing all-caps token: Northwestern OSU and
+      # Southwestern OSU are the real names those sites publish.
+      MANGLED=$(Q "SELECT coalesce(string_agg(DISTINCT team,', '),'none') FROM team_game_stats WHERE team ~ '\s\s'")
+      WORST=$(Q "SELECT coalesce(string_agg(x,', '),'none') FROM
+                 (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||'='||count(*) x
+                  FROM team_game_stats t JOIN games g ON g.game_id=t.game_id
+                  JOIN schools s ON s.id=g.school_id
+                  WHERE t.shots_on_goal=0 AND t.shots>0 GROUP BY s.abbreviation,s.gender,g.season_year
+                  ORDER BY count(*) DESC LIMIT 4) z")
+      V=ok
+      { [ "${SOGGT:-0}" -gt 0 ] || [ "${GOALGT:-0}" -gt 0 ]; } 2>/dev/null && V=alarm
+      { [ "${SOGZERO:-0}" -gt 0 ] || [ "${ALLZERO:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      printf '{"check":"impossible-rows","verdict":"%s","headline":"of %s team rows: %s have SOG above shots, %s have goals above SOG, %s claim zero SOG with shots taken (worst: %s), %s are entirely zero; mangled team names: %s","cause":"parser.py:886-888 coerces an absent shots_on_goal column to 0 rather than NULL, conflating absent with zero; sidearm_parser.py:120 rsplit on the last whitespace token mis-splits an abbreviation containing a period, so :507 team_stats_raw.get(abbrev) misses and every metric silently defaults to 0"}\n' \
+        "$V" "${NROWS:-?}" "${SOGGT:-?}" "${GOALGT:-?}" "${SOGZERO:-?}" "${WORST:-none}" "${ALLZERO:-?}" "${MANGLED:-none}"
+
+  # ── 9. NULL means NULL ──────────────────────────────────────────────────
+  # A pandas np.nan reaching a varchar column through an unguarded row.get()
+  # becomes the literal three-character text NaN, so IS NULL filters are no-ops.
+  - id: nan-sentinel
+    timeout: 60000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      GAMESN=$(Q "SELECT 'venue='||count(*) FILTER (WHERE venue='NaN')
+                       ||' home='||count(*) FILTER (WHERE home_team='NaN')
+                       ||' away='||count(*) FILTER (WHERE away_team='NaN')
+                       ||' url='||count(*) FILTER (WHERE source_url='NaN') FROM games")
+      GAMESTOT=$(Q "SELECT count(*) FILTER (WHERE venue='NaN' OR home_team='NaN' OR away_team='NaN' OR source_url='NaN') FROM games")
+      EVN=$(Q "SELECT 'assist1='||count(*) FILTER (WHERE assist1='NaN')
+                    ||' assist2='||count(*) FILTER (WHERE assist2='NaN')
+                    ||' description='||count(*) FILTER (WHERE description='NaN')
+                    ||' team/player='||count(*) FILTER (WHERE team='NaN' OR player='NaN') FROM game_events")
+      EVTOT=$(Q "SELECT count(*) FILTER (WHERE assist1='NaN' OR assist2='NaN' OR description='NaN' OR team='NaN' OR player='NaN') FROM game_events")
+      STATN=$(Q "SELECT (SELECT count(*) FROM team_game_stats WHERE team='NaN')
+                      ||'/'||(SELECT count(*) FROM player_game_stats WHERE team='NaN' OR player_name='NaN')")
+      NULLDATE=$(Q "SELECT count(*) FROM games WHERE date IS NULL")
+      DATEWHO=$(Q "SELECT coalesce(string_agg(x,', '),'none') FROM
+                   (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||'='||count(*) x
+                    FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NULL
+                    GROUP BY s.abbreviation, s.gender, g.season_year ORDER BY count(*) DESC LIMIT 8) z")
+      V=ok
+      { [ "${GAMESTOT:-0}" -gt 0 ] || [ "${EVTOT:-0}" -gt 0 ] || [ "${NULLDATE:-0}" -gt 0 ]; } 2>/dev/null && V=alarm
+      printf '{"check":"nan-sentinel","verdict":"%s","headline":"games %s; game_events %s; team/player team=NaN %s; %s games store no date at all despite the source carrying one (%s)","cause":"load_db.py:133 passes row.get(venue) unguarded (:131,:135,:136,:209 share the pattern) and psycopg2 adapts np.nan to NaN::float which Postgres coerces into the varchar; load_db.py:236-247 does the same for events. The NULL dates are parser.py:160, whose title regex demands MM/DD/YY and rejects Sep. 1, 2016 and 10/2/2018 — and parser.py:188 keys the venue fallback off the same pattern, which is why the NULL-date rows are the same rows as the NaN venues"}\n' \
+        "$V" "${GAMESN:-?}" "${EVN:-?}" "${STATN:-?}" "${NULLDATE:-?}" "${DATEWHO:-none}"
+
+  # ── 10. Cache provenance ────────────────────────────────────────────────
+  # Faithful to the cached HTML is worthless if the cached HTML is the wrong
+  # game. Three offline proofs: the store is a bijection, no season directory
+  # links a different year, and no two seasons share byte-identical files.
+  - id: cache-provenance
+    timeout: 300000
+    bash: |
+      set -uo pipefail
+      R=packages/pipeline/data/raw_html
+      if [ ! -d "$R" ]; then
+        printf '{"check":"cache-provenance","verdict":"alarm","headline":"no cached HTML at %s — nothing to establish provenance against","cause":""}\n' "$R"
+        exit 0
+      fi
+      # One line deliberately: a multi-line heredoc here would break out of the
+      # YAML block scalar at column 1 and silently unregister this workflow.
+      PY='import subprocess,tomllib; from pathlib import Path; o2a={s["ordinal"]:s["abbreviation"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; db={int(g) for g in subprocess.run(["psql","-U","lume","-d","ed_insights","-At","-c","SELECT game_id FROM games"],capture_output=True,text=True).stdout.split()}; dbk={(o2a.get(g//1000000,"?"),(g%1000000)//100,g%100) for g in db}; ck={(p.parent.parent.name.upper(),int(p.parent.name),int(p.stem.split("_")[1])) for p in Path("data/raw_html").rglob("game_*.html")}; print("%d|%d|%d|%d"%(len(db),len(ck),len(dbk-ck),len(ck-dbk)))'
+      BIJ=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      DBN=$(printf '%s' "$BIJ" | cut -d'|' -f1)
+      CACHEN=$(printf '%s' "$BIJ" | cut -d'|' -f2)
+      NOSRC=$(printf '%s' "$BIJ" | cut -d'|' -f3)
+      NOROW=$(printf '%s' "$BIJ" | cut -d'|' -f4)
+      YEARBAD=""; NBAD=0
+      for D in "$R"/*/[0-9][0-9][0-9][0-9]; do
+        [ -d "$D" ] || continue
+        Y=${D##*/}
+        LINKS=$(grep -ohE '/stats/[0-9]{4}/' "$D"/game_01.html 2>/dev/null | sort -u | tr -d '\n')
+        case "$LINKS" in
+          *"/stats/$Y/"*|'') ;;
+          *) NBAD=$(( NBAD + 1 )); YEARBAD="$YEARBAD ${D#"$R"/}->$LINKS" ;;
+        esac
+      done
+      DUPES=$( (cd "$R" && shasum */[0-9][0-9][0-9][0-9]/game_01.html 2>/dev/null) | sort | awk '{c[$1]=c[$1]" "$2} END {for (h in c) {n=split(c[h],a," "); if (n>1) printf "%s;", c[h]}}' )
+      NDUP=$(printf '%s' "$DUPES" | tr -cd ';' | wc -c | tr -d ' ')
+      PHANTOM=$(psql -U lume -d ed_insights -At -c "SELECT coalesce(string_agg(x,', '),'none') FROM (SELECT s.abbreviation||' '||s.gender||' '||g.season_year||' holds '||count(*)||' rows dated '||min(extract(year FROM g.date))::int AS x FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL AND extract(year FROM g.date)::int NOT IN (g.season_year, g.season_year+1) GROUP BY s.abbreviation, s.gender, g.season_year) z" 2>/dev/null)
+      V=ok
+      { [ "${NOSRC:-1}" -gt 0 ] || [ "${NOROW:-1}" -gt 0 ] || [ "$NBAD" -gt 0 ] || [ "$NDUP" -gt 0 ]; } 2>/dev/null && V=alarm
+      [ "${PHANTOM:-none}" != none ] && V=alarm
+      printf '{"check":"cache-provenance","verdict":"%s","headline":"%s stored games vs %s cached files (%s rows with no cached source, %s cached files never loaded); %s season directories link a different year:%s; %s season-directory pair(s) share a byte-identical game_01; phantom seasons: %s","cause":"sidearm_discovery.py followed a 302 from an unrecognised season slug (FHSU and OBU mens 2020 is slugged 2020-21) and fetcher.py:35-48 keys the cache on the REQUESTED year, so the archive itself is poisoned. The PR #14 year guard (sidearm_discovery.py:68-105) stops new ones but the stale rows AND the mislabelled cache files must both be deleted — re-parsing cannot fix this"}\n' \
+        "$V" "${DBN:-?}" "${CACHEN:-?}" "${NOSRC:-?}" "${NOROW:-?}" "$NBAD" "${YEARBAD:- none}" "$NDUP" "${PHANTOM:-none}"
+
+  # ── 11. Exported artifact vs source of record ───────────────────────────
+  # data-integrity.yml sums data/structured/*/all/ and never opens the merged
+  # export. That is where the 712 rows from a dead ordinal scheme are hiding.
+  - id: export-staleness
+    timeout: 300000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      DBGAMES=$(Q "SELECT count(*) FROM games")
+      DBEVENTS=$(Q "SELECT count(*) FROM game_events")
+      DBPLAYERS=$(Q "SELECT count(*) FROM player_game_stats")
+      PY='import glob,os,tomllib,pandas as pd; ok={s["ordinal"] for s in tomllib.load(open("config/schools.toml","rb"))["schools"]}; F=[f for f in ("data/structured/all/games.parquet","data/games.parquet") if os.path.exists(f)]; D=[pd.read_parquet(f,columns=["game_id"]) for f in F]; ev=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/events.parquet")); gm=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/games.parquet")); pl=sum(len(pd.read_parquet(p,columns=["game_id"])) for p in glob.glob("data/structured/*/[0-9]*/player_stats.parquet")); print("%d|%d|%d|%d|%d|%d"%(len(F),max([len(d) for d in D]+[0]),max([int((~d.game_id.floordiv(1000000).isin(ok)).sum()) for d in D]+[0]),gm,ev,pl))'
+      OUT=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null | tail -1 )
+      NFILES=$(printf '%s' "$OUT" | cut -d'|' -f1)
+      EXPROWS=$(printf '%s' "$OUT" | cut -d'|' -f2)
+      STALE=$(printf '%s' "$OUT" | cut -d'|' -f3)
+      PQGAMES=$(printf '%s' "$OUT" | cut -d'|' -f4)
+      PQEVENTS=$(printf '%s' "$OUT" | cut -d'|' -f5)
+      PQPLAYERS=$(printf '%s' "$OUT" | cut -d'|' -f6)
+      EVLOST=$(( ${PQEVENTS:-0} - ${DBEVENTS:-0} ))
+      V=ok
+      [ "${STALE:-0}" -gt 0 ] 2>/dev/null && V=alarm
+      { [ "$EVLOST" -ne 0 ] || [ "${PQGAMES:-0}" -ne "${DBGAMES:-0}" ] || [ "${PQPLAYERS:-0}" -ne "${DBPLAYERS:-0}" ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      printf '{"check":"export-staleness","verdict":"%s","headline":"%s merged export(s) hold %s games of which %s carry an ordinal absent from schools.toml; per-season parquet %s games / %s players / %s events vs db %s / %s / %s (%s events lost at merge)","cause":"storage.py:112-140 merge_all_schools concatenates whatever is on disk and never prunes a retired ordinal, then export.py:36 copies the result to data/; the event shortfall is storage.py:15-27 _build_event_id hashing seven fields but not description, so two real events sharing a clock collapse at storage.py:106/:138"}\n' \
+        "$V" "${NFILES:-?}" "${EXPROWS:-?}" "${STALE:-?}" "${PQGAMES:-?}" "${PQPLAYERS:-?}" "${PQEVENTS:-?}" \
+        "${DBGAMES:-?}" "${DBPLAYERS:-?}" "${DBEVENTS:-?}" "$EVLOST"
+
+  # ── 12. Both programmes, side by side ───────────────────────────────────
+  # Every defect above must be reported per gender, because the season-long
+  # system is being built for the men's AND the women's programme. A gender that
+  # looks cleaner is usually less well collected, not better transcribed.
+  - id: gender-fidelity
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      Q() { psql -U lume -d ed_insights -At -c "$1" 2>/dev/null; }
+      ROWS=$(Q "WITH p AS (SELECT game_id, team, sum(coalesce(shots,0)) sh, sum(coalesce(goals,0)) gl
+                           FROM player_game_stats GROUP BY 1,2),
+                     t AS (SELECT game_id, team, sum(coalesce(shots,0)) sh, sum(coalesce(goals,0)) gl
+                           FROM team_game_stats GROUP BY 1,2),
+                     pr AS (SELECT p.game_id, p.sh psh, p.gl pgl, t.sh tsh, t.gl tgl, o.sh osh, o.gl ogl
+                            FROM p JOIN t ON t.game_id=p.game_id AND t.team=p.team
+                            JOIN t o ON o.game_id=p.game_id AND o.team<>p.team),
+                     sw AS (SELECT game_id, bool_and(psh=osh AND pgl=ogl) AND NOT bool_and(psh=tsh AND pgl=tgl) bad
+                            FROM pr GROUP BY 1)
+                SELECT string_agg(line,' | ' ORDER BY line) FROM (
+                  SELECT s.gender||': '||count(DISTINCT s.abbreviation)||' programmes, '||count(*)||' games, '
+                         ||count(*) FILTER (WHERE sw.bad)||' roster-swapped, '
+                         ||count(*) FILTER (WHERE g.date IS NULL)||' dateless, '
+                         ||count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id))
+                         ||' event-less, '||round(avg((SELECT count(*) FROM game_events e WHERE e.game_id=g.game_id)),1)
+                         ||' events/game' AS line
+                  FROM games g JOIN schools s ON s.id=g.school_id
+                  LEFT JOIN sw ON sw.game_id=g.game_id GROUP BY s.gender) z")
+      NGEN=$(Q "SELECT count(DISTINCT gender) FROM schools s JOIN games g ON g.school_id=s.id")
+      MISSING=$(Q "SELECT coalesce(string_agg(s.abbreviation||' '||s.gender,', '),'none') FROM schools s
+                   WHERE s.enabled AND NOT EXISTS (SELECT 1 FROM games g WHERE g.school_id=s.id)")
+      # A gender is only clean if BOTH are clean — this node is the parity gate,
+      # so any defect landing on either programme must colour it.
+      DEFECTS=$(Q "SELECT count(*) FROM games g WHERE g.date IS NULL
+                     OR NOT EXISTS (SELECT 1 FROM game_events e WHERE e.game_id=g.game_id)")
+      V=ok
+      [ "${NGEN:-0}" -lt 2 ] 2>/dev/null && V=alarm
+      { [ "${MISSING:-none}" != none ] || [ "${DEFECTS:-0}" -gt 0 ]; } 2>/dev/null && [ "$V" = ok ] && V=warn
+      printf '{"check":"gender-fidelity","verdict":"%s","headline":"%s; enabled programmes with no games at all: %s","cause":"the women programmes are not a smaller copy of the men — every parser defect above lands on both, and a lower events/game figure is the SideArm play-by-play blindness plus the discipline gap, not a quieter league"}\n' \
+        "$V" "${ROWS:-no rows}" "${MISSING:-none}"
+
+  # ── Report ──────────────────────────────────────────────────────────────
+  - id: report
+    runtime: bun
+    always_run: true
+    trigger_rule: all_done
+    depends_on:
+      [reparse-fidelity, home-away-truth, cross-source, roster-attribution,
+       card-fidelity, substitution-coverage, goal-completeness, impossible-rows,
+       nan-sentinel, cache-provenance, export-staleness, gender-fidelity]
+    script: |
+      const IDS = ['reparse_fidelity','home_away_truth','cross_source','roster_attribution',
+                   'card_fidelity','substitution_coverage','goal_completeness','impossible_rows',
+                   'nan_sentinel','cache_provenance','export_staleness','gender_fidelity']
+      const MARK = { ok: '[ OK   ]', warn: '[ WARN ]', alarm: '[ ALARM]' }
+      const rows = []
+      for (const id of IDS) {
+        const raw = (process.env[`KEELSON_NODE_${id}_OUTPUT`] || '').trim()
+        if (!raw) { rows.push({ check: id, verdict: 'alarm', headline: 'check did not run', cause: '' }); continue }
+        try {
+          rows.push(JSON.parse(raw.split('\n').filter(l => l.trim().startsWith('{')).pop()))
+        } catch {
+          rows.push({ check: id, verdict: 'alarm', headline: `unparseable output: ${raw.slice(0, 160)}`, cause: '' })
+        }
+      }
+      const n = v => rows.filter(r => r.verdict === v).length
+      const worst = n('alarm') ? 'ALARM' : n('warn') ? 'WARN' : 'CLEAR'
+
+      console.log('')
+      console.log('  ED INSIGHTS — GROUND TRUTH (is the data FAITHFUL TO SOURCE)')
+      console.log('  ' + '─'.repeat(72))
+      console.log(`  ${worst}   ${n('ok')} clear · ${n('warn')} warn · ${n('alarm')} alarm   (${rows.length} checks)`)
+      console.log('  ' + '─'.repeat(72))
+      console.log('')
+      for (const r of rows) {
+        console.log(`  ${MARK[r.verdict] || '[  ?   ]'}  ${String(r.check).toUpperCase().replace(/_/g, '-')}`)
+        console.log(`            ${r.headline}`)
+        if (r.cause && r.verdict !== 'ok') console.log(`            └ ${r.cause}`)
+        console.log('')
+      }
+      console.log('  ' + '─'.repeat(72))
+      console.log('  Ground truth = the 2,140 cached box scores + the second independent')
+      console.log('  transcription that exists wherever two schools scraped one fixture.')
+      console.log('  Read-only, offline. Self-consistency is data-integrity.yml, not this.')
+      console.log('  Set GROUND_TRUTH_SAMPLE=1 for a fast per-(school,season) re-parse pass.')
+      console.log('')
+      console.log(JSON.stringify({ verdict: worst, clear: n('ok'), warn: n('warn'), alarm: n('alarm'), checks: rows }))

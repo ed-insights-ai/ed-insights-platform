@@ -1,7 +1,27 @@
 # ADR-006: Opponent and Conference Data Model
 
 **Date:** 2026-03-16
-**Status:** Accepted
+**Status:** Accepted — **partially superseded 2026-08-07 by
+[ADR-008](ADR-008-touchline-keelson-rib.md)** on the provenance of `is_conference_game`.
+
+> **Superseding note (2026-08-07).** Two statements below about SideArm's `is_conference`
+> flag are false, and neither was ever implemented.
+>
+> - *"Each game has an `is_conference` boolean flag"* (Context) — the box score carries no
+>   such per-game flag. The `is_conference` values present in cached SideArm pages belong to
+>   a scoreboard sidebar widget, not to the game being parsed, and they are scrape-time
+>   content: a page fetched for the 2016 season carries the same fixtures dated late 2025
+>   that the 2025 file does.
+> - *"`is_conference_game`: populated from SideArm's `is_conference` flag. Reliable."*
+>   (Decision) — no file under `packages/pipeline/src` reads the flag. The column is NULL
+>   for **2,140 of 2,140** rows and always has been.
+>
+> The field is instead **derived** from `schools.toml` GAC membership, gender-aware and
+> season-aware, per [touchline-rib.md](../specs/touchline-rib.md) Stage S0.5 Task 1. A
+> gender-blind derivation produces 103 false positives and must not be used.
+>
+> The rest of this ADR stands: `home_conference` is populated 2,140/2,140, `away_conference`
+> is NULL 2,140/2,140 as designed, and the `opponents` table holds 0 rows as designed.
 
 ## Context
 
