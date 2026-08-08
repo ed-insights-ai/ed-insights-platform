@@ -4,14 +4,7 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-4/66 tasks complete · **13 actionable now** · 45 blocked · 4 in progress · **19 days** to the season (2026-08-27)
-
-## In progress
-
-- `tl-65z.5` **Instrument** · Build the Site: city oracle — the defining defect has no check
-- `tl-65z.4` **Instrument** · Cross-source — report real independence, not 'two unrelated websites'
-- `tl-65z.3` **Instrument** · Gender-aware duplication key — 176 → 98, and 39 false alarms → 0
-- `tl-65z.2` **Instrument** · Fix the archive check — its predicate can never fire
+9/67 tasks complete · **13 actionable now** · 45 blocked · 0 in progress · **19 days** to the season (2026-08-27)
 
 ## Pick up next
 
@@ -41,23 +34,23 @@ bd update <id> --claim         # take it
 
 ## Phase 1 — Trust the instruments
 
-`▰▱▱▱▱▱▱▱▱▱` **1/8**
+`▰▰▰▰▰▰▱▱▱▱` **5/8**
 
 Every acceptance number in this plan is a reading off these checks. A check that is wrong, or that says *ok* when it could not run, makes the rest of the plan unfalsifiable — so this comes first.
 
 ### The measuring instrument — fix the harness before it grades the repair
 
-`tl-65z` · 1/8 complete
+`tl-65z` · 5/8 complete
 
 Every acceptance criterion in the repair plan is phrased as a before/after number
 from `.keelson/workflows/data-integrity.yml` (9 checks) and `ground-truth.yml` (13 checks).
 An adversarial audit on 2026-08-08 found the instrument is not fit to grade the repair.
 
 - [x] `tl-65z.1` **P0** Make all 21 checks fail CLOSED when a query fails
-- [~] `tl-65z.2` **P0** Fix the archive check — its predicate can never fire — *in progress*
-- [~] `tl-65z.3` **P0** Gender-aware duplication key — 176 → 98, and 39 false alarms → 0 — *in progress*
-- [~] `tl-65z.4` **P0** Cross-source — report real independence, not 'two unrelated websites' — *in progress*
-- [~] `tl-65z.5` **P0** Build the Site: city oracle — the defining defect has no check — *in progress*
+- [x] `tl-65z.2` **P0** Fix the archive check — its predicate can never fire
+- [x] `tl-65z.3` **P0** Gender-aware duplication key — 176 → 98, and 39 false alarms → 0
+- [x] `tl-65z.4` **P0** Cross-source — report real independence, not 'two unrelated websites'
+- [x] `tl-65z.5` **P0** Build the Site: city oracle — the defining defect has no check
 - [ ] `tl-65z.7` **P0** A detector for a wrong is_conference_game backfill — *blocked by `tl-ath`*
 - [ ] `tl-65z.6` **P1** Card fidelity — the 166 target double-counts 8 phantom markers — *blocked by `tl-o23`*
 - [ ] `tl-65z.8` **P1** Correct seven smaller check defects
@@ -87,7 +80,7 @@ The numbers in ed_insights are true; the labels are wrong. Ground-truth validati
 - [ ] `tl-37d` **P0** Fix SideArm rosters labelled with each other's team in 723 games (gh-21) ([#21](https://github.com/ed-insights-ai/ed-insights-platform/issues/21))
 - [ ] `tl-3zm` **P0** Purge 712 retired-ordinal rows from exported parquets (gh-27) ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27))
 - [ ] `tl-4ix` **P0** Backfill is_conference_game — gender-aware and season-aware — *blocked by `tl-ath`*
-- [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-65z.7`, `tl-09k`, `tl-o23`, `tl-65z.4`, `tl-vkt`, `tl-hbo`, `tl-37d`, `tl-ce3`, `tl-65z.2`, `tl-65z.3`, `tl-qbg`, `tl-65z.5`, `tl-dse`, `tl-3zm`, `tl-4ix`*
+- [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-65z.7`, `tl-09k`, `tl-o23`, `tl-vkt`, `tl-hbo`, `tl-37d`, `tl-ce3`, `tl-qbg`, `tl-dse`, `tl-3zm`, `tl-4ix`*
 - [x] `tl-5vr.1` **P0** Widen the ground-truth harness before it measures the repair
 - [ ] `tl-ath` **P0** Build the authoritative opponent-string identity map (canon.json)
 - [ ] `tl-da9` **P0** Close the preseason blind spot in the season assertion
@@ -223,6 +216,11 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 
 - [x] `tl-5vr.1` Widen the ground-truth harness before it measures the repair · *S0.5*
 - [x] `tl-65z.1` Make all 21 checks fail CLOSED when a query fails · *Instrument*
+- [x] `tl-65z.2` Fix the archive check — its predicate can never fire · *Instrument*
+- [x] `tl-65z.3` Gender-aware duplication key — 176 → 98, and 39 false alarms → 0 · *Instrument*
+- [x] `tl-65z.4` Cross-source — report real independence, not 'two unrelated websites' · *Instrument*
+- [x] `tl-65z.5` Build the Site: city oracle — the defining defect has no check · *Instrument*
+- [x] `tl-at3` data-vitals living lens — repair burn-down measured live · *—*
 - [x] `tl-bbu` Migration 005 deletes all data in both directions, and runs on every start (gh-19) · *S0*
 - [x] `tl-gnu` The caution Type column at sidearm_parser.py:339-348 · *S9*
 
