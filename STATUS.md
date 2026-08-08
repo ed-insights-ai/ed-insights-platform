@@ -35,6 +35,12 @@ what *describes* those scores is wrong:
   platform. So the repair takes the database from 43 red cards to 201, not to 158.
 - **28 events** are destroyed on every database load, one of them a goal.
 
+Those figures are the **pre-repair baselines, frozen as scraped** — they describe the
+defect, not the current database. The live state of every one of these metrics, with a
+computed verdict, is the **`data-vitals` lens** on the Chamber surface, measured against
+Postgres every half hour. When this file and that lens disagree, the lens is right and
+this file has a bug worth fixing.
+
 None of it is lost. It is all in the 1.1 GB of web pages already saved on disk — it just
 got labelled wrong on the way in. **No re-scraping is needed.**
 
@@ -123,10 +129,11 @@ valid row does this throw away?*
 
 ## What is next
 
-1. **Four measurement bugs in the inspectors** — checks that measure the wrong thing, so
-   they are wrong on every run rather than only when something breaks. Notably the oracle
-   that produced the headline home/away figure is in neither workflow, so that number is not
-   currently reproducible by the instrument meant to grade its repair.
+1. ~~Four measurement bugs in the inspectors~~ — **fixed 8 August**: the archive check,
+   the gender-aware duplication key, honest cross-source independence, and a new
+   `site-city-oracle` that finally measures the defining home/away defect. Two checks
+   remain, each correctly blocked on repair work: card fidelity (needs the phantom purge)
+   and the conference-backfill detector (needs the identity canon).
 2. **The data repair itself** — parser and loader fixes, then re-read the cached pages.
 3. **The rib** — the ledger, the boards, the chat.
 
@@ -147,9 +154,17 @@ bd memories                    # what we have learned the hard way
 python3 scripts/roadmap.py     # regenerate ROADMAP.md
 ```
 
-There is also a live board in Keelson — open `http://127.0.0.1:7878`, the **Chamber**
-surface, and the `touchline-queue` lens. It reads the work queue directly rather than
-summarising a snapshot, and refreshes itself every 30 minutes while pinned.
+There are two live boards in Keelson — open `http://127.0.0.1:7878`, the **Chamber**
+surface: the **`touchline-queue`** lens (the work queue, read directly from beads) and the
+**`data-vitals`** lens (every repair metric measured against Postgres, with a computed
+verdict per row — the numbers this file deliberately no longer carries). Both refresh
+every 30 minutes while pinned.
+
+Keelson also carries the project's standing constitution in its **project notebook**,
+injected into every agent turn it runs, and a **governed memory**: `bead-work` runs leave
+a pending work-log trail and recall only human-confirmed lessons, so an unattended run can
+never teach the next one something nobody vetted. Review pending memories on the Memory
+surface.
 
 ## One caveat on trust
 
