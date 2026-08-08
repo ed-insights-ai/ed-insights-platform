@@ -2,9 +2,9 @@
 
 *Generated from beads on 2026-08-08 by `scripts/roadmap.py`. Do not edit — edit the issues with `bd` and regenerate.*
 
-The goal: turn an amnesiac dataset into a season you can ask questions about. See [`docs/specs/touchline-rib.md`](docs/specs/touchline-rib.md) for the build plan and [`ADR-008`](docs/decisions/ADR-008-touchline-keelson-rib.md) for why.
+The goal: turn an amnesiac dataset into a season you can ask questions about. **New here, or been away? Read [STATUS.md](STATUS.md) first** — it is the plain-language version. See [`docs/specs/touchline-rib.md`](docs/specs/touchline-rib.md) for the build plan and [`ADR-008`](docs/decisions/ADR-008-touchline-keelson-rib.md) for why.
 
-**0/64 tasks complete** across 13 epics · **13 ready to start** · 51 waiting on a blocker
+**0/63 tasks complete** across 13 epics · **12 ready to start** · 51 waiting on a blocker
 
 ## Start here
 
@@ -14,7 +14,6 @@ Work with no unmet blockers, highest priority first:
 |---|---|---|---|
 | P0 | `tl-37d` | Fix SideArm rosters labelled with each other's team in 723 games (gh-21) ([#21](https://github.com/ed-insights-ai/ed-insights-platform/issues/21)) | S0.5 |
 | P0 | `tl-3zm` | Purge 712 retired-ordinal rows from exported parquets (gh-27) ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27)) | S0.5 |
-| P0 | `tl-65z.1` | Make all 21 checks fail CLOSED when a query fails | The measuring instrument |
 | P0 | `tl-ath` | Build the authoritative opponent-string identity map (canon.json) | S0.5 |
 | P0 | `tl-da9` | Close the preseason blind spot in the season assertion | S0.5 |
 | P0 | `tl-irx` | Create keelson-rib-touchline on the ed-insights-ai organization | S1 |
@@ -24,6 +23,7 @@ Work with no unmet blockers, highest priority first:
 | P1 | `tl-9ap` | Recover 166 SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) | S0.5 |
 | P2 | `tl-ce3` | Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29)) | S0.5 |
 | P3 | `tl-3rk` | Parse SideArm play-by-play — 59,844 substitutions discarded (gh-28) ([#28](https://github.com/ed-insights-ai/ed-insights-platform/issues/28)) | S0 |
+| P4 | `tl-i4r` | The sidearm_legacy scraper — so NSU stops being reconstructed | S9 |
 
 ```bash
 bd ready --exclude-type=epic   # the live version of this table
@@ -35,13 +35,12 @@ bd update <id> --claim         # take it
 
 ### The measuring instrument — fix the harness before it grades the repair
 
-`tl-65z` · 0/8 complete
+`tl-65z` · 0/7 complete
 
 Every acceptance criterion in the repair plan is phrased as a before/after number
 from `.keelson/workflows/data-integrity.yml` (9 checks) and `ground-truth.yml` (13 checks).
 An adversarial audit on 2026-08-08 found the instrument is not fit to grade the repair.
 
-- [ ] `tl-65z.1` **P0** Make all 21 checks fail CLOSED when a query fails
 - [ ] `tl-65z.2` **P0** Fix the archive check — its predicate can never fire — *blocked by `tl-65z.1`*
 - [ ] `tl-65z.3` **P0** Gender-aware duplication key — 176 → 98, and 39 false alarms → 0 — *blocked by `tl-65z.1`*
 - [ ] `tl-65z.4` **P0** Cross-source — report real independence, not 'two unrelated websites' — *blocked by `tl-65z.1`*

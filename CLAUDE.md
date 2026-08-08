@@ -77,7 +77,8 @@ cd packages/pipeline && uv run pytest -v     # run tests
 
 | Document | Purpose |
 |----------|---------|
-| [ROADMAP.md](ROADMAP.md) | **What we are building and what to pick up next** — generated from beads |
+| [STATUS.md](STATUS.md) | **Read this first after time away** — plain-language state of the effort |
+| [ROADMAP.md](ROADMAP.md) | What we are building and what to pick up next — generated from beads |
 | [docs/specs/touchline-rib.md](docs/specs/touchline-rib.md) | The Touchline build plan, S0 → S9 |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Branching, commits, local dev, Gas Town workflow |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System overview, components, data flow, design principles |

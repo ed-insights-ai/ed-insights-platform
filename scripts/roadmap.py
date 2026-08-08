@@ -110,9 +110,10 @@ def main() -> int:
     add("")
     add(
         "The goal: turn an amnesiac dataset into a season you can ask questions "
-        "about. See [`docs/specs/touchline-rib.md`](docs/specs/touchline-rib.md) "
-        "for the build plan and "
-        "[`ADR-008`](docs/decisions/ADR-008-touchline-keelson-rib.md) for why."
+        "about. **New here, or been away? Read [STATUS.md](STATUS.md) first** — it is "
+        "the plain-language version. See "
+        "[`docs/specs/touchline-rib.md`](docs/specs/touchline-rib.md) for the build plan "
+        "and [`ADR-008`](docs/decisions/ADR-008-touchline-keelson-rib.md) for why."
     )
     add("")
 
