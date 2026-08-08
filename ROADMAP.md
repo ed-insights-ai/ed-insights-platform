@@ -4,7 +4,7 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-18/79 tasks complete · **19 actionable now** · 42 blocked · 0 in progress · **19 days** to the season (2026-08-27)
+19/82 tasks complete · **21 actionable now** · 42 blocked · 0 in progress · **19 days** to the season (2026-08-27)
 
 ## Pick up next
 
@@ -23,10 +23,10 @@ Nothing blocks these. Highest priority first.
 | P1 | `tl-09k` | Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25)) | S0.5 |
 | P1 | `tl-5vr.2` | Triage 21 unreconciled roster-attribution games | S0.5 |
 | P1 | `tl-65z.8` | Correct seven smaller check defects | Instrument |
+| P1 | `tl-7xj` | bead-land: close the cycle at merge — close the bead, sync, re-emit both lenses | — |
 | P2 | `tl-65y` | bead-work: model external-deliverable beads instead of failing at enforce-draft | — |
 | P2 | `tl-8wq.2` | Evaluate required CI checks after the Touchline skeleton lands | S1 |
-| P2 | `tl-ce3` | Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29)) | S0.5 |
-| | | *…and 5 more* | |
+| | | *…and 7 more* | |
 
 ```bash
 bd ready --exclude-type=epic   # the live version of this table
@@ -233,6 +233,7 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 - [x] `tl-at3` data-vitals living lens — repair burn-down measured live · *—*
 - [x] `tl-ath` Build the authoritative opponent-string identity map (canon.json) · *S0.5*
 - [x] `tl-bbu` Migration 005 deletes all data in both directions, and runs on every start (gh-19) · *S0*
+- [x] `tl-fwn` The 471 home-contradiction figure is stale and is being mislabelled a regression · *—*
 - [x] `tl-gnu` The caution Type column at sidearm_parser.py:339-348 · *S9*
 - [x] `tl-irx` Create keelson-rib-touchline on the ed-insights-ai organization · *S1*
 - [x] `tl-vkt` Fix 111 games with NULL date and venue='NaN' (gh-24) · *S0.5*
