@@ -4,7 +4,7 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-13/72 tasks complete · **13 actionable now** · 46 blocked · 0 in progress · **19 days** to the season (2026-08-27)
+15/74 tasks complete · **14 actionable now** · 45 blocked · 0 in progress · **19 days** to the season (2026-08-27)
 
 ## Pick up next
 
@@ -16,13 +16,14 @@ Nothing blocks these. Highest priority first.
 | P0 | `tl-3zm` | Purge 712 retired-ordinal rows from exported parquets (gh-27) ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27)) | S0.5 |
 | P0 | `tl-ath` | Build the authoritative opponent-string identity map (canon.json) | S0.5 |
 | P0 | `tl-da9` | Close the preseason blind spot in the season assertion | S0.5 |
+| P0 | `tl-hbo` | Fix fabricated home/away in both parsers (gh-20) ([#20](https://github.com/ed-insights-ai/ed-insights-platform/issues/20)) | S0.5 |
 | P0 | `tl-irx` | Create keelson-rib-touchline on the ed-insights-ai organization | S1 |
 | P0 | `tl-oyr` | Scrape reports success on partial and rejected runs (gh-17) ([#17](https://github.com/ed-insights-ai/ed-insights-platform/issues/17)) | S0 |
-| P0 | `tl-vkt` | Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24)) | S0.5 |
 | P1 | `tl-09k` | Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25)) | S0.5 |
 | P1 | `tl-65z.8` | Correct seven smaller check defects | Instrument |
 | P2 | `tl-ce3` | Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29)) | S0.5 |
 | P2 | `tl-dzg` | bead-verify workflow — post-merge instrument delta stamped onto the bead | — |
+| P2 | `tl-oqy` | Postgres-backed integration test: NaN normalization must be proven at the loader boundary | — |
 | P3 | `tl-3rk` | Parse SideArm play-by-play — 59,844 substitutions discarded (gh-28) ([#28](https://github.com/ed-insights-ai/ed-insights-platform/issues/28)) | S0 |
 | P4 | `tl-i4r` | The sidearm_legacy scraper — so NSU stops being reconstructed | S9 |
 
@@ -57,7 +58,7 @@ An adversarial audit on 2026-08-08 found the instrument is not fit to grade the 
 
 ## Phase 2 — Repair the data
 
-`▰▱▱▱▱▱▱▱▱▱` **2/19**
+`▰▰▱▱▱▱▱▱▱▱` **3/19**
 
 The scores are right; almost everything labelling them is wrong. Nearly every fix here is a parser or loader change — the database is derived from 1.1 GB of cached pages, so we fix the code and re-read, rather than patching rows.
 
@@ -73,22 +74,22 @@ The destructive defects, and the ones that make a run lie about its own success.
 
 ### S0.5 — Repair the existing data
 
-`tl-5vr` · 1/15 complete
+`tl-5vr` · 2/15 complete
 
 The numbers in ed_insights are true; the labels are wrong. Ground-truth validation established 2,140/2,140 games re-parse exactly and 493/493 fixtures agree on score across two unrelated websites — but home/away, roster attribution and card type are fabricated or inverted. All of it is repairable offline from the 1.1 GB of cached HTML already on disk. No re-scrape required.
 
 - [ ] `tl-37d` **P0** Fix SideArm rosters labelled with each other's team in 723 games (gh-21) ([#21](https://github.com/ed-insights-ai/ed-insights-platform/issues/21))
 - [ ] `tl-3zm` **P0** Purge 712 retired-ordinal rows from exported parquets (gh-27) ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27))
 - [ ] `tl-4ix` **P0** Backfill is_conference_game — gender-aware and season-aware — *blocked by `tl-ath`*
-- [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-65z.7`, `tl-09k`, `tl-o23`, `tl-vkt`, `tl-hbo`, `tl-37d`, `tl-ce3`, `tl-qbg`, `tl-dse`, `tl-3zm`, `tl-4ix`*
+- [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-65z.7`, `tl-09k`, `tl-o23`, `tl-hbo`, `tl-37d`, `tl-ce3`, `tl-qbg`, `tl-dse`, `tl-3zm`, `tl-4ix`*
 - [x] `tl-5vr.1` **P0** Widen the ground-truth harness before it measures the repair
 - [ ] `tl-ath` **P0** Build the authoritative opponent-string identity map (canon.json)
 - [ ] `tl-da9` **P0** Close the preseason blind spot in the season assertion
 - [ ] `tl-dse` **P0** Add player-team attribution to player_game_stats (gh-22) ([#22](https://github.com/ed-insights-ai/ed-insights-platform/issues/22)) — *blocked by `tl-ath`, `tl-37d`*
-- [ ] `tl-hbo` **P0** Fix fabricated home/away in both parsers (gh-20) ([#20](https://github.com/ed-insights-ai/ed-insights-platform/issues/20)) — *blocked by `tl-vkt`*
+- [ ] `tl-hbo` **P0** Fix fabricated home/away in both parsers (gh-20) ([#20](https://github.com/ed-insights-ai/ed-insights-platform/issues/20))
 - [ ] `tl-o23` **P0** Delete the 42 phantom rows and their poisoned cache directories (gh-26) ([#26](https://github.com/ed-insights-ai/ed-insights-platform/issues/26)) — *blocked by `tl-da9`*
-- [ ] `tl-qbg` **P0** Add the canonical match key column — *blocked by `tl-ath`, `tl-vkt`, `tl-o23`, `tl-hbo`*
-- [ ] `tl-vkt` **P0** Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24))
+- [ ] `tl-qbg` **P0** Add the canonical match key column — *blocked by `tl-ath`, `tl-o23`, `tl-hbo`*
+- [x] `tl-vkt` **P0** Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24))
 - [ ] `tl-09k` **P1** Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25))
 - [ ] `tl-9ap` **P1** Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) — *blocked by `tl-o23`*
 - [ ] `tl-ce3` **P2** Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29))
@@ -220,6 +221,7 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 - [x] `tl-65z.3` Gender-aware duplication key — 176 → 98, and 39 false alarms → 0 · *Instrument*
 - [x] `tl-65z.4` Cross-source — report real independence, not 'two unrelated websites' · *Instrument*
 - [x] `tl-65z.5` Build the Site: city oracle — the defining defect has no check · *Instrument*
+- [x] `tl-6uh` Enhance the touchline-queue lens with beads-ui learnings · *—*
 - [x] `tl-7d9` Genesis The Auditor — standing Chamber Mind for adversarial criteria audit · *—*
 - [x] `tl-9sv` Evict measured numbers from STATUS.md — prose keeps the why, instruments keep the what · *—*
 - [x] `tl-a2p` Test Keelson memory writeback lifecycle, then wire into bead-work · *—*
@@ -227,6 +229,7 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 - [x] `tl-at3` data-vitals living lens — repair burn-down measured live · *—*
 - [x] `tl-bbu` Migration 005 deletes all data in both directions, and runs on every start (gh-19) · *S0*
 - [x] `tl-gnu` The caution Type column at sidearm_parser.py:339-348 · *S9*
+- [x] `tl-vkt` Fix 111 games with NULL date and venue='NaN' (gh-24) · *S0.5*
 
 ---
 
