@@ -4,7 +4,7 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-9/67 tasks complete · **13 actionable now** · 45 blocked · 0 in progress · **19 days** to the season (2026-08-27)
+13/72 tasks complete · **13 actionable now** · 46 blocked · 0 in progress · **19 days** to the season (2026-08-27)
 
 ## Pick up next
 
@@ -21,8 +21,8 @@ Nothing blocks these. Highest priority first.
 | P0 | `tl-vkt` | Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24)) | S0.5 |
 | P1 | `tl-09k` | Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25)) | S0.5 |
 | P1 | `tl-65z.8` | Correct seven smaller check defects | Instrument |
-| P1 | `tl-9ap` | Recover 166 SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) | S0.5 |
 | P2 | `tl-ce3` | Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29)) | S0.5 |
+| P2 | `tl-dzg` | bead-verify workflow — post-merge instrument delta stamped onto the bead | — |
 | P3 | `tl-3rk` | Parse SideArm play-by-play — 59,844 substitutions discarded (gh-28) ([#28](https://github.com/ed-insights-ai/ed-insights-platform/issues/28)) | S0 |
 | P4 | `tl-i4r` | The sidearm_legacy scraper — so NSU stops being reconstructed | S9 |
 
@@ -90,7 +90,7 @@ The numbers in ed_insights are true; the labels are wrong. Ground-truth validati
 - [ ] `tl-qbg` **P0** Add the canonical match key column — *blocked by `tl-ath`, `tl-vkt`, `tl-o23`, `tl-hbo`*
 - [ ] `tl-vkt` **P0** Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24))
 - [ ] `tl-09k` **P1** Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25))
-- [ ] `tl-9ap` **P1** Recover 166 SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23))
+- [ ] `tl-9ap` **P1** Recover 166 SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) — *blocked by `tl-o23`*
 - [ ] `tl-ce3` **P2** Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29))
 
 ### API correctness
@@ -220,6 +220,10 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 - [x] `tl-65z.3` Gender-aware duplication key — 176 → 98, and 39 false alarms → 0 · *Instrument*
 - [x] `tl-65z.4` Cross-source — report real independence, not 'two unrelated websites' · *Instrument*
 - [x] `tl-65z.5` Build the Site: city oracle — the defining defect has no check · *Instrument*
+- [x] `tl-7d9` Genesis The Auditor — standing Chamber Mind for adversarial criteria audit · *—*
+- [x] `tl-9sv` Evict measured numbers from STATUS.md — prose keeps the why, instruments keep the what · *—*
+- [x] `tl-a2p` Test Keelson memory writeback lifecycle, then wire into bead-work · *—*
+- [x] `tl-ahh` Seed Keelson project notebook with the measurement constitution · *—*
 - [x] `tl-at3` data-vitals living lens — repair burn-down measured live · *—*
 - [x] `tl-bbu` Migration 005 deletes all data in both directions, and runs on every start (gh-19) · *S0*
 - [x] `tl-gnu` The caution Type column at sidearm_parser.py:339-348 · *S9*
