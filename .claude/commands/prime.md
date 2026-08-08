@@ -90,7 +90,7 @@ select count(*)||'|roughly half of 337' from games g join schools s on s.id=g.sc
 -- land in different groups, so it returns 0 and reads as "already fixed". That exact
 -- bug was written here once and caught only because this command insists on measuring.
 \echo -n 'two-perspective fixtures contradicting on home|'
-select count(*)||'|0 (currently 471; 118 more agree)' from (
+select count(*)||'|0 (523, measured with all 2,140 games dated; 471 across 2,029 dated games before PR #42)' from (
   select s.gender, g.date, least(g.home_team,g.away_team) a, greatest(g.home_team,g.away_team) b
   from games g join schools s on s.id=g.school_id where g.date is not null
   group by 1,2,3,4 having count(*)>1 and count(distinct g.home_team)>1) d;
