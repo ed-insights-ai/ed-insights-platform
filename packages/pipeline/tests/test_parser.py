@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.parser import build_team_abbrev_map, parse_game
+from src.parser import build_team_abbrev_map, parse_game, parse_game_header
 
 CACHED_HTML = Path("data/raw_html/2025/game_01.html")
 
@@ -34,3 +34,36 @@ def test_abbrev_map_no_hardcoded_harding():
     # With Harding in team_names, HU should resolve
     result = build_team_abbrev_map("<html></html>", ["Harding"])
     assert "HU" in result or any("Harding" in v for v in result.values())
+
+
+@pytest.mark.parametrize(
+    ("title", "expected_date"),
+    [
+        ("Harding vs Dallas Baptist (Sep. 1, 2016)", "2016-09-01"),
+        ("Harding vs Delta State (9/8/2017)", "2017-09-08"),
+        ("Okla. Christian vs Harding (Sep 02, 2017)", "2017-09-02"),
+        ("Harding vs Ouachita Baptist (09/13/16)", "2016-09-13"),
+    ],
+)
+def test_parse_game_header_date_forms(title, expected_date):
+    metadata = parse_game_header(f"<html><title>{title}</title></html>")
+
+    assert metadata["date"] == expected_date
+
+
+def test_header_state_paren_regression():
+    metadata = parse_game_header(
+        "<html><title>Harding vs Wayne St. (NE) (09/07/19)</title></html>"
+    )
+
+    assert metadata["away_team"] == "Wayne St. (NE)"
+    assert metadata["date"] == "2019-09-07"
+
+
+def test_parse_game_header_textual_date_venue_fallback():
+    metadata = parse_game_header(
+        "<html><title>Harding vs Northeastern State (Sep 08, 2017)</title>"
+        "<body>(Sep 08, 2017 at Tahlequah, Okla.)</body></html>"
+    )
+
+    assert metadata["venue"] == "Tahlequah, Okla."

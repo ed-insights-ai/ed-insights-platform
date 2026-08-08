@@ -22,10 +22,25 @@ from src.models import Game, GameEvent, PlayerGameStats, TeamGameStats
 
 logger = logging.getLogger(__name__)
 
+_DATE_RE = r"\d{1,2}/\d{1,2}/\d{2,4}|[A-Za-z]{3,9}\.?\s+\d{1,2},\s+\d{4}"
+
 
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
+
+
+def _normalize_date(raw: str | None) -> str | None:
+    """Normalize a StatCrew title/body date to ISO YYYY-MM-DD, else None."""
+    if not raw:
+        return None
+    value = raw.strip().replace(".", "")
+    for date_format in ("%m/%d/%y", "%m/%d/%Y", "%b %d, %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(value, date_format).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
 
 
 def safe_int(val: object, default: int = 0) -> int:
@@ -156,7 +171,7 @@ def parse_game_header(html: str) -> dict:
     title_tag = soup.find("title")
     if title_tag:
         title_text = title_tag.get_text(strip=True)
-        title_match = re.search(r"(.+?)\s+vs\.?\s+(.+?)\s+\((\d{2}/\d{2}/\d{2})\)", title_text)
+        title_match = re.search(rf"(.+?)\s+vs\.?\s+(.+?)\s+\(({_DATE_RE})\)", title_text)
         if title_match:
             metadata["home_team"] = title_match.group(1).strip()
             metadata["away_team"] = title_match.group(2).strip()
@@ -169,7 +184,7 @@ def parse_game_header(html: str) -> dict:
         pat = (
             r"([A-Za-z][A-Za-z\s\.\'&-]+?)\s+vs\.?\s+"
             r"([A-Za-z][A-Za-z\s\.\'&\(\)-]+?)\s+"
-            r"\((\d{2}/\d{2}/\d{2})(?:\s+at\s+([^)]+))?\)"
+            rf"\(({_DATE_RE})(?:\s+at\s+([^)]+))?\)"
         )
         match = re.search(pat, text)
         if match:
@@ -186,10 +201,11 @@ def parse_game_header(html: str) -> dict:
 
     # Venue fallback
     if not metadata["venue"]:
-        venue_match = re.search(r"\d{2}/\d{2}/\d{2}\s+at\s+([^)]+)\)", text)
+        venue_match = re.search(rf"(?:{_DATE_RE})\s+at\s+([^)]+)\)", text)
         if venue_match:
             metadata["venue"] = venue_match.group(1).strip()
 
+    metadata["date"] = _normalize_date(metadata["date"])
     return metadata
 
 

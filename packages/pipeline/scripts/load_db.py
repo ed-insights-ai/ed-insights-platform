@@ -91,6 +91,21 @@ def _date_or_none(val) -> str | None:
     return s
 
 
+def _str_or_none(val) -> str | None:
+    """Return a stripped string, or None for NaN/None/empty sentinels."""
+    if val is None:
+        return None
+    try:
+        if pd.isna(val):
+            return None
+    except (TypeError, ValueError):
+        pass
+    s = str(val).strip()
+    if not s or s.lower() in ("nan", "none", "nat"):
+        return None
+    return s
+
+
 def _load_games(
     cur: psycopg2.extensions.cursor,
     df: pd.DataFrame,
@@ -128,17 +143,17 @@ def _load_games(
                 int(row["game_id"]),
                 school_id,
                 int(row["season_year"]),
-                row.get("source_url"),
+                _str_or_none(row.get("source_url")),
                 _date_or_none(row.get("date")),
-                row.get("venue"),
+                _str_or_none(row.get("venue")),
                 _int_or_none(row.get("attendance")),
-                row.get("home_team"),
-                row.get("away_team"),
+                _str_or_none(row.get("home_team")),
+                _str_or_none(row.get("away_team")),
                 _int_or_none(row.get("home_score")),
                 _int_or_none(row.get("away_score")),
                 _bool_or_none(row.get("is_conference_game")),
-                row.get("home_conference"),
-                row.get("away_conference"),
+                _str_or_none(row.get("home_conference")),
+                _str_or_none(row.get("away_conference")),
             ),
         )
         count += 1
@@ -206,7 +221,7 @@ def _team_stats_row(row: pd.Series, school_id: int) -> tuple:
     return (
         int(row["game_id"]),
         school_id,
-        row.get("team"),
+        _str_or_none(row.get("team")),
         _bool_or_none(row.get("is_home")),
         _int_or_none(row.get("shots")),
         _int_or_none(row.get("shots_on_goal")),
@@ -220,10 +235,10 @@ def _player_stats_row(row: pd.Series, school_id: int) -> tuple:
     return (
         int(row["game_id"]),
         school_id,
-        row.get("team"),
-        str(row.get("jersey_number", "")),
-        row.get("player_name"),
-        row.get("position"),
+        _str_or_none(row.get("team")),
+        _str_or_none(row.get("jersey_number")),
+        _str_or_none(row.get("player_name")),
+        _str_or_none(row.get("position")),
         _bool_or_none(row.get("is_starter")),
         _int_or_none(row.get("minutes")),
         _int_or_none(row.get("shots")),
@@ -237,13 +252,13 @@ def _events_row(row: pd.Series, school_id: int) -> tuple:
     return (
         int(row["game_id"]),
         school_id,
-        row.get("event_type"),
-        row.get("clock"),
-        row.get("team"),
-        row.get("player"),
-        row.get("assist1"),
-        row.get("assist2"),
-        row.get("description"),
+        _str_or_none(row.get("event_type")),
+        _str_or_none(row.get("clock")),
+        _str_or_none(row.get("team")),
+        _str_or_none(row.get("player")),
+        _str_or_none(row.get("assist1")),
+        _str_or_none(row.get("assist2")),
+        _str_or_none(row.get("description")),
     )
 
 
