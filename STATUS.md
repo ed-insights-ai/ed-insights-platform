@@ -144,6 +144,18 @@ valid row does this throw away?*
   while silently failing player-team attribution, its primary consumer. This unlocks the
   widest gate in the tracker: the canonical match key, roster attribution, matcher
   unification, and the conference backfill lane all sit directly behind it.
+- **The roster swap is repaired (8 Aug)** — the largest single defect in the database:
+  in 723 games the two rosters wore each other's names, because the parser corrected the
+  home/away labels but never reordered the player tables beneath them
+  ([#48](https://github.com/ed-insights-ai/ed-insights-platform/pull/48)). The fix reorders
+  the rosters with the same swap decision, and the PR also had to *build its own proof*:
+  the acceptance criterion cited an HTML-caption check that did not exist yet, so the run
+  committed it — every SideArm page's two goalie captions compared against the stored
+  labels, with a denominator on every bucket. Measured after merge and reload: arithmetic
+  gate swapped **723 → 0** and captions **739 → 0**, aligned 1,803 of 1,803 pages, across
+  exactly 2,140 games. The 21 games whose player sums genuinely reconcile with neither
+  team are triaged separately. The already-correct StatCrew games stayed correct: 0
+  swapped of exactly 337.
 
 ## What is next
 
