@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import pandas as pd
+from bs4 import BeautifulSoup
 
 from src.sidearm_parser import (
     _classify_tables,
@@ -235,6 +236,55 @@ class TestHomeAwayDetection:
         game = result["game"]
         assert game.home_team == "Ouachita Baptist"
         assert game.away_team == "Harding"
+
+    def test_swap_relabels_player_rosters(self):
+        """Regression (gh-21): the swap must reorder the player tables too.
+
+        James Lovoy is on Ouachita Baptist's roster (he scores for OBU). When the
+        home/away labels are swapped, his roster must still be labelled
+        'Ouachita Baptist' — not the opposing 'Harding' — and every roster's
+        player sums must reconcile against its *own* team_game_stats row rather
+        than the opponent's.
+        """
+        html = FIXTURE.read_text(encoding="utf-8")
+        result = parse_sidearm_game(
+            html, game_id=302501, source_url="http://test/6126", season_year=2025,
+            school_abbrev="HU", school_name="Harding",
+        )
+        assert result["game"].home_team == "Harding"
+
+        lovoy = next(p for p in result["player_stats"] if p.player_name == "James Lovoy")
+        assert lovoy.team == "Ouachita Baptist"
+
+        # Player sums must align with the SAME team's team stats (not the opponent's).
+        team_shots = {t.team: t.shots for t in result["team_stats"]}
+        team_goals = {t.team: t.goals for t in result["team_stats"]}
+        roster_shots: dict[str, int] = {}
+        roster_goals: dict[str, int] = {}
+        for p in result["player_stats"]:
+            roster_shots[p.team] = roster_shots.get(p.team, 0) + p.shots
+            roster_goals[p.team] = roster_goals.get(p.team, 0) + p.goals
+        for team in team_shots:
+            assert roster_shots[team] == team_shots[team]
+            assert roster_goals[team] == team_goals[team]
+
+    def test_single_away_roster_uses_table_caption(self):
+        html = FIXTURE.read_text(encoding="utf-8")
+        soup = BeautifulSoup(html, "html.parser")
+        home_caption = soup.find("caption", string=lambda value: value and value.strip() == "OBU - Player Stats")
+        assert home_caption is not None
+        home_caption.parent.decompose()
+
+        result = parse_sidearm_game(
+            str(soup),
+            game_id=302501,
+            source_url="http://test/6126",
+            season_year=2025,
+        )
+
+        assert result["player_stats"]
+        assert {player.team for player in result["player_stats"]} == {"Harding"}
+        assert any(player.player_name == "Rinner Stewart" for player in result["player_stats"])
 
 
 class TestCaseInsensitiveClassify:

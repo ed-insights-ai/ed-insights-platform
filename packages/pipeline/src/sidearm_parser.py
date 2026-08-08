@@ -380,6 +380,47 @@ def _parse_header_metadata(html: str) -> dict:
     return metadata
 
 
+def _single_player_table_team(
+    html: str,
+    home_team: str,
+    away_team: str,
+    home_abbrev: str,
+    away_abbrev: str,
+) -> str:
+    """Resolve a lone player table's team from its SideArm caption."""
+    soup = BeautifulSoup(html, "html.parser")
+    hints: list[str] = []
+    for caption in soup.find_all("caption"):
+        match = re.fullmatch(
+            r"\s*(.+?)\s*-\s*Player Stats\s*",
+            caption.get_text(" ", strip=True),
+            flags=re.IGNORECASE,
+        )
+        if match:
+            hints.append(match.group(1).strip())
+
+    if len(hints) == 1:
+        hint = " ".join(hints[0].casefold().split())
+        matches = [
+            team
+            for team, abbrev in (
+                (home_team, home_abbrev),
+                (away_team, away_abbrev),
+            )
+            if hint == " ".join(abbrev.casefold().split())
+            or " ".join(team.casefold().split()).startswith(hint)
+        ]
+        if len(matches) == 1:
+            return matches[0]
+
+    logger.warning(
+        "Could not uniquely resolve lone player table caption %r; defaulting to home team %s",
+        hints,
+        home_team,
+    )
+    return home_team
+
+
 def parse_sidearm_game(
     html: str,
     game_id: int,
@@ -412,6 +453,7 @@ def parse_sidearm_game(
     metadata = _parse_header_metadata(html)
 
     # Fix home/away using title "vs"/"at" detection
+    swapped = False
     if metadata["is_home"] is False:
         # School is away — the score table listed school's opponent first (as home)
         # which is actually correct in this case, but we need to verify:
@@ -427,6 +469,7 @@ def parse_sidearm_game(
                 score_info["away_score"],
                 score_info["home_score"],
             )
+            swapped = True
     elif metadata["is_home"] is True:
         # School is home — if the school appears as away_team, swap them
         school_is_listed_away = (
@@ -440,6 +483,7 @@ def parse_sidearm_game(
                 score_info["away_score"],
                 score_info["home_score"],
             )
+            swapped = True
 
     # Rebuild abbreviation map after potential swap
     abbrev_to_name = {}
@@ -453,7 +497,20 @@ def parse_sidearm_game(
     if classified["team_stats"] is not None:
         team_stats_raw = _parse_team_stats_table(classified["team_stats"])
 
-    # Player stats — identified by column signature
+    # Player stats — identified by column signature.
+    # The player tables are collected in page order (home roster printed first,
+    # matching the score table's row order). When the home/away labels were
+    # swapped above, the roster order must swap with them; otherwise player_stats[0]
+    # (the page-first roster) is stamped with the now-swapped home_team and every
+    # roster ends up wearing the opposing team's name (gh-21). team_game_stats is
+    # keyed by abbrev and so survives the swap unaided, which is why only the player
+    # tables are corrupted.
+    if swapped and len(classified["player_stats"]) >= 2:
+        classified["player_stats"][0], classified["player_stats"][1] = (
+            classified["player_stats"][1],
+            classified["player_stats"][0],
+        )
+
     player_stats: list[PlayerGameStats] = []
     if len(classified["player_stats"]) >= 2:
         home_players = _parse_player_table(classified["player_stats"][0], home_team, game_id, season_year)
@@ -461,7 +518,19 @@ def parse_sidearm_game(
         player_stats = home_players + away_players
     elif len(classified["player_stats"]) == 1:
         logger.warning("Only found 1 player stats table for game %s", game_id)
-        player_stats = _parse_player_table(classified["player_stats"][0], home_team, game_id, season_year)
+        player_team = _single_player_table_team(
+            html,
+            home_team,
+            away_team,
+            home_abbrev,
+            away_abbrev,
+        )
+        player_stats = _parse_player_table(
+            classified["player_stats"][0],
+            player_team,
+            game_id,
+            season_year,
+        )
 
     # Scoring summary → goal events
     goal_events: list[GameEvent] = []
