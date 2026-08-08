@@ -40,7 +40,9 @@ packages/pipeline/data/raw_html/
 
 # Gas Town runtime (not part of the project)
 .runtime/
-.claude/
+.claude/*
+# Slash commands are project assets, not local runtime — they travel with the repo.
+!.claude/commands/
 .logs/
 state.json
 
