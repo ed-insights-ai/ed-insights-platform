@@ -126,6 +126,14 @@ valid row does this throw away?*
 - **Work is tracked in [beads](https://github.com/gastownhall/beads)** — a dependency-aware tracker, so `bd ready` only ever shows
   work whose prerequisites are actually done. That matters here because the repair has a
   strict order and doing it out of order produces plausible-looking wrong answers.
+- **The first data repair landed (8 Aug)** — the 111 games with no date and a literal
+  `'NaN'` venue, restored from the cached pages
+  ([#42](https://github.com/ed-insights-ai/ed-insights-platform/pull/42)). It went through
+  the full factory loop: adversarial audit (which corrected the bead's own mechanism note),
+  a Keelson `bead-work` run with a human approval gate, a three-lens review, and a
+  review-bot pass — and the run itself found a constraint nobody had written down
+  (Postgres rejects the raw `Sep. 1, 2016` form, so dates must be normalised before load).
+  The `data-vitals` lens shows the first repair metric at target.
 
 ## What is next
 
