@@ -4,7 +4,7 @@ Revision ID: 005
 Revises: 004
 Create Date: 2026-03-16
 
-Additive only per ADR-007: inserts missing schools by abbreviation and deletes nothing.
+Data-preserving per ADR-007: upserts canonical schools by abbreviation and deletes nothing.
 """
 from typing import Sequence, Union
 
@@ -48,19 +48,24 @@ CORRECT_SCHOOLS = [
 
 def upgrade() -> None:
     # One-time forward correction (ADR-007): ensure the 14 canonical GAC
-    # programs exist. Additive and idempotent so re-running is a no-op.
+    # programs exist with canonical metadata while preserving IDs and related data.
     for school in CORRECT_SCHOOLS:
         op.execute(
             sa.text(
                 "INSERT INTO schools "
                 "(name, abbreviation, conference, mascot, gender, enabled) "
                 "VALUES (:name, :abbreviation, :conference, :mascot, :gender, :enabled) "
-                "ON CONFLICT (abbreviation) DO NOTHING"
+                "ON CONFLICT (abbreviation) DO UPDATE SET "
+                "name = EXCLUDED.name, "
+                "conference = EXCLUDED.conference, "
+                "mascot = EXCLUDED.mascot, "
+                "gender = EXCLUDED.gender, "
+                "enabled = EXCLUDED.enabled"
             ).bindparams(**school)
         )
 
 
 def downgrade() -> None:
-    # No-op: 005 only inserts missing schools and deletes nothing, so there
-    # is nothing to reverse without risking rows this migration did not create.
+    # No-op: reversing upserts would risk rows and metadata this migration
+    # did not create.
     pass

@@ -55,7 +55,9 @@ async def test_005_is_data_preserving():
             )
 
         connection.exec_driver_sql(
-            "INSERT INTO schools (name, abbreviation) VALUES ('Harding', 'HU')"
+            "INSERT INTO schools "
+            "(id, name, abbreviation, conference, mascot, gender, enabled) "
+            "VALUES (1, 'Harding University', 'HUW', 'GAC', 'Bisons', 'men', 0)"
         )
         connection.exec_driver_sql(
             "INSERT INTO games (id, game_id, school_id) VALUES (1, 1001, 1)"
@@ -84,6 +86,10 @@ async def test_005_is_data_preserving():
             "player_game_stats": 1,
             "game_events": 1,
         }
+        assert connection.exec_driver_sql(
+            "SELECT id, name, conference, mascot, gender, enabled "
+            "FROM schools WHERE abbreviation = 'HUW'"
+        ).one() == (1, "Harding", "GAC", "Lady Bisons", "women", 1)
 
         _run_migration(migration.downgrade, connection)
         assert counts() == after_upgrade
