@@ -199,11 +199,18 @@ valid row does this throw away?*
 
 ## The free regression test the repair creates
 
-**586 fixtures were scraped twice**, once from each school's site — two independent
+**621 fixtures were scraped twice**, once from each school's site — two independent
 transcriptions of the same match. Once the labels are fixed those pairs must agree forever.
 If a future scrape breaks the roster logic again, the two perspectives stop matching and it
 shows up immediately. That is not a one-time cleanup; it is a regression test the season
 generates by itself.
+
+*(This read **586** until 9 Aug — measured before the 111 date restorations, since an
+undated row cannot be paired with anything. Measured now: 641 groups hold more than one row,
+of which **601** are genuine two-school pairs and **40** hold two rows from the same school.
+All 40 are the work of the 42 phantom rows: purging them turns 20 of those groups into clean
+pairs and removes the other 20 outright, leaving **621 pairs and 0 same-school duplicates**.
+That last figure is the one to hold the season to.)*
 
 ## Getting back up to speed
 
