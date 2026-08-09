@@ -2,7 +2,7 @@ name: data-integrity
 description: |
   Use when: you need to know which numbers in ed_insights are currently trustworthy — before believing a report, and before and after any data repair.
   Triggers: "data integrity", "check the data", "is the data right", "integrity report", "did the repair work".
-  Does: runs nine deterministic read-only checks against the live Postgres and the parquet archive in parallel, then prints one report with a per-check verdict and the file:line that causes each failure.
+  Does: runs ten deterministic read-only checks against the live Postgres and the parquet archive in parallel, then prints one report with a per-check verdict and the file:line that causes each failure.
   NOT for: repairing anything (this never writes), scraping, or judging code quality.
 
 requiresProject: true
@@ -433,6 +433,46 @@ nodes:
       printf '{"check":"archive","verdict":"%s","headline":"db %s games vs %s rows summed across the %s per-school data/structured/*/all/games.parquet exports — %s; %s; raw_html %s, %s of %s files on disk git-tracked","cause":"a twice-weekly in-season refresh adds ~260 tracked files per run. The db-vs-parquet equality is the right expectation for the per-school corpus: its game_id set matches Postgres exactly in both directions, so a gap there is a real divergence and not an export convention."}\n' \
         "$V" "$DB" "$PQ" "$PQFILES" "$AGREE" "$MHALF" "$RAW" "$TRACKED" "$ONDISK"
 
+  # ── 10. Merged export staleness ──────────────────────────────────────────
+  - id: export-staleness
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      DB=$(psql -U lume -d ed_insights -At -c "SELECT count(*) FROM games" 2>/dev/null); DBRC=$?
+      PY='import pandas as pd; g=pd.read_parquet("data/structured/all/games.parquet",columns=["game_id"]); p=pd.read_parquet("data/structured/all/player_stats.parquet",columns=["game_id"]); print(len(g),int(((g["game_id"]//1000000)>14).sum()),len(p),int(((p["game_id"]//1000000)>14).sum()))'
+      PQRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); PQRC=$?
+      if [ "$DBRC" -ne 0 ] || [ -z "${DB:-}" ]; then
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"DATABASE HALF DID NOT RUN — psql exited %s and returned no usable games count; the merged export cannot be compared with Postgres.","cause":"psql stderr is discarded here — re-run SELECT count(*) FROM games against ed_insights to see whether the database is down, the table is missing, or permissions changed."}\n' "$DBRC"
+        exit 0
+      fi
+      if [ "$PQRC" -ne 0 ]; then
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — uv run python exited %s while opening data/structured/all/{games,player_stats}.parquet, so no retired-ordinal or row-count measurement exists. Database half did run: %s games.","cause":"python and uv stderr are discarded here — re-run the same reader from packages/pipeline to expose a missing, unreadable, or corrupt merged export."}\n' "$PQRC" "$DB"
+        exit 0
+      fi
+      PQOUT=$(printf '%s' "$PQRAW" | tail -1)
+      OK4='NF==4 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/'
+      GAMES=$(printf '%s' "$PQOUT" | awk "$OK4"' {print $1}')
+      RETIRED_GAMES=$(printf '%s' "$PQOUT" | awk "$OK4"' {print $2}')
+      PLAYERS=$(printf '%s' "$PQOUT" | awk "$OK4"' {print $3}')
+      RETIRED_PLAYERS=$(printf '%s' "$PQOUT" | awk "$OK4"' {print $4}')
+      MISSING=
+      for v in GAMES RETIRED_GAMES PLAYERS RETIRED_PLAYERS; do [ -n "${!v:-}" ] || MISSING="$MISSING $v"; done
+      if [ -n "$MISSING" ]; then
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — malformed reader output left no numeric result for:%s. A missing count is not a measurement of zero. Database half did run: %s games.","cause":"the parquet reader must emit exactly four integers: total and retired rows for games, then total and retired rows for player_stats. Re-run it by hand and inspect stdout."}\n' "$MISSING" "$DB"
+        exit 0
+      fi
+      case "$DB" in *[!0-9]*|"")
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"DATABASE HALF DID NOT RUN — psql returned a non-numeric games count, so the merged export cannot be compared with Postgres.","cause":"re-run SELECT count(*) FROM games against ed_insights and inspect its output."}\n'
+        exit 0
+      ;; esac
+      V=ok
+      raise() { case "$V:$1" in ok:warn|ok:alarm|warn:alarm) V=$1 ;; esac; }
+      AGREE="counts agree"
+      if [ "$GAMES" -ne "$DB" ]; then raise alarm; AGREE="MISMATCH, parquet minus db = $((GAMES - DB)) rows"; fi
+      if [ "$RETIRED_GAMES" -gt 0 ] || [ "$RETIRED_PLAYERS" -gt 0 ]; then raise alarm; fi
+      printf '{"check":"export-staleness","verdict":"%s","headline":"merged games export %s rows vs db %s — %s; retired ordinals (>14): games %s of %s rows, player stats %s of %s rows","cause":"data/structured/all is stale or was merged from retired school directories. Regenerate only after prerequisite data repairs are present, then re-run this check."}\n' \
+        "$V" "$GAMES" "$DB" "$AGREE" "$RETIRED_GAMES" "$GAMES" "$RETIRED_PLAYERS" "$PLAYERS"
+
   # ── Report ──────────────────────────────────────────────────────────────
   - id: report
     runtime: bun
@@ -440,10 +480,10 @@ nodes:
     trigger_rule: all_done
     depends_on:
       [freshness, conference-flag, duplication, season-label, identity,
-       discipline, orphans, parse-failures, archive]
+       discipline, orphans, parse-failures, archive, export-staleness]
     script: |
       const IDS = ['freshness','conference_flag','duplication','season_label','identity',
-                   'discipline','orphans','parse_failures','archive']
+                   'discipline','orphans','parse_failures','archive','export_staleness']
       const MARK = { ok: '[ OK   ]', warn: '[ WARN ]', alarm: '[ ALARM]' }
       const rows = []
       for (const id of IDS) {
