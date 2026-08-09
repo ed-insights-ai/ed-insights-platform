@@ -37,7 +37,7 @@ def test_is_gac_member_respects_gender_and_season(
             2023,
             True,
         ),
-        ("Newman", "CSU Pueblo", "men", 2022, False),
+        ("Newman", "Dallas Baptist", "men", 2022, False),
     ],
 )
 def test_derive_resolves_both_teams(
@@ -138,6 +138,25 @@ def test_artifact_identity_alarms_as_unresolved():
                 "home_team": "Southern Nazarene",
                 "away_team": "NU Cli",
                 "is_conference_game": None,
+            }
+        ]
+    )
+
+    assert result.unresolved == [1]
+    assert result.disagreements == []
+    assert _verdict_for(result) == "alarm"
+
+
+def test_unknown_identity_alarms_as_unresolved():
+    result = audit_rows(
+        [
+            {
+                "game_id": 1,
+                "gender": "women",
+                "season_year": 2023,
+                "home_team": "Southern Nazarene",
+                "away_team": "Unknown GAC Opponent",
+                "is_conference_game": False,
             }
         ]
     )
