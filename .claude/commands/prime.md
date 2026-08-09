@@ -22,9 +22,10 @@ So this command has one rule that overrides everything else:
 > **Measure. Do not recite.**
 >
 > Never report a defect figure you read in a document. Every number in your summary must come
-> from a query you just ran. This project has been burned five times by a figure that was true
-> when written and false when used — including one that would have deleted 79 legitimate games
-> and one that would have collapsed 40 real fixtures.
+> from a query you just ran. This project has been burned eight times by a figure that was true
+> when written and false when used — including one that would have deleted 79 legitimate games,
+> one that would have collapsed 40 real fixtures, and one that sat in *this file* and would
+> have read a healthy 621 duplicate groups as a catastrophic regression from 138.
 >
 > If a document disagrees with the database, **the database wins and the document is a bug** —
 > say so and offer to fix it.
@@ -72,7 +73,7 @@ own memory of earlier in the session.
 psql -U lume -d ed_insights -tA <<'SQL'
 \echo '-- metric | now | target'
 \echo -n 'games total|'
-select count(*)||'|2140 (2098 after phantom deletion)' from games;
+select count(*)||'|2098 (was 2140 until tl-o23 purged the 42 phantoms)' from games;
 \echo -n 'phantom rows (year outside season_year..+1)|'
 select count(*)||'|0' from games where date is not null
   and extract(year from date) not in (season_year, season_year+1);
@@ -87,14 +88,14 @@ select count(*)||'|0, gender+season aware' from games where is_conference_game i
 \echo -n 'red cards stored|'
 select count(*)||'|201 = 43 StatCrew already-correct + 158 SideArm to repair' from game_events where event_type='red_card';
 \echo -n 'HU+HUW rows claiming home|'
-select count(*)||'|roughly half of 337' from games g join schools s on s.id=g.school_id
+select count(*)||'|164 of 337 (was 337/337 before PR #52 derived it from venue)' from games g join schools s on s.id=g.school_id
   where s.abbreviation in ('HU','HUW') and g.home_team='Harding';
 -- The pair MUST be unordered (least/greatest). Grouping by home_team and then asking
 -- for count(distinct home_team) > 1 is self-contradictory — rows that disagree on home
 -- land in different groups, so it returns 0 and reads as "already fixed". That exact
 -- bug was written here once and caught only because this command insists on measuring.
 \echo -n 'two-perspective fixtures contradicting on home|'
-select count(*)||'|0 (523, measured with all 2,140 games dated; 471 across 2,029 dated games before PR #42)' from (
+select count(*)||'|0 — landed in PR #52 (was 523 with all games dated; 471 across 2,029 before PR #42)' from (
   select s.gender, g.date, least(g.home_team,g.away_team) a, greatest(g.home_team,g.away_team) b
   from games g join schools s on s.id=g.school_id where g.date is not null
   group by 1,2,3,4 having count(*)>1 and count(distinct g.home_team)>1) d;
@@ -103,22 +104,23 @@ select count(*)||'|0 (523, measured with all 2,140 games dated; 471 across 2,029
 --
 -- DO NOT read a rise here as a regression. Before PR #52 the two perspectives of a fixture
 -- disagreed on who was home, so each landed in its OWN ordered group and the total read 138.
--- The home/away repair made them agree, so the two rows now collapse into ONE group: the
--- total is 641 and the rise IS the repair working. The proof is that this figure and the
--- unordered fixture-group count are now EQUAL at 641 — pre-repair the ordered figure was
--- strictly lower, by exactly the 523 contradicting fixtures.
+-- The home/away repair made them agree, so the two rows now collapse into ONE group, and the
+-- rise to 641 WAS the repair working. The proof is that this figure and the unordered
+-- fixture-group count became EQUAL — pre-repair the ordered figure was strictly lower, by
+-- exactly the 523 contradicting fixtures.
 --
 -- A bare total is therefore unreadable here, so split it. The defect this check exists to
 -- catch is a group holding two rows from the SAME school; a group holding one row from each
--- of two schools is the legitimate two-perspective pair the repair is meant to produce.
--- Measured 2026-08-09: 601 legitimate + 40 same-school. Those 40 are entirely the work of
--- the 42 phantom rows — purge them (tl-o23) and it is 621 legitimate + 0 same-school.
+-- of two schools is the legitimate two-perspective pair the repair is meant to produce, and
+-- 621 of them is the healthy end state, not a defect. The 40 same-school groups measured on
+-- 2026-08-09 were entirely the work of the 42 phantom rows, and tl-o23 purged them the same
+-- day: 641 → 621 total, 40 → 0 same-school, exactly as predicted.
 \echo -n 'duplicate groups, total (gender, date, home, away)|'
-select count(*)||'|641 now, 621 after phantoms go' from (select s.gender,g.date,g.home_team,g.away_team
+select count(*)||'|621 (was 641 before the phantom purge)' from (select s.gender,g.date,g.home_team,g.away_team
   from games g join schools s on s.id=g.school_id where g.date is not null
   group by 1,2,3,4 having count(*)>1) d;
 \echo -n '  of which same-school, the TRUE duplicates|'
-select count(*)||'|40 now, 0 after phantoms go' from (
+select count(*)||'|0 (was 40 before the phantom purge)' from (
   select s.gender,g.date,g.home_team,g.away_team, count(*) n, count(distinct g.school_id) sc
   from games g join schools s on s.id=g.school_id where g.date is not null
   group by 1,2,3,4 having count(*)>1) d where n > sc;
@@ -126,8 +128,18 @@ select count(*)||'|40 now, 0 after phantoms go' from (
 select count(*)||'|0 (39 gender-blind are all m-vs-w pairs)' from (select s.gender,g.date,g.home_team,g.away_team
   from games g join schools s on s.id=g.school_id where g.date is not null group by 1,2,3,4
   having count(*)>1 and count(distinct coalesce(g.home_score,-1)||':'||coalesce(g.away_score,-1))>1) d;
+-- The 28 events a colliding event id destroyed at merge are resolved: 27 were real and were
+-- restored under tl-o23/tl-3zm, and the 28th lived inside a phantom game and was deleted with
+-- it. So "28 → 0 lost" is satisfied WITHOUT 28 rows appearing, and 22460 is the figure all
+-- three corpora agree on. The old 22782 target was 22754 + 28 on the pre-purge corpus and
+-- reads today as 322 events missing.
 \echo -n 'events in db|'
-select count(*)||'|22782 to match the parquets (28 lost at load)' from game_events;
+select count(*)||'|22460, matching the parquets and the merged export' from game_events;
+-- The other two corpus counts, so a bad reload cannot pass while games look right.
+\echo -n 'player stat rows|'
+select count(*)||'|75982' from player_game_stats;
+\echo -n 'team stat rows|'
+select count(*)||'|4196' from team_game_stats;
 SQL
 ```
 

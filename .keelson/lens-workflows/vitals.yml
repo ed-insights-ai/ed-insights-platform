@@ -16,6 +16,15 @@
 #   REGRESSED   now is further from target than the worst-known baseline
 #   UNMEASURED  the query failed — rendered as an alarm, never as a number
 #
+# BASELINES FOR LANDED REPAIRS ARE THE TARGET ITSELF. Leaving the historical
+# pre-repair baseline in place after a repair lands makes the instrument lie in
+# the quiet direction: NULL dates sat at 111 before PR #42, so a baseline of 111
+# means 50 rows losing their dates tomorrow scores dn=50 < db=111 and renders
+# OUTSTANDING — "known defect, repair not landed yet" — for a defect that HAS
+# landed and just broke. Once a metric reaches target, any movement off it is
+# new damage, so baseline == target and every deviation renders REGRESSED. The
+# historical figure stays in the comment, where it cannot grade anything.
+#
 # Targets carry the peer-session correction of 2026-08-08: red cards target is
 # 201 total (43 StatCrew reds already correct + 158 recovered SideArm), not 158
 # (see bd memory red-cards-43-and-158-are-disjoint).
@@ -68,10 +77,16 @@ nodes:
       # v: deterministic verdict from now/target/baseline by distance-to-target.
       # Direction-agnostic: works for counts that must fall (phantoms 42->0) and
       # counts that must rise (red cards 43->201, events 22754->22782).
+      # Distance alone cannot tell "still on the way" from "shot past the target on
+      # the far side", and the far side is always damage: 250 red cards is not 79%
+      # of a repair, it is 49 cards that do not exist in the cache. So check the
+      # SIDE first, then the distance.
       v() {
         local now=$1 target=$2 base=$3 dn db
         case "$now" in (*[!0-9]*|"") echo "UNMEASURED"; return;; esac
         if [ "$now" -eq "$target" ]; then echo "OK"; return; fi
+        if   [ "$base" -gt "$target" ] && [ "$now" -lt "$target" ]; then echo "REGRESSED"; return; fi
+        if   [ "$base" -lt "$target" ] && [ "$now" -gt "$target" ]; then echo "REGRESSED"; return; fi
         dn=$(( now - target ));  dn=${dn#-}
         db=$(( base - target )); db=${db#-}
         if [ "$dn" -gt "$db" ]; then echo "REGRESSED"; else echo "OUTSTANDING"; fi
@@ -85,43 +100,70 @@ nodes:
       fi
       echo
       echo "=== VITALS (metric|now|target|verdict) ==="
-      # Games total: 2140 is the pre-repair count; 2098 is the target after the 42
-      # phantom rows are deleted. Any OTHER movement is a regression.
+      # Games total: 2098 since tl-o23 purged the 42 phantoms (was 2140). Baseline
+      # is the target — the purge has landed, so movement in EITHER direction is
+      # new damage: a fall is data loss, a rise is phantoms returning.
       N=$(m "SELECT count(*) FROM games")
-      echo "games total|$N|2098 (2140 until phantoms deleted)|$(v "$N" 2098 2140)"
+      echo "games total|$N|2098|$(v "$N" 2098 2098)"
       # Phantom rows: predicate is NOT IN (season_year, season_year+1) — the naive
-      # != season_year form condemns 79 legitimate COVID-season games.
+      # != season_year form condemns 79 legitimate COVID-season games, and now that
+      # the 42 real phantoms are gone it condemns ONLY those 79. (Pre-repair: 42.)
       N=$(m "SELECT count(*) FROM games WHERE date IS NOT NULL AND extract(year FROM date) NOT IN (season_year, season_year+1)")
-      echo "phantom rows|$N|0|$(v "$N" 0 42)"
+      echo "phantom rows|$N|0|$(v "$N" 0 0)"
+      # Landed in PR #42; pre-repair baseline was 111.
       N=$(m "SELECT count(*) FROM games WHERE date IS NULL")
-      echo "NULL dates|$N|0|$(v "$N" 0 111)"
+      echo "NULL dates|$N|0|$(v "$N" 0 0)"
+      # NOT landed. Baseline is every row unpopulated — 2098 now, not the 2140 of
+      # the pre-purge corpus; the column cannot be NULL on rows that no longer exist.
       N=$(m "SELECT count(*) FROM games WHERE is_conference_game IS NULL")
-      echo "is_conference_game NULL|$N|0|$(v "$N" 0 2140)"
+      echo "is_conference_game NULL|$N|0|$(v "$N" 0 2098)"
       # Red cards: 43 StatCrew reds (Harding) were never wrong; the repair adds 158
       # recovered SideArm reds for a total of 201. The two sets are disjoint.
       N=$(m "SELECT count(*) FROM game_events WHERE event_type='red_card'")
       echo "red cards stored|$N|201 (43 StatCrew + 158 SideArm)|$(v "$N" 201 43)"
       # Home contradictions: the fixture pair must be UNORDERED and gender-aware —
       # grouping by home_team and testing home_team variance silently returns 0
-      # (bd memory never-group-by-the-field-you-test). The 523 baseline is measured
-      # with all 2,140 games dated; 471 applied only when 111 PR #42 games lacked dates.
+      # (bd memory never-group-by-the-field-you-test). Landed in PR #52; pre-repair
+      # baseline was 523 with all games dated, 471 while 111 games still lacked them.
       N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, least(g.home_team,g.away_team), greatest(g.home_team,g.away_team) FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1 AND count(DISTINCT g.home_team)>1) d")
-      echo "two-perspective home contradictions|$N|0 (523, measured with all 2,140 games dated)|$(v "$N" 0 523)"
+      echo "two-perspective home contradictions|$N|0|$(v "$N" 0 0)"
       # Duplicate groups: gender IS part of the key — without it 40 real m/w
-      # fixtures collapse. 138 is the honest current count; 98 after phantoms go.
+      # fixtures collapse. The target is 621 and 621 is HEALTHY: each group is one
+      # fixture scraped from both schools' sites, which is the regression test the
+      # repair exists to create. Do NOT restore the old 98/138 target — 138 was
+      # measured while the two perspectives still DISAGREED on home, so each landed
+      # in its own ordered group; PR #52 made them agree and collapse into one, and
+      # 98 was pre-#52 arithmetic layered on top of that. Graded against 98/138 the
+      # healthy 621 scores dn=523 > db=40 and renders a REGRESSED alarm on a
+      # repaired metric — which is exactly what this board did until 2026-08-09.
       N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, g.home_team, g.away_team FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1) d")
-      echo "duplicate groups (gender-aware)|$N|98 (138 until phantoms deleted)|$(v "$N" 98 138)"
+      echo "duplicate groups, two-perspective pairs|$N|621|$(v "$N" 621 621)"
+      # THIS is the row carrying the duplicate defect, and the total above cannot
+      # express it: a group holding two rows from the SAME school is a true
+      # duplicate; a group holding one row from each of two schools is the healthy
+      # pair. Landed in tl-o23 — 40 before the purge, all 40 phantom-made.
+      N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, g.home_team, g.away_team, count(*) n, count(DISTINCT g.school_id) sc FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1) d WHERE n > sc")
+      echo "  of which same-school (TRUE duplicates)|$N|0|$(v "$N" 0 0)"
       N=$(m "SELECT count(*) FROM (SELECT s.gender, g.date, g.home_team, g.away_team FROM games g JOIN schools s ON s.id=g.school_id WHERE g.date IS NOT NULL GROUP BY 1,2,3,4 HAVING count(*)>1 AND count(DISTINCT coalesce(g.home_score,-1)||':'||coalesce(g.away_score,-1))>1) d")
       echo "score disagreements (gender-aware)|$N|0|$(v "$N" 0 0)"
+      # The 28 events lost to a colliding event id are recovered: 27 were real and
+      # came back under tl-o23/tl-3zm, and the 28th lived inside a phantom game and
+      # was deleted with it. 22460 is the figure all three corpora now agree on
+      # (per-season parquets, merged all/ export, Postgres). The old 22782 target was
+      # 22754 + 28 on the PRE-PURGE corpus, and reads today as 322 events missing.
       N=$(m "SELECT count(*) FROM game_events")
-      echo "events rows|$N|22782 (28 lost at load)|$(v "$N" 22782 22754)"
-      echo
-      echo "=== INFO (no verdict — target is approximate) ==="
-      # Home/away is invented school-centrically: every HU/HUW row claims Harding
-      # is home. Post-repair roughly half of these 337 should. No exact target
-      # exists yet, so this row carries no computed verdict.
+      echo "events rows|$N|22460|$(v "$N" 22460 22460)"
+      # The other two corpus counts, so a bad reload cannot pass while games look right.
+      N=$(m "SELECT count(*) FROM player_game_stats")
+      echo "player stat rows|$N|75982|$(v "$N" 75982 75982)"
+      N=$(m "SELECT count(*) FROM team_game_stats")
+      echo "team stat rows|$N|4196|$(v "$N" 4196 4196)"
+      # Home/away was invented school-centrically: all 337 of Harding's rows claimed
+      # Harding was home. PR #52 derives it from the source venue city instead, and
+      # the measured result is 164 of 337 — an exact figure, not "roughly half", so
+      # this row now carries a computed verdict like any other landed repair.
       N=$(m "SELECT count(*) FROM games g JOIN schools s ON s.id=g.school_id WHERE s.abbreviation IN ('HU','HUW') AND g.home_team='Harding'")
-      echo "HU+HUW rows claiming Harding home|$N|roughly half of 337 (337 = unrepaired)"
+      echo "HU+HUW rows claiming Harding home|$N|164 of 337|$(v "$N" 164 164)"
 
   - id: compose
     depends_on: [measure]
@@ -160,8 +202,13 @@ nodes:
       - If anything is REGRESSED or UNMEASURED: an alarm section FIRST naming it.
       - Then the vitals table: metric | now | target | verdict, one row each,
         with the row tone following its verdict.
-      - Then the INFO row(s) in a small separate section, clearly marked as
-        having no computed verdict.
+      - Two rows need a word of context or they read backwards. "duplicate
+        groups, two-perspective pairs" at 621 is HEALTHY — each group is one
+        fixture scraped from both schools' sites, and the row beneath it,
+        same-school TRUE duplicates, is the one that carries the defect. And
+        "red cards stored" is OUTSTANDING at 43 because the 158 SideArm cards
+        are still filed as yellow; 43 is not a shortfall in the repair, it is
+        the untouched StatCrew set the repair adds to.
       - Include a "measured at" line carrying the AS OF timestamp from the
         measurement — the card's own clock tracks when the board last changed,
         not when it was last measured, so the board must say this itself.

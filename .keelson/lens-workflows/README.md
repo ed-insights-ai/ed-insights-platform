@@ -15,7 +15,22 @@ Contributions are collected at startup, so after adding or editing one:
 
 ```bash
 keelson workflow status          # check nothing is mid-run — a restart CANCELS running workflows
+cp .keelson/lens-workflows/vitals.yml ~/.keelson/rib-chamber/lens-workflows/vitals.yml
 keelson stop && keelson start
+```
+
+**The copy is the deploy — a restart alone does nothing.** Nothing syncs these two paths and
+nothing warns you when they disagree, so each can silently run ahead of the other. On
+2026-08-09 both had: the deployed copy carried a duplicate-groups target the repo copy never
+received, while the repo copy carried an events target the deployed copy never received, and
+the board had been grading the *repaired* event count against the pre-repair target — emitting
+a REGRESSED alarm on finished work. Editing the repo file and restarting *feels* like fixing
+the instrument and changes nothing about what is actually grading the data.
+
+So before trusting a board, confirm the two agree:
+
+```bash
+diff .keelson/lens-workflows/vitals.yml ~/.keelson/rib-chamber/lens-workflows/vitals.yml
 ```
 
 They live in the repo so they survive the machine, and so a change to one shows up in review
