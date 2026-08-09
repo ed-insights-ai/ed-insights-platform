@@ -317,36 +317,51 @@ def _parse_scoring_summary(
 
 
 def _parse_cautions_table(
-    df: pd.DataFrame,
+    html: str,
     game_id: int,
     season_year: int,
     abbrev_to_name: dict[str, str],
 ) -> list[GameEvent]:
-    """Table 2 — cautions/ejections (shifted columns: NaN | Time | Team | Type | Player)."""
+    """Parse cautions/ejections whose card type is encoded in a CSS class."""
     events: list[GameEvent] = []
+    soup = BeautifulSoup(html, "html.parser")
 
-    for _, row in df.iterrows():
-        # The SideArm cautions table has columns [Time, Team, Type, Player]
-        # but Time is NaN and the actual time is in column index 1
-        # Layout: [NaN, "32:15", "OBU", "#9 Nael Shalabi"]
-        # — but pandas sees: Time=NaN, Team="32:15", Type="OBU", Player="#9 Nael..."
-        clock = str(row.iloc[1]).strip()
+    for type_cell in soup.find_all("td", class_="penalty-type"):
+        row = type_cell.find_parent("tr")
+        if row is None:
+            logger.warning("Card type cell is not inside a table row for game %s", game_id)
+            continue
+
+        cells = row.find_all("td")
+        if len(cells) != 4:
+            logger.warning(
+                "Expected 4 cells in card row for game %s, found %s",
+                game_id,
+                len(cells),
+            )
+            continue
+
+        clock = cells[1].get_text(strip=True)
         if not re.match(r"^\d+:\d+$", clock):
             continue
 
-        team_abbrev = str(row.iloc[2]).strip()
+        team_abbrev = cells[2].get_text(strip=True)
         team_name = abbrev_to_name.get(team_abbrev, team_abbrev)
 
-        player_raw = str(row.iloc[3]).strip()
+        player_raw = cells[3].get_text(strip=True)
         # Strip jersey prefix: "#9 Nael Shalabi" → "Nael Shalabi"
         player_name = re.sub(r"^#\d+\s+", "", player_raw).strip()
 
-        # All entries in this table are yellow cards unless marked otherwise
+        event_type = (
+            "red_card"
+            if "red" in type_cell.get("class", [])
+            else "yellow_card"
+        )
         events.append(
             GameEvent(
                 game_id=game_id,
                 season_year=season_year,
-                event_type="yellow_card",
+                event_type=event_type,
                 clock=clock,
                 team=team_name,
                 player=player_name,
@@ -573,9 +588,7 @@ def parse_sidearm_game(
         goal_events = _parse_scoring_summary(classified["scoring_summary"], game_id, season_year, abbrev_to_name)
 
     # Cautions → card events (may be absent in older layouts)
-    card_events: list[GameEvent] = []
-    if classified["cautions"] is not None:
-        card_events = _parse_cautions_table(classified["cautions"], game_id, season_year, abbrev_to_name)
+    card_events = _parse_cautions_table(html, game_id, season_year, abbrev_to_name)
 
     events = goal_events + card_events
 
