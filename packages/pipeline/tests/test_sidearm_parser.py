@@ -209,6 +209,11 @@ class TestHomeAwayDetection:
         metadata = _parse_header_metadata(html)
         assert metadata["is_home"] is True
 
+    def test_site_is_extracted(self):
+        html = FIXTURE_2016.read_text(encoding="utf-8")
+        metadata = _parse_header_metadata(html)
+        assert metadata["venue"] == "Arkadelphia, Ark."
+
     def test_home_away_sidearm_swap(self):
         """When school is away (title has 'at'), home/away fields are swapped."""
         html = FIXTURE.read_text(encoding="utf-8")

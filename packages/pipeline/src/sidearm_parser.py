@@ -377,6 +377,14 @@ def _parse_header_metadata(html: str) -> dict:
     if att_match:
         metadata["attendance"] = int(att_match.group(1))
 
+    for label in soup.find_all("dt"):
+        if label.get_text(strip=True).rstrip(":").casefold() != "site":
+            continue
+        value = label.find_next_sibling("dd")
+        if value:
+            metadata["venue"] = value.get_text(" ", strip=True) or None
+        break
+
     return metadata
 
 
