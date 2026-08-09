@@ -187,6 +187,31 @@ def test_merge_all_schools_filters_unconfigured_ordinals(tmp_path, monkeypatch):
     assert games["game_id"].tolist() == [2_202_401]
 
 
+def test_merge_all_schools_uses_selected_config(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config = tmp_path / "custom-schools.toml"
+    config.write_text(
+        """
+[[schools]]
+name = "Custom School"
+abbreviation = "CUSTOM"
+ordinal = 42
+""",
+        encoding="utf-8",
+    )
+    school_all = tmp_path / "data" / "structured" / "custom" / "all"
+    school_all.mkdir(parents=True)
+    pd.DataFrame({"game_id": [2_202_401, 42_202_401]}).to_parquet(
+        school_all / "games.parquet",
+        index=False,
+    )
+
+    out = merge_all_schools(config=config)
+    games = pd.read_parquet(out / "games.parquet")
+
+    assert games["game_id"].tolist() == [42_202_401]
+
+
 def test_merge_all_schools_ignores_non_numeric_season_dirs(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     school_dir = tmp_path / "data" / "structured" / "fhsu"

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.config import load_schools
+from src.config import DEFAULT_CONFIG, load_schools
 
 logger = logging.getLogger(__name__)
 
@@ -125,13 +125,13 @@ def merge_all_seasons(years: list[int] | None = None, school_abbrev: str = "") -
     return out
 
 
-def merge_all_schools() -> Path:
+def merge_all_schools(config: str | Path = DEFAULT_CONFIG) -> Path:
     """Merge parquets across all schools into ``data/structured/all/``."""
     out = Path("data/structured/all")
     out.mkdir(parents=True, exist_ok=True)
 
     base = Path("data/structured")
-    configured_ordinals = {school.ordinal for school in load_schools()}
+    configured_ordinals = {school.ordinal for school in load_schools(config)}
     for kind in ("games", "player_stats", "events", "team_stats"):
         frames: list[pd.DataFrame] = []
         # Walk school dirs (skip 'all' dir)
