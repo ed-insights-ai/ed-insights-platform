@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from src.models import Game, GameEvent, PlayerGameStats, TeamGameStats
-from src.storage import merge_all_seasons, save_season
+from src.storage import merge_all_schools, merge_all_seasons, save_season
 
 
 def _fake_parsed_game(year: int = 2099) -> dict:
@@ -157,3 +157,40 @@ def test_merge_preserves_identical_same_clock_events(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     _assert_events_survive_save_and_merge(tmp_path, ["Header", "Header"])
+
+
+def test_merge_all_schools_filters_unconfigured_ordinals(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    school_all = tmp_path / "data" / "structured" / "retired" / "all"
+    school_all.mkdir(parents=True)
+    pd.DataFrame({"game_id": [2_202_401, 17_202_401]}).to_parquet(
+        school_all / "games.parquet",
+        index=False,
+    )
+
+    out = merge_all_schools()
+    games = pd.read_parquet(out / "games.parquet")
+
+    assert games["game_id"].tolist() == [2_202_401]
+
+
+def test_merge_all_schools_ignores_non_numeric_season_dirs(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    school_dir = tmp_path / "data" / "structured" / "fhsu"
+    numeric_dir = school_dir / "2024"
+    numeric_dir.mkdir(parents=True)
+    pd.DataFrame({"game_id": [2_202_401]}).to_parquet(
+        numeric_dir / "games.parquet",
+        index=False,
+    )
+    non_numeric_dir = school_dir / "2020-21"
+    non_numeric_dir.mkdir()
+    pd.DataFrame({"game_id": [2_202_402]}).to_parquet(
+        non_numeric_dir / "games.parquet",
+        index=False,
+    )
+
+    out = merge_all_schools()
+    games = pd.read_parquet(out / "games.parquet")
+
+    assert games["game_id"].tolist() == [2_202_401]

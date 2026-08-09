@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.config import load_schools
+
 logger = logging.getLogger(__name__)
 
 
@@ -126,6 +128,7 @@ def merge_all_schools() -> Path:
     out.mkdir(parents=True, exist_ok=True)
 
     base = Path("data/structured")
+    configured_ordinals = {school.ordinal for school in load_schools()}
     for kind in ("games", "player_stats", "events", "team_stats"):
         frames: list[pd.DataFrame] = []
         # Walk school dirs (skip 'all' dir)
@@ -138,12 +141,14 @@ def merge_all_schools() -> Path:
             else:
                 # Fallback: gather per-year files
                 for year_dir in sorted(school_dir.iterdir()):
-                    if year_dir.is_dir() and year_dir.name != "all":
+                    if year_dir.is_dir() and year_dir.name != "all" and year_dir.name.isdigit():
                         path = year_dir / f"{kind}.parquet"
                         if path.exists():
                             frames.append(pd.read_parquet(path))
         if frames:
             merged = pd.concat(frames, ignore_index=True)
+            ordinals = merged["game_id"] // 1_000_000
+            merged = merged.loc[ordinals.isin(configured_ordinals)].copy()
             if kind == "events":
                 merged["event_id"] = _assign_event_ids(merged)
                 merged = merged.drop_duplicates(subset=["event_id"])
