@@ -4,7 +4,7 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-23/89 tasks complete · **27 actionable now** · 39 blocked · 0 in progress · **19 days** to the season (2026-08-27)
+24/89 tasks complete · **26 actionable now** · 39 blocked · 0 in progress · **19 days** to the season (2026-08-27)
 
 ## Pick up next
 
@@ -13,7 +13,7 @@ Nothing blocks these. Highest priority first.
 | | Issue | Task | Phase |
 |---|---|---|---|
 | P0 | `tl-2tc` | Conference-membership windows table — per institution, per season | — |
-| P0 | `tl-3zm` | Purge 712 retired-ordinal rows from exported parquets (gh-27) ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27)) | S0.5 |
+| P0 | `tl-3zm` | Recover the 28 events lost to id collisions (gh-27) — ordinal purge already done ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27)) | S0.5 |
 | P0 | `tl-4nx` | GATE — validate --year 2026 against live schedule pages for all 13 programmes | S4 |
 | P0 | `tl-65z.7` | A detector for a wrong is_conference_game backfill | Instrument |
 | P0 | `tl-71j` | Package skeleton from keelson-rib-workiq | S1 |
@@ -25,8 +25,8 @@ Nothing blocks these. Highest priority first.
 | P1 | `tl-5vr.2` | Triage 21 unreconciled roster-attribution games | S0.5 |
 | P1 | `tl-65z.8` | Correct seven smaller check defects | Instrument |
 | P1 | `tl-7xj` | bead-land: close the cycle at merge — close the bead, sync, re-emit both lenses | — |
-| P1 | `tl-cuw` | keelson workflow status freezes its node list after a gate resume — healthy runs look hung ([#keelson-811](https://github.com/ed-insights-ai/ed-insights-platform/issues/keelson-811)) | — |
-| | | *…and 13 more* | |
+| P1 | `tl-vf2` | Unify the five inconsistent team matchers (gh-15, widened) ([#15](https://github.com/ed-insights-ai/ed-insights-platform/issues/15)) | API |
+| | | *…and 12 more* | |
 
 ```bash
 bd ready --exclude-type=epic   # the live version of this table
@@ -80,7 +80,7 @@ The destructive defects, and the ones that make a run lie about its own success.
 The numbers in ed_insights are true; the labels are wrong. Ground-truth validation established 2,140/2,140 games re-parse exactly and 493/493 fixtures agree on score across two unrelated websites — but home/away, roster attribution and card type are fabricated or inverted. All of it is repairable offline from the 1.1 GB of cached HTML already on disk. No re-scrape required.
 
 - [x] `tl-37d` **P0** Fix SideArm rosters labelled with each other's team in 723 games (gh-21) ([#21](https://github.com/ed-insights-ai/ed-insights-platform/issues/21))
-- [ ] `tl-3zm` **P0** Purge 712 retired-ordinal rows from exported parquets (gh-27) ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27))
+- [ ] `tl-3zm` **P0** Recover the 28 events lost to id collisions (gh-27) — ordinal purge already done ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27))
 - [ ] `tl-4ix` **P0** Backfill is_conference_game — gender-aware and season-aware — *blocked by `tl-2tc`*
 - [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-65z.7`, `tl-09k`, `tl-o23`, `tl-ce3`, `tl-qbg`, `tl-dse`, `tl-3zm`, `tl-4ix`*
 - [x] `tl-5vr.1` **P0** Widen the ground-truth harness before it measures the repair
@@ -234,6 +234,7 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 - [x] `tl-at3` data-vitals living lens — repair burn-down measured live · *—*
 - [x] `tl-ath` Build the authoritative opponent-string identity map (canon.json) · *S0.5*
 - [x] `tl-bbu` Migration 005 deletes all data in both directions, and runs on every start (gh-19) · *S0*
+- [x] `tl-cuw` keelson CLI does not flush stdout: piped output truncates at the 64 KiB pipe buffer · *—*
 - [x] `tl-da9` Close the preseason blind spot in the season assertion · *S0.5*
 - [x] `tl-fwn` The 471 home-contradiction figure is stale and is being mislabelled a regression · *—*
 - [x] `tl-gnu` The caution Type column at sidearm_parser.py:339-348 · *S9*
