@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 scrape = "scripts.scrape:main"
+reparse = "scripts.reparse:main"
 load-db = "scripts.load_db:main"
 export = "scripts.export:main"
 audit = "scripts.audit:main"

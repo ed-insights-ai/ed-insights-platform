@@ -2,11 +2,11 @@ name: data-integrity
 description: |
   Use when: you need to know which numbers in ed_insights are currently trustworthy — before believing a report, and before and after any data repair.
   Triggers: "data integrity", "check the data", "is the data right", "integrity report", "did the repair work".
-  Does: runs eleven deterministic read-only checks against the live Postgres and the parquet archive in parallel, then prints one report with a per-check verdict and the file:line that causes each failure.
+  Does: rebuilds the ignored parquet archive offline, runs eleven deterministic read-only checks against it and live Postgres, then prints one report with a per-check verdict and the file:line that causes each failure.
   NOT for: repairing anything (this never writes), scraping, or judging code quality.
 
 requiresProject: true
-mutates_checkout: false
+mutates_checkout: true
 tags: [data, integrity, soccer]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -309,7 +309,7 @@ nodes:
 
   # ── 9. Archive vs database agreement ────────────────────────────────────
   - id: archive
-    timeout: 120000
+    timeout: 300000
     bash: |
       set -uo pipefail
       DB=$(psql -U lume -d ed_insights -At -c "SELECT count(*) FROM games" 2>/dev/null)
@@ -318,6 +318,11 @@ nodes:
       # whichever not-run headline fires below.
       DBHALF="unavailable — psql returned nothing"
       [ -n "${DB:-}" ] && DBHALF="$DB games in ed_insights"
+      (cd packages/pipeline && uv run reparse >/dev/null 2>&1); REPARSE_RC=$?
+      if [ "$REPARSE_RC" -ne 0 ]; then
+        printf '{"check":"archive","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — uv run reparse exited %s under packages/pipeline, so no regenerated export exists to compare. Database half: %s.","cause":"reparse stderr is discarded here — run uv run reparse from packages/pipeline to expose a missing source-URL mapping, unreadable cached page, parser failure, or broken uv environment."}\n' "$REPARSE_RC" "$DBHALF"
+        exit 0
+      fi
       # One line deliberately: a multi-line heredoc here would break out of the
       # YAML block scalar at column 1 and silently unregister this workflow.
       # Print the number of MATCHED FILES alongside the row sum. sum([]) is 0, so a glob
@@ -452,10 +457,16 @@ nodes:
 
   # ── 10. Merged export staleness ──────────────────────────────────────────
   - id: export-staleness
-    timeout: 120000
+    timeout: 300000
+    depends_on: [archive]
     bash: |
       set -uo pipefail
       DB=$(psql -U lume -d ed_insights -At -c "SELECT count(*) FROM games" 2>/dev/null); DBRC=$?
+      (cd packages/pipeline && uv run reparse >/dev/null 2>&1); REPARSE_RC=$?
+      if [ "$REPARSE_RC" -ne 0 ]; then
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — uv run reparse exited %s under packages/pipeline, so no regenerated merged export exists. Database half returned %s games.","cause":"reparse stderr is discarded here — run uv run reparse from packages/pipeline to expose a missing source-URL mapping, unreadable cached page, parser failure, or broken uv environment."}\n' "$REPARSE_RC" "${DB:-unavailable}"
+        exit 0
+      fi
       PY='import pandas as pd; g=pd.read_parquet("data/structured/all/games.parquet",columns=["game_id"]); p=pd.read_parquet("data/structured/all/player_stats.parquet",columns=["game_id"]); print(len(g),int(((g["game_id"]//1000000)>14).sum()),len(p),int(((p["game_id"]//1000000)>14).sum()))'
       PQRAW=$( (cd packages/pipeline && uv run python -c "$PY") 2>/dev/null ); PQRC=$?
       if [ "$DBRC" -ne 0 ] || [ -z "${DB:-}" ]; then

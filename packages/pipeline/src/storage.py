@@ -41,7 +41,13 @@ def _assign_event_ids(events: pd.DataFrame) -> pd.Series:
     return raw_ids.map(lambda raw: hashlib.sha1(raw.encode("utf-8")).hexdigest())
 
 
-def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") -> Path:
+def save_season(
+    parsed_games: list[dict],
+    year: int,
+    school_abbrev: str = "",
+    *,
+    structured_root: str | Path = Path("data/structured"),
+) -> Path:
     """Write ``games.parquet``, ``player_stats.parquet``, ``events.parquet`` for *year*.
 
     When *school_abbrev* is provided, output is namespaced under
@@ -49,10 +55,11 @@ def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") ->
 
     Returns the output directory path.
     """
+    base = Path(structured_root)
     if school_abbrev:
-        out = Path("data/structured") / school_abbrev.lower() / str(year)
+        out = base / school_abbrev.lower() / str(year)
     else:
-        out = Path("data/structured") / str(year)
+        out = base / str(year)
     out.mkdir(parents=True, exist_ok=True)
 
     games = [asdict(g["game"]) for g in parsed_games]
@@ -84,7 +91,12 @@ def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") ->
     return out
 
 
-def merge_all_seasons(years: list[int] | None = None, school_abbrev: str = "") -> Path:
+def merge_all_seasons(
+    years: list[int] | None = None,
+    school_abbrev: str = "",
+    *,
+    structured_root: str | Path = Path("data/structured"),
+) -> Path:
     """Read all on-disk season parquets, concatenate, and write merged files.
 
     When *school_abbrev* is provided, reads from ``data/structured/{abbrev}/{year}/``
@@ -94,11 +106,12 @@ def merge_all_seasons(years: list[int] | None = None, school_abbrev: str = "") -
     directory on disk is included so updating one season cannot truncate the
     merged archive.
     """
+    structured_root = Path(structured_root)
     if school_abbrev:
-        base = Path("data/structured") / school_abbrev.lower()
+        base = structured_root / school_abbrev.lower()
         out = base / "all"
     else:
-        base = Path("data/structured")
+        base = structured_root
         out = base / "all"
     out.mkdir(parents=True, exist_ok=True)
 
@@ -125,12 +138,16 @@ def merge_all_seasons(years: list[int] | None = None, school_abbrev: str = "") -
     return out
 
 
-def merge_all_schools(config: str | Path = DEFAULT_CONFIG) -> Path:
+def merge_all_schools(
+    config: str | Path = DEFAULT_CONFIG,
+    *,
+    structured_root: str | Path = Path("data/structured"),
+) -> Path:
     """Merge parquets across all schools into ``data/structured/all/``."""
-    out = Path("data/structured/all")
+    base = Path(structured_root)
+    out = base / "all"
     out.mkdir(parents=True, exist_ok=True)
 
-    base = Path("data/structured")
     configured_ordinals = {school.ordinal for school in load_schools(config)}
     for kind in ("games", "player_stats", "events", "team_stats"):
         frames: list[pd.DataFrame] = []

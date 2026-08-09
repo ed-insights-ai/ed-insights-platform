@@ -24,13 +24,16 @@ analyzing, and visualizing collegiate athletic data.
 # 1. One-time setup (installs deps, creates .env)
 make setup
 
-# 2. Start all services
+# 2. Rebuild parquet data offline from the committed HTML archive
+make data
+
+# 3. Start all services
 make up
 
-# 3. Load data from parquet files into Postgres
+# 4. Load data from parquet files into Postgres
 make seed
 
-# 4. Verify everything works
+# 5. Verify everything works
 make check
 
 # Open:
@@ -46,9 +49,10 @@ Run `make help` to see all targets. Key ones:
 | Target | Description |
 |--------|-------------|
 | `make setup` | One-time project setup (deps, env, symlinks) |
+| `make data` | Rebuild ignored parquets offline from committed HTML |
 | `make up` | Start all services in Docker |
 | `make dev` | Start db + api in Docker, web locally with hot reload |
-| `make seed` | Load parquet data into Postgres |
+| `make seed` | Load parquets into Postgres, rebuilding them first if absent |
 | `make down` | Stop all services |
 | `make reset` | Tear down (including volumes) and restart |
 | `make lint` | Run linters (web + api + pipeline) |

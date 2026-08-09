@@ -1,4 +1,4 @@
-.PHONY: help setup up down dev logs ps reset migrate seed test lint check
+.PHONY: help setup up down dev logs ps reset migrate data seed test lint check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -40,7 +40,13 @@ reset: ## Tear down (including volumes) and restart
 migrate: ## Run Alembic migrations inside the API container
 	docker compose exec api uv run alembic upgrade head
 
-seed: ## Load parquet data into Postgres
+data: ## Rebuild parquet data offline from the cached HTML archive
+	cd packages/pipeline && uv run reparse
+
+packages/pipeline/data/structured/.reparse-complete:
+	$(MAKE) data
+
+seed: packages/pipeline/data/structured/.reparse-complete ## Load parquet data into Postgres
 	cd packages/pipeline && uv run load-db
 
 # ---------------------------------------------------------------------------

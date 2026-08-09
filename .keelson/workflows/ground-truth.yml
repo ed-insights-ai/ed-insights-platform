@@ -2,11 +2,11 @@ name: ground-truth
 description: |
   Use when: you need to know whether what Postgres holds actually matches what the source box score said — before building a season-long system on it, and after any parser, loader or scraper change.
   Triggers: "ground truth", "is the data true", "source fidelity", "does the DB match the HTML", "did the parser fix work", "re-parse check".
-  Does: runs thirteen deterministic read-only checks against the cached box-score HTML, the parquet archive and the live Postgres, then prints one report with a per-check verdict and the file:line that causes each failure. Covers both men's and women's programmes.
-  NOT for: internal consistency (that is data-integrity.yml), repairing anything (this never writes), scraping, or anything that touches the network.
+  Does: rebuilds the ignored parquet archive offline, runs thirteen deterministic read-only checks against cached box-score HTML, parquets and live Postgres, then prints one report with a per-check verdict and the file:line that causes each failure. Covers both men's and women's programmes.
+  NOT for: internal consistency (that is data-integrity.yml), repairing source data, scraping, or anything that touches the network.
 
 requiresProject: true
-mutates_checkout: false
+mutates_checkout: true
 tags: [data, fidelity, source-of-truth, soccer]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1450,6 +1450,15 @@ nodes:
       DBGAMES=$(Q "SELECT count(*) FROM games")
       DBEVENTS=$(Q "SELECT count(*) FROM game_events")
       DBPLAYERS=$(Q "SELECT count(*) FROM player_game_stats")
+      DBHALF="unavailable — one or more psql counts returned nothing"
+      if [ -n "$DBGAMES" ] && [ -n "$DBEVENTS" ] && [ -n "$DBPLAYERS" ]; then
+        DBHALF="$DBGAMES games / $DBPLAYERS player stats / $DBEVENTS events"
+      fi
+      (cd packages/pipeline && uv run reparse >/dev/null 2>&1); REPARSE_RC=$?
+      if [ "$REPARSE_RC" -ne 0 ]; then
+        printf '{"check":"export-staleness","verdict":"alarm","headline":"PARQUET HALF DID NOT RUN — uv run reparse exited %s under packages/pipeline, so no regenerated export exists to measure. Database half: %s.","cause":"reparse stderr is discarded here — run uv run reparse from packages/pipeline to expose a missing source-URL mapping, unreadable cached page, parser failure, or broken uv environment."}\n' "$REPARSE_RC" "$DBHALF"
+        exit 0
+      fi
       # Fields 7/8/9 are the number of parquet FILES each glob matched. They exist
       # only to guard fields 4/5/6: `sum(...)` over an empty glob is 0, and a
       # missing export therefore claims "per-season parquet 0 games / 0 players /
