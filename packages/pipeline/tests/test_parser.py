@@ -67,3 +67,40 @@ def test_parse_game_header_textual_date_venue_fallback():
     )
 
     assert metadata["venue"] == "Tahlequah, Okla."
+
+
+def test_statcrew_venue_places_harding_away_and_keeps_scores_aligned():
+    html = Path("data/raw_html/hu/2025/game_09.html").read_text(encoding="utf-8")
+    result = parse_game(
+        html,
+        game_id=1202509,
+        source_url="http://test",
+        season_year=2025,
+        school_name="Harding",
+    )
+    game = result["game"]
+
+    assert game.home_team == "Northeastern St."
+    assert game.away_team == "Harding"
+    assert game.home_score == 1
+    assert game.away_score == 0
+    assert game.neutral_site is False
+    assert result["home_away_resolution"] == "venue-city-unmatched"
+
+
+def test_statcrew_venue_overrides_order_when_harding_is_home():
+    html = Path("data/raw_html/hu/2024/game_18.html").read_text(encoding="utf-8")
+    result = parse_game(
+        html,
+        game_id=1202418,
+        source_url="http://test",
+        season_year=2024,
+        school_name="Harding",
+    )
+    game = result["game"]
+
+    assert game.home_team == "Harding"
+    assert game.away_team == "Northeastern St."
+    assert game.home_score == 3
+    assert game.away_score == 5
+    assert result["home_away_resolution"] == "resolved-by-venue"
