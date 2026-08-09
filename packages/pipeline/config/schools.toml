@@ -41,7 +41,8 @@ gender       = "men"
 ordinal      = 2
 prefix       = "fhsu"
 base_url     = "https://fhsuathletics.com/sports/mens-soccer"
-years        = [2019, 2020, 2021, 2022, 2023, 2024, 2025]
+# The COVID season uses slug 2020-21, which int-only discovery cannot request.
+years        = [2019, 2021, 2022, 2023, 2024, 2025]
 scraper      = "sidearm"
 data_status  = "verified"
 enabled      = true
@@ -84,7 +85,8 @@ gender       = "men"
 ordinal      = 5
 prefix       = "obu"
 base_url     = "https://obutigers.com/sports/mens-soccer"
-years        = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+# The COVID season uses slug 2020-21, which int-only discovery cannot request.
+years        = [2016, 2017, 2018, 2019, 2021, 2022, 2023, 2024, 2025]
 scraper      = "sidearm"
 data_status  = "verified"
 enabled      = true
