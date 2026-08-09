@@ -150,8 +150,9 @@ def merge_all_schools(config: str | Path = DEFAULT_CONFIG) -> Path:
                             frames.append(pd.read_parquet(path))
         if frames:
             merged = pd.concat(frames, ignore_index=True)
-            ordinals = merged["game_id"] // 1_000_000
-            merged = merged.loc[ordinals.isin(configured_ordinals)].copy()
+            if not merged.empty:
+                ordinals = merged["game_id"] // 1_000_000
+                merged = merged.loc[ordinals.isin(configured_ordinals)].copy()
             if kind == "events":
                 merged["event_id"] = _assign_event_ids(merged)
                 merged = merged.drop_duplicates(subset=["event_id"])

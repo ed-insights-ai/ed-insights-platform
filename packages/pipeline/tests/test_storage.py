@@ -212,6 +212,20 @@ ordinal = 42
     assert games["game_id"].tolist() == [42_202_401]
 
 
+def test_merge_all_schools_handles_empty_events(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    parsed_game = _fake_parsed_game(2024)
+    parsed_game["events"] = []
+    save_season([parsed_game], 2024, school_abbrev="FHSU")
+    merge_all_seasons(school_abbrev="FHSU")
+
+    out = merge_all_schools()
+    events = pd.read_parquet(out / "events.parquet")
+
+    assert events.empty
+    assert "event_id" in events.columns
+
+
 def test_merge_all_schools_ignores_non_numeric_season_dirs(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     school_dir = tmp_path / "data" / "structured" / "fhsu"
