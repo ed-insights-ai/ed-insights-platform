@@ -19,6 +19,7 @@ from src.sidearm_parser import (
 
 FIXTURE = Path("tests/fixtures/sidearm_boxscore_6126.html")
 FIXTURE_2016 = Path("tests/fixtures/sidearm_boxscore_2439_2016.html")
+FIXTURE_DIR = Path("tests/fixtures")
 
 
 @pytest.fixture
@@ -57,10 +58,10 @@ class TestParseGame:
         game = parsed_game["game"]
         assert game.game_id == 302501
         assert game.season_year == 2025
-        assert game.home_team == "Ouachita Baptist"
-        assert game.away_team == "Harding"
-        assert game.home_score == 2
-        assert game.away_score == 1
+        assert game.home_team == "Harding"
+        assert game.away_team == "Ouachita Baptist"
+        assert game.home_score == 1
+        assert game.away_score == 2
         assert game.date == "10/16/2025"
 
     def test_player_stats_count(self, parsed_game):
@@ -106,19 +107,19 @@ class TestParseGame:
         home = next(t for t in team_stats if t.is_home)
         away = next(t for t in team_stats if not t.is_home)
 
-        assert home.team == "Ouachita Baptist"
-        assert home.shots == 9
-        assert home.shots_on_goal == 4
-        assert home.corners == 3
-        assert home.saves == 5
-        assert home.goals == 2
+        assert home.team == "Harding"
+        assert home.shots == 15
+        assert home.shots_on_goal == 6
+        assert home.corners == 2
+        assert home.saves == 2
+        assert home.goals == 1
 
-        assert away.team == "Harding"
-        assert away.shots == 15
-        assert away.shots_on_goal == 6
-        assert away.corners == 2
-        assert away.saves == 2
-        assert away.goals == 1
+        assert away.team == "Ouachita Baptist"
+        assert away.shots == 9
+        assert away.shots_on_goal == 4
+        assert away.corners == 3
+        assert away.saves == 5
+        assert away.goals == 2
 
     def test_goal_events(self, parsed_game):
         goals = [e for e in parsed_game["events"] if e.event_type == "goal"]
@@ -167,8 +168,8 @@ class TestParseGame2016:
         assert game.game_id == 320160
         assert game.season_year == 2016
         assert game.date == "9/6/2016"
-        assert game.home_score == 0
-        assert game.away_score == 2
+        assert game.home_score == 2
+        assert game.away_score == 0
 
     def test_teams_identified(self, parsed_game_2016):
         game = parsed_game_2016["game"]
@@ -202,40 +203,62 @@ class TestParseGame2016:
 
 
 class TestHomeAwayDetection:
-    """Test home/away detection using title 'vs'/'at' keywords."""
+    """Test venue-derived home/away detection."""
 
     def test_vs_keyword_means_home(self):
         html = FIXTURE.read_text(encoding="utf-8")
         metadata = _parse_header_metadata(html)
         assert metadata["is_home"] is True
 
-    def test_home_away_sidearm_swap(self):
-        """When school is away (title has 'at'), home/away fields are swapped."""
+    def test_site_is_extracted(self):
+        html = FIXTURE_2016.read_text(encoding="utf-8")
+        metadata = _parse_header_metadata(html)
+        assert metadata["venue"] == "Arkadelphia, Ark."
+
+    def test_missing_venue_uses_away_then_home_row_order(self):
         html = FIXTURE.read_text(encoding="utf-8")
-        # The fixture title is "Men's Soccer vs Harding" from OBU's site.
-        # If we say the school is Harding (who is away), the parser should
-        # NOT swap because Harding is already listed as away_team.
         result = parse_sidearm_game(
             html, game_id=302501, source_url="http://test/6126", season_year=2025,
             school_abbrev="HU", school_name="Harding",
         )
-        # Title says "vs" so is_home=True, but school_name="Harding" matches away_team,
-        # so parser should swap: Harding becomes home, OBU becomes away.
         game = result["game"]
         assert game.home_team == "Harding"
         assert game.away_team == "Ouachita Baptist"
+        assert result["home_away_resolution"] == "resolved-by-order-fallback"
 
-    def test_home_away_no_swap_when_correct(self):
-        """When school is already correctly listed as home, no swap occurs."""
+    def test_missing_venue_does_not_force_scraping_school_home(self):
         html = FIXTURE.read_text(encoding="utf-8")
-        # OBU is already listed as home, and title says "vs" (home), so no swap needed.
         result = parse_sidearm_game(
             html, game_id=302501, source_url="http://test/6126", season_year=2025,
             school_abbrev="OBU", school_name="Ouachita Baptist",
         )
         game = result["game"]
-        assert game.home_team == "Ouachita Baptist"
-        assert game.away_team == "Harding"
+        assert game.home_team == "Harding"
+        assert game.away_team == "Ouachita Baptist"
+
+    @pytest.mark.parametrize(
+        ("filename", "expected_home", "expected_away"),
+        [
+            ("sidearm_ecu_home.html", "East Central", "Oklahoma Christian"),
+            ("sidearm_ecu_away.html", "Rogers State", "East Central"),
+        ],
+    )
+    def test_venue_resolves_ecu_home_and_away(
+        self, filename, expected_home, expected_away
+    ):
+        html = (FIXTURE_DIR / filename).read_text(encoding="utf-8")
+        result = parse_sidearm_game(
+            html,
+            game_id=320160,
+            source_url="http://test",
+            season_year=2016,
+            school_abbrev="ECU",
+            school_name="East Central",
+        )
+
+        assert result["game"].home_team == expected_home
+        assert result["game"].away_team == expected_away
+        assert result["home_away_resolution"] == "resolved-by-venue"
 
     def test_swap_relabels_player_rosters(self):
         """Regression (gh-21): the swap must reorder the player tables too.

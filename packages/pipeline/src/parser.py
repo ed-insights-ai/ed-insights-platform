@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
 
+from src.home_cities import resolve_home_away, team_home_city
 from src.models import Game, GameEvent, PlayerGameStats, TeamGameStats
 
 logger = logging.getLogger(__name__)
@@ -866,16 +867,59 @@ def parse_game(
 
     events.sort(key=lambda e: _clock_to_seconds(e.clock))
 
-    # 5. Score
-    home_team = score_info.get("team1") or metadata.get("home_team") or "Unknown"
-    away_team = score_info.get("team2") or metadata.get("away_team") or "Unknown"
-    home_score = score_info.get("team1_score", 0)
-    away_score = score_info.get("team2_score", 0)
+    # 5. Score — StatCrew lists Away vs Home.
+    team1 = score_info.get("team1")
+    team2 = score_info.get("team2")
+    neutral_site = False
+    resolution_bucket = "resolved-by-order-fallback"
 
-    # Guard: StatCrew title is "Home vs Away" — if school_name matches away, swap
-    if school_name and school_name.lower() in away_team.lower():
-        home_team, away_team = away_team, home_team
-        home_score, away_score = away_score, home_score
+    if team1 and team2:
+        team1_score = score_info.get("team1_score", 0)
+        team2_score = score_info.get("team2_score", 0)
+        home_team, away_team = team2, team1
+        home_score, away_score = team2_score, team1_score
+
+        scraping_home_city = team_home_city(team_name=school_name)
+
+        def matches_school(team: str) -> bool:
+            return bool(
+                (school_name and school_name.casefold() in team.casefold())
+                or (
+                    scraping_home_city
+                    and team_home_city(team_name=team) == scraping_home_city
+                )
+            )
+
+        school_is_row0 = matches_school(team1)
+        school_is_row1 = matches_school(team2)
+        if school_is_row0 != school_is_row1:
+            opponent = team2 if school_is_row0 else team1
+            school_side, resolution_bucket = resolve_home_away(
+                scraping_home_city or "",
+                metadata["venue"],
+                team_home_city(team_name=opponent),
+                school_is_row0,
+                order_says_school_home=False,
+            )
+            neutral_site = school_side == "neutral"
+            venue_overrides_order = (
+                (school_side == "home" and school_is_row0)
+                or (school_side == "away" and school_is_row1)
+            )
+            if venue_overrides_order:
+                home_team, away_team = team1, team2
+                home_score, away_score = team1_score, team2_score
+        elif school_name:
+            logger.warning(
+                "Could not uniquely match scraping school %s to StatCrew score rows for game %s",
+                school_name,
+                game_id,
+            )
+    else:
+        home_team = metadata.get("home_team") or "Unknown"
+        away_team = metadata.get("away_team") or "Unknown"
+        home_score = score_info.get("team1_score", 0)
+        away_score = score_info.get("team2_score", 0)
 
     game = Game(
         game_id=game_id,
@@ -888,6 +932,7 @@ def parse_game(
         away_team=away_team,
         home_score=home_score,
         away_score=away_score,
+        neutral_site=neutral_site,
     )
 
     # 6. Build TeamGameStats from team_totals dict
@@ -917,4 +962,5 @@ def parse_game(
         "team_stats": team_stats_list,
         "events": events,
         "abbrev_map": abbrev_map,
+        "home_away_resolution": resolution_bucket,
     }

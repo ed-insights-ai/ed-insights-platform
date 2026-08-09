@@ -24,6 +24,11 @@ from io import StringIO
 import pandas as pd
 from bs4 import BeautifulSoup
 
+from src.home_cities import (
+    resolve_home_away,
+    team_home_city,
+    venue_city,
+)
 from src.models import (
     Game,
     GameEvent,
@@ -377,6 +382,14 @@ def _parse_header_metadata(html: str) -> dict:
     if att_match:
         metadata["attendance"] = int(att_match.group(1))
 
+    for label in soup.find_all("dt"):
+        if label.get_text(strip=True).rstrip(":").casefold() != "site":
+            continue
+        value = label.find_next_sibling("dd")
+        if value:
+            metadata["venue"] = value.get_text(" ", strip=True) or None
+        break
+
     return metadata
 
 
@@ -449,41 +462,63 @@ def parse_sidearm_game(
     home_abbrev = score_info["home_abbrev"] or ""
     away_abbrev = score_info["away_abbrev"] or ""
 
-    # Header metadata (date, venue, attendance, is_home hint)
+    # Header metadata (date, venue, attendance)
     metadata = _parse_header_metadata(html)
+    scraping_home_city = team_home_city(school_abbrev, school_name)
 
-    # Fix home/away using title "vs"/"at" detection
-    swapped = False
-    if metadata["is_home"] is False:
-        # School is away — the score table listed school's opponent first (as home)
-        # which is actually correct in this case, but we need to verify:
-        # If the school appears as home_team, swap them
-        school_is_listed_home = (
-            (school_abbrev and school_abbrev.upper() == home_abbrev.upper())
-            or (school_name and school_name.lower() in home_team.lower())
-        )
-        if school_is_listed_home:
-            home_team, away_team = away_team, home_team
-            home_abbrev, away_abbrev = away_abbrev, home_abbrev
-            score_info["home_score"], score_info["away_score"] = (
-                score_info["away_score"],
-                score_info["home_score"],
+    def matches_school(team: str, abbrev: str) -> bool:
+        return bool(
+            (school_abbrev and school_abbrev.casefold() == abbrev.casefold())
+            or (school_name and school_name.casefold() in team.casefold())
+            or (
+                scraping_home_city
+                and team_home_city(abbrev, team) == scraping_home_city
             )
-            swapped = True
-    elif metadata["is_home"] is True:
-        # School is home — if the school appears as away_team, swap them
-        school_is_listed_away = (
-            (school_abbrev and school_abbrev.upper() == away_abbrev.upper())
-            or (school_name and school_name.lower() in away_team.lower())
         )
-        if school_is_listed_away:
-            home_team, away_team = away_team, home_team
-            home_abbrev, away_abbrev = away_abbrev, home_abbrev
-            score_info["home_score"], score_info["away_score"] = (
-                score_info["away_score"],
-                score_info["home_score"],
-            )
+
+    school_is_row0 = matches_school(home_team, home_abbrev)
+    school_is_row1 = matches_school(away_team, away_abbrev)
+    neutral_site = False
+
+    if school_is_row0 != school_is_row1:
+        opponent_abbrev = away_abbrev if school_is_row0 else home_abbrev
+        opponent_name = away_team if school_is_row0 else home_team
+        school_side, resolution_bucket = resolve_home_away(
+            scraping_home_city or "",
+            metadata["venue"],
+            team_home_city(opponent_abbrev, opponent_name),
+            school_is_row0,
+            order_says_school_home=False,
+        )
+        neutral_site = school_side == "neutral"
+        if school_side == "home":
+            swapped = not school_is_row0
+        elif school_side == "away":
+            swapped = school_is_row0
+        else:
             swapped = True
+    else:
+        if school_abbrev or school_name:
+            logger.warning(
+                "Could not uniquely match scraping school %s/%s to score rows for game %s",
+                school_abbrev,
+                school_name,
+                game_id,
+            )
+        swapped = True
+        resolution_bucket = (
+            "resolved-by-order-fallback"
+            if venue_city(metadata["venue"]) is None
+            else "venue-city-unmatched"
+        )
+
+    if swapped:
+        home_team, away_team = away_team, home_team
+        home_abbrev, away_abbrev = away_abbrev, home_abbrev
+        score_info["home_score"], score_info["away_score"] = (
+            score_info["away_score"],
+            score_info["home_score"],
+        )
 
     # Rebuild abbreviation map after potential swap
     abbrev_to_name = {}
@@ -498,8 +533,8 @@ def parse_sidearm_game(
         team_stats_raw = _parse_team_stats_table(classified["team_stats"])
 
     # Player stats — identified by column signature.
-    # The player tables are collected in page order (home roster printed first,
-    # matching the score table's row order). When the home/away labels were
+    # The player tables are collected in page order matching the score table.
+    # When the home/away labels were
     # swapped above, the roster order must swap with them; otherwise player_stats[0]
     # (the page-first roster) is stamped with the now-swapped home_team and every
     # roster ends up wearing the opposing team's name (gh-21). team_game_stats is
@@ -565,6 +600,7 @@ def parse_sidearm_game(
         away_team=away_team,
         home_score=score_info["home_score"],
         away_score=score_info["away_score"],
+        neutral_site=neutral_site,
     )
 
     # Build TeamGameStats from table 3 data
@@ -594,4 +630,5 @@ def parse_sidearm_game(
         "team_stats": team_stats_list,
         "events": events,
         "abbrev_map": abbrev_to_name,
+        "home_away_resolution": resolution_bucket,
     }

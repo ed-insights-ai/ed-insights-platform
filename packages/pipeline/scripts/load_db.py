@@ -121,9 +121,9 @@ def _load_games(
             """
             INSERT INTO games (game_id, school_id, season_year, source_url,
                                date, venue, attendance, home_team, away_team,
-                               home_score, away_score,
+                               home_score, away_score, neutral_site,
                                is_conference_game, home_conference, away_conference)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (game_id) DO UPDATE
                 SET school_id   = EXCLUDED.school_id,
                     season_year = EXCLUDED.season_year,
@@ -135,6 +135,7 @@ def _load_games(
                     away_team   = EXCLUDED.away_team,
                     home_score  = EXCLUDED.home_score,
                     away_score  = EXCLUDED.away_score,
+                    neutral_site = EXCLUDED.neutral_site,
                     is_conference_game = COALESCE(EXCLUDED.is_conference_game, games.is_conference_game),
                     home_conference    = COALESCE(EXCLUDED.home_conference, games.home_conference),
                     away_conference    = COALESCE(EXCLUDED.away_conference, games.away_conference)
@@ -151,6 +152,7 @@ def _load_games(
                 _str_or_none(row.get("away_team")),
                 _int_or_none(row.get("home_score")),
                 _int_or_none(row.get("away_score")),
+                _bool_or_none(row.get("neutral_site")) or False,
                 _bool_or_none(row.get("is_conference_game")),
                 _str_or_none(row.get("home_conference")),
                 _str_or_none(row.get("away_conference")),

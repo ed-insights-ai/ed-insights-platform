@@ -9,6 +9,8 @@ import pytest
 from src.parser import build_team_abbrev_map, parse_game, parse_game_header
 
 CACHED_HTML = Path("data/raw_html/2025/game_01.html")
+STATCREW_HARDING_AWAY_FIXTURE = Path("tests/fixtures/statcrew_harding_away.html")
+STATCREW_HARDING_HOME_FIXTURE = Path("tests/fixtures/statcrew_harding_home.html")
 
 
 @pytest.mark.skipif(not CACHED_HTML.exists(), reason="No cached HTML for 2025 game 01")
@@ -67,3 +69,40 @@ def test_parse_game_header_textual_date_venue_fallback():
     )
 
     assert metadata["venue"] == "Tahlequah, Okla."
+
+
+def test_statcrew_venue_places_harding_away_and_keeps_scores_aligned():
+    html = STATCREW_HARDING_AWAY_FIXTURE.read_text(encoding="utf-8")
+    result = parse_game(
+        html,
+        game_id=1202509,
+        source_url="http://test",
+        season_year=2025,
+        school_name="Harding",
+    )
+    game = result["game"]
+
+    assert game.home_team == "Northeastern St."
+    assert game.away_team == "Harding"
+    assert game.home_score == 1
+    assert game.away_score == 0
+    assert game.neutral_site is False
+    assert result["home_away_resolution"] == "venue-city-unmatched"
+
+
+def test_statcrew_venue_overrides_order_when_harding_is_home():
+    html = STATCREW_HARDING_HOME_FIXTURE.read_text(encoding="utf-8")
+    result = parse_game(
+        html,
+        game_id=1202418,
+        source_url="http://test",
+        season_year=2024,
+        school_name="Harding",
+    )
+    game = result["game"]
+
+    assert game.home_team == "Harding"
+    assert game.away_team == "Northeastern St."
+    assert game.home_score == 3
+    assert game.away_score == 5
+    assert result["home_away_resolution"] == "resolved-by-venue"
