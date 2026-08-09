@@ -4,7 +4,11 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-26/90 tasks complete · **28 actionable now** · 36 blocked · 0 in progress · **18 days** to the season (2026-08-27)
+29/94 tasks complete · **28 actionable now** · 36 blocked · 1 in progress · **18 days** to the season (2026-08-27)
+
+## In progress
+
+- `tl-9ap` **S0.5** · Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23))
 
 ## Pick up next
 
@@ -14,18 +18,18 @@ Nothing blocks these. Highest priority first.
 |---|---|---|---|
 | P0 | `tl-2tc` | Conference-membership windows table — per institution, per season | — |
 | P0 | `tl-4nx` | GATE — validate --year 2026 against live schedule pages for all 13 programmes | S4 |
-| P0 | `tl-65z.7` | A detector for a wrong is_conference_game backfill | Instrument |
 | P0 | `tl-71j` | Package skeleton from keelson-rib-workiq | S1 |
 | P0 | `tl-dse` | Add player-team attribution to player_game_stats (gh-22) ([#22](https://github.com/ed-insights-ai/ed-insights-platform/issues/22)) | S0.5 |
 | P0 | `tl-oyr` | Scrape reports success on partial and rejected runs (gh-17) ([#17](https://github.com/ed-insights-ai/ed-insights-platform/issues/17)) | S0 |
 | P0 | `tl-qbg` | Add the canonical match key column | S0.5 |
 | P1 | `tl-09k` | Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25)) | S0.5 |
-| P1 | `tl-5ne` | Regenerated parquets blow past the review bot's 300-file limit on every repair PR | — |
+| P1 | `tl-56h` | chamber-lens-vitals can publish a torn snapshot taken mid-reload | — |
+| P1 | `tl-5m9` | Reparse changes player names on 6 non-card events — whitespace drift between stored and freshly-parsed data | — |
 | P1 | `tl-5vr.2` | Triage 21 unreconciled roster-attribution games | S0.5 |
 | P1 | `tl-65z.6` | Card fidelity — the 166 target double-counts 8 phantom markers | Instrument |
 | P1 | `tl-65z.8` | Correct seven smaller check defects | Instrument |
 | P1 | `tl-7xj` | bead-land: close the cycle at merge — close the bead, sync, re-emit both lenses | — |
-| P1 | `tl-9ap` | Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) | S0.5 |
+| P1 | `tl-8gy` | The Chamber lens workflows have no repo↔deployed sync, and both copies had drifted | — |
 | | | *…and 14 more* | |
 
 ```bash
@@ -36,13 +40,13 @@ bd update <id> --claim         # take it
 
 ## Phase 1 — Trust the instruments
 
-`▰▰▰▰▰▰▱▱▱▱` **5/8**
+`▰▰▰▰▰▰▰▰▱▱` **6/8**
 
 Every acceptance number in this plan is a reading off these checks. A check that is wrong, or that says *ok* when it could not run, makes the rest of the plan unfalsifiable — so this comes first.
 
 ### The measuring instrument — fix the harness before it grades the repair
 
-`tl-65z` · 5/8 complete
+`tl-65z` · 6/8 complete
 
 Every acceptance criterion in the repair plan is phrased as a before/after number
 from `.keelson/workflows/data-integrity.yml` (9 checks) and `ground-truth.yml` (13 checks).
@@ -53,7 +57,7 @@ An adversarial audit on 2026-08-08 found the instrument is not fit to grade the 
 - [x] `tl-65z.3` **P0** Gender-aware duplication key — 176 → 98, and 39 false alarms → 0
 - [x] `tl-65z.4` **P0** Cross-source — report real independence, not 'two unrelated websites'
 - [x] `tl-65z.5` **P0** Build the Site: city oracle — the defining defect has no check
-- [ ] `tl-65z.7` **P0** A detector for a wrong is_conference_game backfill
+- [x] `tl-65z.7` **P0** A detector for a wrong is_conference_game backfill
 - [ ] `tl-65z.6` **P1** Card fidelity — the 166 target double-counts 8 phantom markers
 - [ ] `tl-65z.8` **P1** Correct seven smaller check defects
 
@@ -82,7 +86,7 @@ The numbers in ed_insights are true; the labels are wrong. Ground-truth validati
 - [x] `tl-37d` **P0** Fix SideArm rosters labelled with each other's team in 723 games (gh-21) ([#21](https://github.com/ed-insights-ai/ed-insights-platform/issues/21))
 - [x] `tl-3zm` **P0** Recover the 28 events lost to id collisions (gh-27) — ordinal purge already done ([#27](https://github.com/ed-insights-ai/ed-insights-platform/issues/27))
 - [ ] `tl-4ix` **P0** Backfill is_conference_game — gender-aware and season-aware — *blocked by `tl-2tc`*
-- [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-65z.7`, `tl-09k`, `tl-ce3`, `tl-qbg`, `tl-dse`, `tl-4ix`*
+- [ ] `tl-4jg` **P0** Verify the repair — before/after for every named defect — *blocked by `tl-9ap`, `tl-09k`, `tl-ce3`, `tl-qbg`, `tl-dse`, `tl-4ix`*
 - [x] `tl-5vr.1` **P0** Widen the ground-truth harness before it measures the repair
 - [x] `tl-ath` **P0** Build the authoritative opponent-string identity map (canon.json)
 - [x] `tl-da9` **P0** Close the preseason blind spot in the season assertion
@@ -93,7 +97,7 @@ The numbers in ed_insights are true; the labels are wrong. Ground-truth validati
 - [x] `tl-vkt` **P0** Fix 111 games with NULL date and venue='NaN' (gh-24) ([#24](https://github.com/ed-insights-ai/ed-insights-platform/issues/24))
 - [ ] `tl-09k` **P1** Stop the loader writing literal 'NaN' into nullable text columns (gh-25) ([#25](https://github.com/ed-insights-ai/ed-insights-platform/issues/25))
 - [ ] `tl-5vr.2` **P1** Triage 21 unreconciled roster-attribution games
-- [ ] `tl-9ap` **P1** Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23))
+- [~] `tl-9ap` **P1** Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) — *blocked by `tl-5m9`*
 - [ ] `tl-5vr.3` **P2** Investigate 312 reparse event multiset differences
 - [ ] `tl-ce3` **P2** Stop coercing missing shots_on_goal to 0 (gh-29) ([#29](https://github.com/ed-insights-ai/ed-insights-platform/issues/29))
 
@@ -221,12 +225,14 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 
 - [x] `tl-37d` Fix SideArm rosters labelled with each other's team in 723 games (gh-21) · *S0.5*
 - [x] `tl-3zm` Recover the 28 events lost to id collisions (gh-27) — ordinal purge already done · *S0.5*
+- [x] `tl-5ne` Regenerated parquets blow past the review bot's 300-file limit on every repair PR · *—*
 - [x] `tl-5vr.1` Widen the ground-truth harness before it measures the repair · *S0.5*
 - [x] `tl-65z.1` Make all 21 checks fail CLOSED when a query fails · *Instrument*
 - [x] `tl-65z.2` Fix the archive check — its predicate can never fire · *Instrument*
 - [x] `tl-65z.3` Gender-aware duplication key — 176 → 98, and 39 false alarms → 0 · *Instrument*
 - [x] `tl-65z.4` Cross-source — report real independence, not 'two unrelated websites' · *Instrument*
 - [x] `tl-65z.5` Build the Site: city oracle — the defining defect has no check · *Instrument*
+- [x] `tl-65z.7` A detector for a wrong is_conference_game backfill · *Instrument*
 - [x] `tl-6uh` Enhance the touchline-queue lens with beads-ui learnings · *—*
 - [x] `tl-7d9` Genesis The Auditor — standing Chamber Mind for adversarial criteria audit · *—*
 - [x] `tl-9sv` Evict measured numbers from STATUS.md — prose keeps the why, instruments keep the what · *—*
@@ -241,6 +247,7 @@ Kept rather than deleted — a task closed with its reasoning is a decision reco
 - [x] `tl-gnu` The caution Type column at sidearm_parser.py:339-348 · *S9*
 - [x] `tl-hbo` Fix fabricated home/away in both parsers (gh-20) · *S0.5*
 - [x] `tl-irx` Create keelson-rib-touchline on the ed-insights-ai organization · *S1*
+- [x] `tl-nh7` Make offline reparse replacement atomic · *—*
 - [x] `tl-o23` Delete the 42 phantom rows and their poisoned cache directories (gh-26) · *S0.5*
 - [x] `tl-qya` Honor scrape config during cross-school merge · *—*
 - [x] `tl-t8w` Replace raw parser test inputs with fixtures · *—*

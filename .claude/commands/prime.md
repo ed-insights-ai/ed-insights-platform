@@ -133,8 +133,11 @@ select count(*)||'|0 (39 gender-blind are all m-vs-w pairs)' from (select s.gend
 -- it. So "28 → 0 lost" is satisfied WITHOUT 28 rows appearing, and 22460 is the figure all
 -- three corpora agree on. The old 22782 target was 22754 + 28 on the pre-purge corpus and
 -- reads today as 322 events missing.
+-- NOTE (PR #63, ADR-009): the parquets are no longer committed. A fresh clone has none until
+-- `cd packages/pipeline && uv run reparse` rebuilds them offline from the HTML cache. An empty
+-- data/structured is therefore NORMAL and is not data loss — Postgres is the reading here.
 \echo -n 'events in db|'
-select count(*)||'|22460, matching the parquets and the merged export' from game_events;
+select count(*)||'|22460, matching the parquets and the merged export once reparse has run' from game_events;
 -- The other two corpus counts, so a bad reload cannot pass while games look right.
 \echo -n 'player stat rows|'
 select count(*)||'|75982' from player_game_stats;
