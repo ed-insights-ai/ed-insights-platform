@@ -15,9 +15,11 @@ __pycache__/
 .env.local
 .env.*.local
 
-# Data outputs (scratch/temp only — pipeline parquets are tracked, see ADR-004)
+# Data outputs (scratch/temp only; pipeline parquets are reproducible build output)
 data/
 !packages/pipeline/data/
+packages/pipeline/data/structured/**/*.parquet
+packages/pipeline/data/*.parquet
 
 # Raw scraped HTML is a re-fetchable cache, not an artifact. The blanket negation
 # above swept it into git by accident: 2,140 files / 1.1 GB. This rule stops the
