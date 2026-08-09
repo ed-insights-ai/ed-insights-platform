@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -50,6 +51,27 @@ def discover_sidearm_season(year: int, base_url: str) -> list[GameURL]:
         return []
 
     html = resp.text
+
+    # During preseason a wrong-season fallback can contain no boxscores, so
+    # reject the redirect before relying on the year segments below.
+    requested_suffix = f"/schedule/{year}"
+    final_path = urlparse(resp.url).path.rstrip("/")
+    if resp.history and not final_path.endswith(requested_suffix):
+        title_match = re.search(
+            r"<title[^>]*>\s*(\d{4}(?:-\d{2})?)\b",
+            html,
+            flags=re.IGNORECASE,
+        )
+        served_season = title_match.group(1) if title_match else "unknown"
+        logger.error(
+            "[%d] Season slug redirected: requested %s but served season %s at %s "
+            "— a different season. Not ingesting.",
+            year,
+            schedule_url,
+            served_season,
+            resp.url,
+        )
+        return []
 
     # Extract sport path from base_url for the regex pattern
     # e.g. "https://obutigers.com/sports/mens-soccer" -> "mens-soccer"
