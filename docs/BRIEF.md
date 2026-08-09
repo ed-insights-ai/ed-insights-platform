@@ -28,10 +28,16 @@ Read these before the rest. Each was established by measurement, not argument.
 **1. "Re-parsing reproduces … for 2,140/2,140 games" — overstated.** The check's own output is
 **2,005 exact, 135 differ** (venue 111, events 26). The 111 are the known `'NaN'` rows.
 
-**2. "The storage layer invents and corrupts nothing" — false.** The per-season parquets hold
-**22,782** event rows; Postgres holds **22,754**. **28 real events are destroyed at load**,
-one of them a goal, because `storage.py:15-27` hashes seven fields but not `description`, so
-two events sharing a clock collapse into one.
+**2. "The storage layer invents and corrupts nothing" — was false, now fixed (9 Aug).** The
+per-season parquets held **22,782** event rows against Postgres's **22,754**: **28 real events
+were destroyed**, one of them a goal, because the event-id hash covered seven fields but not
+`description`, so two events sharing a clock collapsed into one. The loss happened in
+`merge_all_seasons`'s `drop_duplicates(subset=["event_id"])`, not at parse or at load — the
+per-season parquets were intact throughout, and `load_db` reads the per-school `all/` merges
+rather than them, which is why the database was the corpus that showed the gap. Fixed in PR
+#54 and recovered by the re-merge under `tl-o23`/`tl-3zm`: **27 real events restored** (the
+28th was inside a phantom game and was deleted with it). All three corpora now agree at
+**22,460**.
 
 **3. "493/493 across two unrelated websites" — the independence is overstated.** Twelve of
 thirteen data-bearing programmes are SideArm; only HU/HUW are StatCrew. Roughly **454 of 593
@@ -72,8 +78,8 @@ the brief is still right; the duration is not.
 
 You already built the hard part. It just can't remember anything.
 
-`ed-insights-platform` is a working scraper, a 2,140-game Postgres database with 77,586
-player-game rows and 22,754 parsed match events, a FastAPI service over it, and a Next.js app
+`ed-insights-platform` is a working scraper, a 2,098-game Postgres database with 75,982
+player-game rows and 22,460 parsed match events, a FastAPI service over it, and a Next.js app
 with a genuinely good design system behind it. The plan document even has a Phase 5 — LLM
 insights, a text-to-SQL chat panel, match predictions. It sits behind four phases of frontend
 work.
@@ -94,9 +100,9 @@ this is a downgrade.
 | Rosters wear each other's names | 723 games | `parse_sidearm_game` swaps teams and scores but never reorders the player tables |
 | Red cards stored as yellow | 158 markers vs 43 stored | the type lives only as a CSS class the parser never reads |
 | Dates and venues missing | 111 games | one over-strict title regex |
-| Events destroyed at load | 28, incl. one goal | `_build_event_id` omits `description` |
-| Phantom duplicate rows | 42 | a season URL 302s to whatever season is current |
-| `is_conference_game` never populated | 2,140 of 2,140 NULL | the field was never derived; ADR-006 claimed a source that does not exist |
+| ~~Events destroyed at merge~~ **fixed 9 Aug** | was 28, incl. one goal; now 0 | the event-id hash omitted `description` |
+| ~~Phantom duplicate rows~~ **purged 9 Aug** | was 42; now 0 | a season URL 302s to whatever season is current |
+| `is_conference_game` never populated | 2,098 of 2,098 NULL | the field was never derived; ADR-006 claimed a source that does not exist |
 
 **And the structural one, which is why this brief exists:** `scripts/load_db.py:186-201` DELETEs
 then re-INSERTs every child row per `game_id` on each load. Last week's numbers are physically

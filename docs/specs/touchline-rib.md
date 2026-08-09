@@ -750,14 +750,21 @@ the S2 integrity board's first baseline.
 
 **Done when:**
 
-- `is_conference_game` is non-NULL for all 2,140 rows, derived gender-aware and season-aware,
-  with the 13 near-miss opponent strings adjudicated in `canon.json` and zero rows resolving
-  to two programmes. *(State the expected conference/non-conference split only after the
+- `is_conference_game` is non-NULL for all **2,098** rows, derived gender-aware and
+  season-aware, with the 13 near-miss opponent strings adjudicated in `canon.json` and zero
+  rows resolving to two programmes. *(**2,098, not 2,140** — corrected 2026-08-09 once Task 2
+  actually ran. This is the third instance of the trap this same list flags two bullets down
+  for the re-parse count and one bullet down for the red cards: an acceptance number written
+  against the pre-purge corpus, which a correct repair can never reach. It survived two
+  earlier readings because it names the field, not the count, and the count reads as
+  background.)* *(State the expected conference/non-conference split only after the
   membership-span question in Task 1 is settled — it moves the answer by ~100 rows, so it is
   a judgement, not an acceptance threshold.)*
-- The 42 phantom rows, their child rows and the `data/raw_html/{fhsu,obu}/2020/` directories
+- ~~The 42 phantom rows, their child rows and the `data/raw_html/{fhsu,obu}/2020/` directories
   are gone; no program-season contains games dated outside it; the doubled-aggregate count
-  goes 574 -> 0.
+  goes 574 -> 0.~~ **Done 2026-08-09** (`tl-o23`) — measured after reload: 42 -> 0 phantoms,
+  0 rows dated outside their program-season, doubled aggregates 574 -> 0, 0 orphaned children,
+  and the 79 legitimate spring-2021 COVID games untouched.
 - `date IS NULL` goes **111 -> 0** and `venue='NaN'` goes **111 -> 0**.
 - Cross-perspective home/away contradictions go **523 -> 0** across the 641 two-perspective
   fixtures (measured with all 2,140 games dated), and `home_team='Harding'` for HU+HUW falls
@@ -769,10 +776,15 @@ the S2 integrity board's first baseline.
   of the 166 markers in the cache, **8** sit in the phantom `fhsu/2020` and `obu/2020`
   directories that Task 2 deletes — 7 and 1 respectively, byte-identical to their 2025
   twins. 166 = 158 unique + 8 duplicates. Same trap as the re-parse count two bullets down,
-  caught there and missed here.)*
-- Every `(gender, date, sorted institution pair)` group has `count(*) = count(DISTINCT
+  caught there and missed here.)* **Confirmed by measurement 2026-08-09**, after Task 2
+  deleted those directories: the cache now holds exactly **158** markers across 2,098 pages
+  read, so the equality is satisfiable as written. Note the *database* target is **201**
+  (= 158 SideArm to recover + 43 StatCrew already correct), not 158 — see `tl-65z.6`.
+- ~~Every `(gender, date, sorted institution pair)` group has `count(*) = count(DISTINCT
   school_id)`, max size 2, zero gender mixing, zero oriented-score disagreement — currently
-  40 violations, all phantom, so 0 after Task 2.
+  40 violations, all phantom, so 0 after Task 2.~~ **Done 2026-08-09** — the prediction held
+  exactly: **40 -> 0** same-school violations, and the group total fell 641 -> **621**, every
+  one now a genuine two-school pair. Gender-aware score disagreement stayed at 0 throughout.
 - The full re-parse harness reports **2,098/2,098** games re-parsed with 0 errors and 0 field
   diffs, and `ground-truth.yml` reports no alarms it did not report before the repair.
   *(2,098, not 2,140 — Task 2 deletes 42 phantom games and their cached HTML, so the
