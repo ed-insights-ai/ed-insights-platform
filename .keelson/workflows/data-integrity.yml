@@ -2,7 +2,7 @@ name: data-integrity
 description: |
   Use when: you need to know which numbers in ed_insights are currently trustworthy — before believing a report, and before and after any data repair.
   Triggers: "data integrity", "check the data", "is the data right", "integrity report", "did the repair work".
-  Does: runs ten deterministic read-only checks against the live Postgres and the parquet archive in parallel, then prints one report with a per-check verdict and the file:line that causes each failure.
+  Does: runs eleven deterministic read-only checks against the live Postgres and the parquet archive in parallel, then prints one report with a per-check verdict and the file:line that causes each failure.
   NOT for: repairing anything (this never writes), scraping, or judging code quality.
 
 requiresProject: true
@@ -496,10 +496,10 @@ nodes:
     always_run: true
     trigger_rule: all_done
     depends_on:
-      [freshness, conference-flag, duplication, season-label, identity,
+      [freshness, conference-flag, conference-derivation, duplication, season-label, identity,
        discipline, orphans, parse-failures, archive, export-staleness]
     script: |
-      const IDS = ['freshness','conference_flag','duplication','season_label','identity',
+      const IDS = ['freshness','conference_flag','conference_derivation','duplication','season_label','identity',
                    'discipline','orphans','parse_failures','archive','export_staleness']
       const MARK = { ok: '[ OK   ]', warn: '[ WARN ]', alarm: '[ ALARM]' }
       const rows = []
