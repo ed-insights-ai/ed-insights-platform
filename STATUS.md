@@ -32,13 +32,18 @@ what *describes* those scores is wrong:
   plausible 38–48% home share, and 53 genuinely neutral fixtures marked as such.
 - ~~**Which team a player played for** is swapped in 723 games; the two rosters wear each
   other's names.~~ **Repaired 8 Aug** — 723 → 0, captions 739 → 0.
-- **Red cards from eleven of the thirteen programmes are filed as yellow** — 166 of them in
-  the cached pages, of which 158 survive once duplicate copies are deleted. Harding's own 43
-  are stored correctly, because Harding's two programmes are the only ones on a different
-  platform. So the repair takes the database from 43 red cards to 201, not to 158.
-- **28 events** are destroyed on every database load, one of them a goal. The *parser* fix
-  landed 9 Aug; the database still reads 22,754 because the regeneration was deliberately
-  deferred (see `tl-3zm`).
+- **Red cards from eleven of the thirteen programmes are filed as yellow** — **158** of them
+  in the cached pages, measured across 2,098 pages read now that the phantom copies are
+  gone. *(This read 166 before 9 Aug; 8 of those were duplicate transcriptions living in the
+  purged cache folders, exactly as `tl-65z.6` predicted, so the check's convergence target is
+  now a satisfiable 158 = 158.)* Harding's own 43 are stored correctly, because Harding's two
+  programmes are the only ones on a different platform. So the repair takes the database from
+  43 red cards to **201**, not to 158.
+- ~~**28 events** are destroyed on every database load, one of them a goal.~~ **Recovered
+  9 Aug** — the re-merge that the phantom purge required also re-ran the fixed event-id
+  hash, and 27 real events came back (1 goal, 6 substitutions, 20 yellow cards). The 28th
+  lived inside a phantom game and was deleted with it. Per-season parquets, merged export
+  and Postgres now agree exactly at 22,460.
 
 The un-struck figures are **pre-repair baselines, frozen as scraped** — they describe the
 defect, not the current database. The live state of every one of these metrics, with a
@@ -58,8 +63,8 @@ those saved pages. So for nearly every defect, "fix the data" means "fix the par
 re-read the pages." Patching rows alone would be worse than useless: the next scrape would
 recreate the mess.
 
-Exactly one item is pure cleanup — deleting 42 duplicate rows and the poisoned cache
-folders that produced them. Everything else is a code fix.
+Exactly one item was pure cleanup — deleting 42 duplicate rows and the poisoned cache
+folders that produced them. **That one landed 9 Aug.** Everything else is a code fix.
 
 **The root cause, named:** the pipeline was built *school-centric* — point it at Harding's
 site, read Harding's schedule. That is a fine way to scrape and a poor way to model a
@@ -187,6 +192,24 @@ valid row does this throw away?*
   merged while its regeneration half was deliberately deferred rather than run against a base
   that predated #52 and would have silently restored all 523 contradictions.
 
+- **The phantom rows are gone, and the lost events came back (9 Aug)** — the only pure-cleanup
+  item in the plan. 42 duplicate games (FHSU 2020's 24 and OBU 2020's 18, all scraped from
+  `/stats/2025/` pages a preseason redirect misfiled) deleted along with the two poisoned
+  cache folders that produced them, and their 1,604 player / 84 team / 321 event children.
+  The delete set was **pinned, not detected**: derived twice independently — Postgres
+  twin-verification against the real 2025 rows, and the `game_id` column of the deleted
+  parquets — which named identically the same 42, and executed behind three transactional
+  guards that abort rather than delete if the count is not 42, if any row lacks a verified
+  twin, or if any of the 79 legitimate spring-2021 COVID games appears. Measured after
+  reload: phantoms **42 → 0**, same-school duplicate groups **40 → 0**, duplicate groups
+  **641 → 621** (every one now a genuine two-school pair), doubled player aggregates
+  **574 → 0**, 0 orphaned children, and the 79 COVID games untouched. Because purging the
+  phantoms required re-merging the parquets, the same pass ran the fixed event-id hash from
+  PR #54 and recovered **27 real events** — events dropped at merge **28 → 0**, and the
+  three corpora now agree exactly at 2,098 / 75,982 / 22,460 / 4,196 with `game_id` sets
+  identical in both directions. Both protected invariants held at 0 throughout: cross-perspective
+  home contradictions and gender-aware score disagreements.
+
 ## What is next
 
 1. ~~Four measurement bugs in the inspectors~~ — **fixed 8 August**: the archive check,
@@ -206,11 +229,11 @@ shows up immediately. That is not a one-time cleanup; it is a regression test th
 generates by itself.
 
 *(This read **586** until 9 Aug — measured before the 111 date restorations, since an
-undated row cannot be paired with anything. Measured now: 641 groups hold more than one row,
-of which **601** are genuine two-school pairs and **40** hold two rows from the same school.
-All 40 are the work of the 42 phantom rows: purging them turns 20 of those groups into clean
-pairs and removes the other 20 outright, leaving **621 pairs and 0 same-school duplicates**.
-That last figure is the one to hold the season to.)*
+undated row cannot be paired with anything. It then read 641 groups, of which 601 were
+genuine two-school pairs and 40 held two rows from the same school, all 40 the work of the
+42 phantom rows. **The purge landed the same day and the prediction held exactly**: measured
+after it, **621 groups, every one a genuine two-school pair, 0 same-school duplicates**.
+That is the figure to hold the season to.)*
 
 ## Getting back up to speed
 
