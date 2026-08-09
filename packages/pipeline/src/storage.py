@@ -12,19 +12,28 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def _build_event_id(row: pd.Series) -> str:
-    """Deterministic SHA-1 event ID for deduplication."""
-    parts = [
-        str(row.get("game_id", "")),
-        str(row.get("event_type", "")),
-        str(row.get("clock", "")),
-        str(row.get("team", "")),
-        str(row.get("player", "")),
-        str(row.get("assist1", "") or ""),
-        str(row.get("assist2", "") or ""),
-    ]
-    raw = "|".join(parts).lower()
-    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+def _assign_event_ids(events: pd.DataFrame) -> pd.Series:
+    """Build deterministic event IDs that preserve repeated same-clock events."""
+    identity_fields = (
+        "game_id",
+        "event_type",
+        "clock",
+        "team",
+        "player",
+        "assist1",
+        "assist2",
+        "description",
+    )
+    identity = (
+        events.reindex(columns=identity_fields)
+        .fillna("")
+        .astype(str)
+        .apply(lambda column: column.str.lower())
+        .agg("|".join, axis=1)
+    )
+    occurrence = identity.groupby(identity, sort=False, dropna=False).cumcount()
+    raw_ids = identity + "|" + occurrence.astype(str)
+    return raw_ids.map(lambda raw: hashlib.sha1(raw.encode("utf-8")).hexdigest())
 
 
 def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") -> Path:
@@ -52,7 +61,7 @@ def save_season(parsed_games: list[dict], year: int, school_abbrev: str = "") ->
     team_df = pd.DataFrame(team_stats)
 
     if not events_df.empty:
-        events_df["event_id"] = events_df.apply(_build_event_id, axis=1)
+        events_df["event_id"] = _assign_event_ids(events_df)
 
     games_df.to_parquet(out / "games.parquet", index=False)
     player_df.to_parquet(out / "player_stats.parquet", index=False)
@@ -102,7 +111,8 @@ def merge_all_seasons(years: list[int] | None = None, school_abbrev: str = "") -
                 frames.append(pd.read_parquet(path))
         if frames:
             merged = pd.concat(frames, ignore_index=True)
-            if kind == "events" and "event_id" in merged.columns:
+            if kind == "events":
+                merged["event_id"] = _assign_event_ids(merged)
                 merged = merged.drop_duplicates(subset=["event_id"])
             merged.to_parquet(out / f"{kind}.parquet", index=False)
             logger.info("Merged %s: %d rows across %d seasons", kind, len(merged), len(frames))
@@ -134,7 +144,8 @@ def merge_all_schools() -> Path:
                             frames.append(pd.read_parquet(path))
         if frames:
             merged = pd.concat(frames, ignore_index=True)
-            if kind == "events" and "event_id" in merged.columns:
+            if kind == "events":
+                merged["event_id"] = _assign_event_ids(merged)
                 merged = merged.drop_duplicates(subset=["event_id"])
             merged.to_parquet(out / f"{kind}.parquet", index=False)
             logger.info("Merged all schools %s: %d rows", kind, len(merged))

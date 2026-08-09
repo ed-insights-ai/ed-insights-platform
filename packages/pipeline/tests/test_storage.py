@@ -67,6 +67,40 @@ def _fake_parsed_game(year: int = 2099) -> dict:
     }
 
 
+def _fake_parsed_game_with_events(descriptions: list[str]) -> dict:
+    parsed_game = _fake_parsed_game(2024)
+    parsed_game["events"] = [
+        GameEvent(
+            game_id=parsed_game["game"].game_id,
+            season_year=2024,
+            event_type="goal",
+            clock="10:00",
+            team="Team A",
+            player="Test Player",
+            description=description,
+        )
+        for description in descriptions
+    ]
+    return parsed_game
+
+
+def _assert_events_survive_save_and_merge(tmp_path, descriptions: list[str]) -> None:
+    season_out = save_season(
+        [_fake_parsed_game_with_events(descriptions)],
+        2024,
+        school_abbrev="FHSU",
+    )
+    saved = pd.read_parquet(season_out / "events.parquet")
+
+    merged_out = merge_all_seasons(school_abbrev="FHSU")
+    merged = pd.read_parquet(merged_out / "events.parquet")
+
+    assert len(saved) == len(descriptions)
+    assert saved["event_id"].nunique() == len(descriptions)
+    assert len(merged) == len(descriptions)
+    assert merged["event_id"].nunique() == len(descriptions)
+
+
 def test_save_season_creates_parquets(tmp_path, monkeypatch):
     """save_season should create four parquet files with season_year column."""
     monkeypatch.chdir(tmp_path)
@@ -111,3 +145,15 @@ def test_merge_all_seasons_is_idempotent(tmp_path, monkeypatch):
     final_count = len(pd.read_parquet(out / "games.parquet"))
 
     assert final_count == initial_count
+
+
+def test_merge_preserves_same_clock_events_with_different_descriptions(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    _assert_events_survive_save_and_merge(tmp_path, ["Header", "Penalty kick"])
+
+
+def test_merge_preserves_identical_same_clock_events(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    _assert_events_survive_save_and_merge(tmp_path, ["Header", "Header"])
