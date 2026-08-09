@@ -58,7 +58,7 @@ def _resolve_slug(team: str) -> tuple[str | None, bool]:
     if classification == "artifact":
         return None, False
     if classification == "non_member":
-        return None, resolution["adjudicated"]
+        return None, True
     return slug, slug is not None
 
 
