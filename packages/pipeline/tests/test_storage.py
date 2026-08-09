@@ -159,6 +159,19 @@ def test_merge_preserves_identical_same_clock_events(tmp_path, monkeypatch):
     _assert_events_survive_save_and_merge(tmp_path, ["Header", "Header"])
 
 
+def test_merge_all_seasons_handles_empty_events(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    parsed_game = _fake_parsed_game(2024)
+    parsed_game["events"] = []
+    save_season([parsed_game], 2024, school_abbrev="FHSU")
+
+    out = merge_all_seasons(school_abbrev="FHSU")
+    events = pd.read_parquet(out / "events.parquet")
+
+    assert events.empty
+    assert "event_id" in events.columns
+
+
 def test_merge_all_schools_filters_unconfigured_ordinals(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     school_all = tmp_path / "data" / "structured" / "retired" / "all"

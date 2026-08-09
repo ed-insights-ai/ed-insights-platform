@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 
 def _assign_event_ids(events: pd.DataFrame) -> pd.Series:
     """Build deterministic event IDs that preserve repeated same-clock events."""
+    if events.empty:
+        return pd.Series(index=events.index, dtype="object")
+
     identity_fields = (
         "game_id",
         "event_type",
