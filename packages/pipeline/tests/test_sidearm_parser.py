@@ -19,6 +19,7 @@ from src.sidearm_parser import (
 
 FIXTURE = Path("tests/fixtures/sidearm_boxscore_6126.html")
 FIXTURE_2016 = Path("tests/fixtures/sidearm_boxscore_2439_2016.html")
+FIXTURE_REDS = Path("tests/fixtures/sidearm_boxscore_reds.html")
 FIXTURE_DIR = Path("tests/fixtures")
 
 
@@ -200,6 +201,28 @@ class TestParseGame2016:
     def test_team_stats(self, parsed_game_2016):
         team_stats = parsed_game_2016["team_stats"]
         assert len(team_stats) == 2
+
+
+def test_red_card_events():
+    html = FIXTURE_REDS.read_text(encoding="utf-8")
+    parsed = parse_sidearm_game(
+        html,
+        game_id=5202307,
+        source_url="http://test/5283",
+        season_year=2023,
+    )
+
+    red_cards = [e for e in parsed["events"] if e.event_type == "red_card"]
+    yellow_cards = [e for e in parsed["events"] if e.event_type == "yellow_card"]
+
+    assert len(red_cards) == 3
+    assert {card.clock for card in red_cards} == {"65:42"}
+    assert {card.player for card in red_cards} == {
+        "Luca Bonzi",
+        "Inza Coulibaly",
+        "Jacob Hernandez",
+    }
+    assert len(yellow_cards) == 7
 
 
 class TestHomeAwayDetection:
