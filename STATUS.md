@@ -1,6 +1,6 @@
 # Where we are
 
-*Plain-language status. Updated as things land — last updated 8 August 2026.*
+*Plain-language status. Updated as things land — last updated 9 August 2026.*
 
 This page is the one to read first if you have been away. For the task list see
 [ROADMAP.md](ROADMAP.md); for the pitch — the thesis, the board mockups, the nine open forks
@@ -25,17 +25,22 @@ Season starts around **27 August 2026**.
 The database has seven years of soccer in it and **the scores are right**. But most of
 what *describes* those scores is wrong:
 
-- **Which team was home** is invented, not observed — right about a third of the time.
-  The scraper assumed whichever school's website it read must be the home team.
-- **Which team a player played for** is swapped in 723 games; the two rosters wear each
-  other's names.
+- ~~**Which team was home** is invented, not observed — right about a third of the time.
+  The scraper assumed whichever school's website it read must be the home team.~~
+  **Repaired 9 Aug** — derived from the source venue instead. Cross-perspective
+  contradictions 523 → **0**, Harding 337/337 → **164/337**, every programme now at a
+  plausible 38–48% home share, and 53 genuinely neutral fixtures marked as such.
+- ~~**Which team a player played for** is swapped in 723 games; the two rosters wear each
+  other's names.~~ **Repaired 8 Aug** — 723 → 0, captions 739 → 0.
 - **Red cards from eleven of the thirteen programmes are filed as yellow** — 166 of them in
   the cached pages, of which 158 survive once duplicate copies are deleted. Harding's own 43
   are stored correctly, because Harding's two programmes are the only ones on a different
   platform. So the repair takes the database from 43 red cards to 201, not to 158.
-- **28 events** are destroyed on every database load, one of them a goal.
+- **28 events** are destroyed on every database load, one of them a goal. The *parser* fix
+  landed 9 Aug; the database still reads 22,754 because the regeneration was deliberately
+  deferred (see `tl-3zm`).
 
-Those figures are the **pre-repair baselines, frozen as scraped** — they describe the
+The un-struck figures are **pre-repair baselines, frozen as scraped** — they describe the
 defect, not the current database. The live state of every one of these metrics, with a
 computed verdict, is the **`data-vitals` lens** on the Chamber surface, measured against
 Postgres every half hour. When this file and that lens disagree, the lens is right and
@@ -44,7 +49,7 @@ this file has a bug worth fixing.
 None of it is lost. It is all in the 1.1 GB of web pages already saved on disk — it just
 got labelled wrong on the way in. **No re-scraping is needed.**
 
-A dashboard built on this today would confidently show you a home record that is fiction.
+The home record is no longer fiction. The card record still is.
 
 ## Is this cleaning the data, or the process that broke it?
 
@@ -86,7 +91,7 @@ and "0 red cards across 3 pages read" are obviously different claims.
 
 ### The mistake that keeps recurring
 
-Seven times now, in different disguises: **a rule that looks obviously right, where nobody
+Eight times now, in different disguises: **a rule that looks obviously right, where nobody
 asked what legitimate data it excludes** — or an acceptance number stated without the
 condition that makes it true.
 
@@ -98,8 +103,15 @@ condition that makes it true.
   different scores.
 - A test reporting `0` when it could not look, in the same words it uses for a genuine zero.
 - A duplicate-group target of "98" that is only reachable *after* the phantom rows are
-  deleted — 138 is correct today, and someone reading it flatly would hunt a 40-group
-  discrepancy that is just work not yet done.
+  deleted. **This very bullet then went stale, which is the subtlest version yet:** it said
+  "138 is correct today", and today it is **641** — because the home/away repair made the two
+  perspectives of a fixture *agree*, so they now collapse into the same ordered group instead
+  of landing in two different ones. The number moved because the repair worked. Anyone
+  reading 138 flatly would report a catastrophic regression.
+- An acceptance criterion carrying "471 → 0 across 569 two-perspective fixtures" when the
+  measured figures were **523 → 0 across 641** — the criterion was written against 2,029
+  dated games, before the 111 restorations. Caught in a pre-dispatch audit; had it run, a
+  correct repair would have read as a 52-fixture overshoot.
 - A red-card target of "158" that silently omits the **43 already-correct** cards, so the
   true post-repair total is **201** and a correct result would read as a 43-row overcount.
 - A verification query that grouped by `home_team` and then asked whether `home_team` varied
@@ -157,6 +169,23 @@ valid row does this throw away?*
   exactly 2,140 games. The 21 games whose player sums genuinely reconcile with neither
   team are triaged separately. The already-correct StatCrew games stayed correct: 0
   swapped of exactly 337.
+- **The defining defect is fixed (9 Aug)** — home/away is now derived from the **source
+  venue city** compared against each school's own home city, rather than from row order or
+  from whichever school's site was being read
+  ([#52](https://github.com/ed-insights-ai/ed-insights-platform/pull/52)). Measured against
+  Postgres after merge: cross-perspective contradictions **523 → 0**, the logical
+  impossibility of both rows claiming home **505 → 0**, and `home_team='Harding'` for HU+HUW
+  **337/337 → 164/337**. An audit past those gates — because all three could pass while every
+  *non*-Harding school was uniformly forced to away — confirms every programme now sits at a
+  plausible **38–48%** home share, with 53 genuinely neutral fixtures carrying an explicit
+  `neutral_site` flag instead of being forced to a side. Scores were untouched and no row was
+  lost. Two further repairs landed the same night: the preseason redirect blind spot
+  ([#53](https://github.com/ed-insights-ai/ed-insights-platform/pull/53)) — whose two deleted
+  season slugs proved safe because FHSU's 24 and OBU's 18 `season_year=2020` rows are
+  *exactly* the 42 known phantoms — and the event-id collision that destroys 28 events
+  ([#54](https://github.com/ed-insights-ai/ed-insights-platform/pull/54)), whose parser half
+  merged while its regeneration half was deliberately deferred rather than run against a base
+  that predated #52 and would have silently restored all 523 contradictions.
 
 ## What is next
 
