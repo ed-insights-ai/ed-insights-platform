@@ -1,7 +1,10 @@
 # ADR-004: Parquet Files Tracked in Git
 
 **Date:** 2026-03-15
-**Status:** Accepted
+**Status:** Superseded by ADR-009
+
+ADR-009 replaces this decision now that the revisit trigger below has been
+crossed. Parquet files are reproducible build output and are no longer tracked.
 
 ## Context
 
