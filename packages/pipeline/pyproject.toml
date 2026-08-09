@@ -19,6 +19,7 @@ scrape = "scripts.scrape:main"
 load-db = "scripts.load_db:main"
 export = "scripts.export:main"
 audit = "scripts.audit:main"
+conference-audit = "scripts.conference_audit:main"
 pipeline-run = "scripts.run:main"
 build-canon = "scripts.build_canon:main"
 
