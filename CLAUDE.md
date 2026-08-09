@@ -71,7 +71,15 @@ parser fix landed in PR #54; the regeneration and reload that recovered them ran
 The three corpora — per-season parquets, per-school `all/` merges, and Postgres — are now
 equal at 2,098 / 75,982 / 22,460 / 4,196, with `game_id` sets identical in both directions.
 - Loaded from `packages/pipeline/data/structured/` parquet files
+- **Those parquets are no longer in git.** ADR-009 (PR #63, 9 Aug) made them build output —
+  528 files untracked and gitignored, because regenerating them on every repair buried the
+  ~15 reviewable files under 378 binary ones and silently disabled the review bot. A fresh
+  clone has **no** parquets and `load-db` will fail until you rebuild them.
+- Rebuild (offline, ~2m18s, no network): `cd packages/pipeline && uv run reparse`
 - Reload: `cd packages/pipeline && DATABASE_URL="postgresql://lume@localhost:5432/ed_insights" uv run load-db`
+- The real record is the 1.1 GB of cached HTML in `data/raw_html/`, which **is** committed.
+  `data/source_urls.csv` preserves all 2,098 `game_id → source_url` pairs, because the cache
+  does not carry the URL and the API serves that column.
 
 ### API (FastAPI)
 ```bash
@@ -87,10 +95,21 @@ Runs on port 3000 (or 3001). Needs `NEXT_PUBLIC_API_URL=http://localhost:8000`.
 
 ### Pipeline
 ```bash
-cd packages/pipeline && uv run scrape        # scrape all enabled schools
+cd packages/pipeline && uv run reparse       # rebuild parquets from cached HTML — OFFLINE
+cd packages/pipeline && uv run scrape        # scrape all enabled schools — HITS THE NETWORK
 cd packages/pipeline && uv run load-db       # load parquets → postgres
 cd packages/pipeline && uv run pytest -v     # run tests
 ```
+
+**`scrape` is not an offline cache replay, and `use_cache=True` does not make it one.**
+`scripts/scrape.py:33,35` call `discover_sidearm_season` / `discover_season_games`
+*unconditionally*, before `use_cache` is ever consulted — that flag only reaches
+`fetcher.fetch` at line 44 — and `src/discovery.py:51` performs a network GET. Old box-score
+pages may no longer be served, so a discovery pass can enumerate a **different** set of games
+than the cache holds. **Any repair backfill must use `uv run reparse`, never `scrape`**, and
+must assert the four corpus totals after reload and abort on drift. This cost a wrong plan on
+9 Aug: `tl-9ap` was written believing `scrape` was offline, and its guarded regeneration then
+caught an unrelated whitespace change and correctly refused to write (`tl-5m9`).
 
 ## Documentation
 
@@ -132,7 +151,7 @@ source of truth. **File everything in beads.**
 Two Keelson workflows validate the data and one drives the queue:
 
 ```bash
-keelson workflow run data-integrity --project ed-insights-platform  # 9 deterministic checks
+keelson workflow run data-integrity --project ed-insights-platform  # 11 deterministic checks
 keelson workflow run ground-truth   --project ed-insights-platform  # re-parse cached HTML
 keelson workflow run bead-work      --project ed-insights-platform  # claim next bead → draft PR
 ```

@@ -39,6 +39,13 @@ what *describes* those scores is wrong:
   now a satisfiable 158 = 158.)* Harding's own 43 are stored correctly, because Harding's two
   programmes are the only ones on a different platform. So the repair takes the database from
   43 red cards to **201**, not to 158.
+  **Half-repaired 9 Aug** — the parser now reads the card type from the `penalty-type` CSS
+  class instead of hardcoding yellow
+  ([#64](https://github.com/ed-insights-ai/ed-insights-platform/pull/64)), so cards scraped
+  from here on are right. **The database is untouched at 43** and the backfill is still
+  outstanding, because the guarded regeneration turned up a change nobody had approved — a
+  player-name whitespace difference on 6 non-card events — and refused to write rather than
+  load a diff it could not fully account for (`tl-5m9`). That refusal is the guard working.
 - ~~**28 events** are destroyed on every database load, one of them a goal.~~ **Recovered
   9 Aug** — the re-merge that the phantom purge required also re-ran the fixed event-id
   hash, and 27 real events came back (1 goal, 6 substitutions, 20 yellow cards). The 28th
@@ -54,7 +61,8 @@ this file has a bug worth fixing.
 None of it is lost. It is all in the 1.1 GB of web pages already saved on disk — it just
 got labelled wrong on the way in. **No re-scraping is needed.**
 
-The home record is no longer fiction. The card record still is.
+The home record is no longer fiction. The card record still is — but the parser that made it
+fiction is fixed, so it is now a backfill waiting on one unexplained diff, not an open wound.
 
 ## Is this cleaning the data, or the process that broke it?
 
@@ -96,7 +104,7 @@ and "0 red cards across 3 pages read" are obviously different claims.
 
 ### The mistake that keeps recurring
 
-Eight times now, in different disguises: **a rule that looks obviously right, where nobody
+Nine times now, in different disguises: **a rule that looks obviously right, where nobody
 asked what legitimate data it excludes** — or an acceptance number stated without the
 condition that makes it true.
 
@@ -125,6 +133,13 @@ condition that makes it true.
 - The project's own headline figure, 651 of 1,745, which turned out to depend on two
   unstated conventions: venue-less pages counted as away rather than held out, and a name
   match that silently dropped 41 games spelled differently.
+- **The ninth, and the most instructive, because the corrected answer was already written
+  down.** PR #64's description recited "166 markers = 166 db rows" three times, having pulled
+  the acceptance criteria from `tl-9ap`'s **description** while the bead's own **notes**,
+  directly below, corrected it to 158 / 201. The same PR said "the existing 158 SideArm rows"
+  in an adjacent paragraph — it contradicted itself on the same page and read as authoritative
+  in both places. Caught and rewritten before merge. A correction is only as good as the
+  chance that whoever reads the record scrolls far enough to find it.
 
 The tell is always the same: the number looks clean, and nobody asks what it had to exclude
 to look that way.
@@ -210,14 +225,46 @@ valid row does this throw away?*
   identical in both directions. Both protected invariants held at 0 throughout: cross-perspective
   home contradictions and gender-aware score disagreements.
 
+- **Three ran in parallel and all three landed (9 Aug)** — the first time work was fanned out
+  rather than queued, in three isolated worktrees off one commit, each with its own approval
+  gate.
+  - **A grader for the conference backfill** ([#62](https://github.com/ed-insights-ai/ed-insights-platform/pull/62)) —
+    `data-integrity` counted NULLs in `is_conference_game` and nothing else, so a *wrong*
+    backfill would have read green. The new check re-derives the flag independently,
+    gender- and season-aware, and alarms on disagreement. It verdicts **warn** while the
+    column is still all-NULL rather than `ok`, which is the difference between "correct" and
+    "could not look". Acceptance is proven by pytest over synthetic flipped rows, since there
+    is nothing live to flip yet. It also re-measured its own bead's stale figures — 1,430 /
+    1,533 / 103 became **1,387 / 1,467 / 80** on the post-purge corpus — and hardcodes none
+    of them. Checks: 10 → **11**.
+  - **Parquets are build output** ([#63](https://github.com/ed-insights-ai/ed-insights-platform/pull/63)) —
+    528 derived parquet files untracked and gitignored, superseding ADR-004 with ADR-009.
+    They were burying the ~15 reviewable files in every repair PR under 378 binary ones, and
+    the review bot had been silently refusing to review since PR #52. A fresh clone now
+    bootstraps with `uv run reparse`, which walks the committed HTML cache **offline** and
+    rebuilds all four corpora exactly (2,098 / 75,982 / 22,460 / 4,196, verified from a
+    zero-parquet checkout). `data/source_urls.csv` preserves all 2,098 source URLs, which the
+    cache does not carry and the API serves.
+  - **The red-card parser** ([#64](https://github.com/ed-insights-ai/ed-insights-platform/pull/64))
+    — described above; parser fixed, backfill outstanding.
+
+  What the fan-out bought that a queue would not have: #63's investigation discovered that
+  `uv run scrape` is **not** offline — discovery hits the network before `use_cache` is ever
+  consulted — while #64 was actively planning a backfill that assumed it was. Neither run
+  could see the other. Caught at the approval gate, and now written into
+  [CLAUDE.md](CLAUDE.md).
+
 ## What is next
 
 1. ~~Four measurement bugs in the inspectors~~ — **fixed 8 August**: the archive check,
    the gender-aware duplication key, honest cross-source independence, and a new
-   `site-city-oracle` that finally measures the defining home/away defect. Two checks
-   remain, each correctly blocked on repair work: card fidelity (needs the phantom purge)
-   and the conference-backfill detector (needs the identity canon).
+   `site-city-oracle` that finally measures the defining home/away defect. The
+   conference-backfill detector **landed 9 Aug** (#62). One check remains: card fidelity
+   (`tl-65z.6`), whose 166 target still double-counts the 8 phantom markers.
 2. **The data repair itself** — parser and loader fixes, then re-read the cached pages.
+   The two immediate blockers are both new and both small: `tl-5m9`, the unexplained
+   whitespace diff on 6 events that is holding up the red-card backfill, and `tl-2tc`, the
+   membership-windows table the conference backfill needs now that its grader exists.
 3. **The rib** — the ledger, the boards, the chat.
 
 ## The free regression test the repair creates
