@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -50,6 +51,38 @@ def discover_sidearm_season(year: int, base_url: str) -> list[GameURL]:
         return []
 
     html = resp.text
+
+    # During preseason a wrong-season fallback can contain no boxscores, so
+    # reject the redirect before relying on the year segments below.
+    requested_suffix = f"/schedule/{year}"
+    final_path = urlparse(resp.url).path.rstrip("/")
+    if resp.history and not final_path.endswith(requested_suffix):
+        # A redirect is only a defect when it serves a DIFFERENT season. Sites
+        # routinely canonicalise the current season to the bare /schedule, so
+        # rejecting on the URL shape alone would refuse the very season we
+        # asked for. Resolve the season actually served — the final path's own
+        # year segment first, the page title as a fallback — and reject only
+        # when it differs from `year` or cannot be determined at all.
+        path_match = re.search(r"/schedule/(\d{4}(?:-\d{2})?)$", final_path)
+        title_match = re.search(
+            r"<title[^>]*>\s*(\d{4}(?:-\d{2})?)\b",
+            html,
+            flags=re.IGNORECASE,
+        )
+        match = path_match or title_match
+        # A "2020-21" slug IS season 2020, so compare on the leading year only.
+        served_season = match.group(1) if match else "unknown"
+        served_year = int(served_season[:4]) if match else None
+        if served_year != year:
+            logger.error(
+                "[%d] Season slug redirected: requested %s but served season %s at %s "
+                "— a different season. Not ingesting.",
+                year,
+                schedule_url,
+                served_season,
+                resp.url,
+            )
+            return []
 
     # Extract sport path from base_url for the regex pattern
     # e.g. "https://obutigers.com/sports/mens-soccer" -> "mens-soccer"
