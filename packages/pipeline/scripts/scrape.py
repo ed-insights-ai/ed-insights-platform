@@ -105,7 +105,7 @@ def main() -> None:
 
     # Final cross-school merge
     if len(enabled) > 1:
-        merge_all_schools()
+        merge_all_schools(config=args.config)
         console.print("[bold green]Merged all schools into data/structured/all/")
 
 
