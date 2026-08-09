@@ -80,8 +80,12 @@ select count(*)||'|0' from games where date is not null
 select count(*)||'|0' from games where date is null;
 \echo -n 'is_conference_game NULL|'
 select count(*)||'|0, gender+season aware' from games where is_conference_game is null;
+-- The target is 201, NOT 158. 158 is only the SideArm cards currently misfiled as yellow
+-- (166 markers in the cache, less 8 living in phantom dirs). It silently omits Harding's
+-- 43, which are already stored correctly because HU/HUW are the only programmes on
+-- StatCrew. Grading a correct repair against 158 reads as a 43-row overcount.
 \echo -n 'red cards stored|'
-select count(*)||'|158 (166 markers less 8 in phantom dirs)' from game_events where event_type='red_card';
+select count(*)||'|201 = 43 StatCrew already-correct + 158 SideArm to repair' from game_events where event_type='red_card';
 \echo -n 'HU+HUW rows claiming home|'
 select count(*)||'|roughly half of 337' from games g join schools s on s.id=g.school_id
   where s.abbreviation in ('HU','HUW') and g.home_team='Harding';
@@ -96,10 +100,28 @@ select count(*)||'|0 (523, measured with all 2,140 games dated; 471 across 2,029
   group by 1,2,3,4 having count(*)>1 and count(distinct g.home_team)>1) d;
 -- Note this one groups on the ORDERED (home, away) triple deliberately: it mirrors the
 -- data-integrity `duplication` check's own key, so the numbers are comparable to it.
-\echo -n 'duplicate groups (gender, date, home, away)|'
-select count(*)||'|138 now, 98 after phantoms go' from (select s.gender,g.date,g.home_team,g.away_team
+--
+-- DO NOT read a rise here as a regression. Before PR #52 the two perspectives of a fixture
+-- disagreed on who was home, so each landed in its OWN ordered group and the total read 138.
+-- The home/away repair made them agree, so the two rows now collapse into ONE group: the
+-- total is 641 and the rise IS the repair working. The proof is that this figure and the
+-- unordered fixture-group count are now EQUAL at 641 — pre-repair the ordered figure was
+-- strictly lower, by exactly the 523 contradicting fixtures.
+--
+-- A bare total is therefore unreadable here, so split it. The defect this check exists to
+-- catch is a group holding two rows from the SAME school; a group holding one row from each
+-- of two schools is the legitimate two-perspective pair the repair is meant to produce.
+-- Measured 2026-08-09: 601 legitimate + 40 same-school. Those 40 are entirely the work of
+-- the 42 phantom rows — purge them (tl-o23) and it is 621 legitimate + 0 same-school.
+\echo -n 'duplicate groups, total (gender, date, home, away)|'
+select count(*)||'|641 now, 621 after phantoms go' from (select s.gender,g.date,g.home_team,g.away_team
   from games g join schools s on s.id=g.school_id where g.date is not null
   group by 1,2,3,4 having count(*)>1) d;
+\echo -n '  of which same-school, the TRUE duplicates|'
+select count(*)||'|40 now, 0 after phantoms go' from (
+  select s.gender,g.date,g.home_team,g.away_team, count(*) n, count(distinct g.school_id) sc
+  from games g join schools s on s.id=g.school_id where g.date is not null
+  group by 1,2,3,4 having count(*)>1) d where n > sc;
 \echo -n 'score disagreements, gender-aware|'
 select count(*)||'|0 (39 gender-blind are all m-vs-w pairs)' from (select s.gender,g.date,g.home_team,g.away_team
   from games g join schools s on s.id=g.school_id where g.date is not null group by 1,2,3,4
