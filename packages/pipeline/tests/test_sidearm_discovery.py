@@ -152,6 +152,63 @@ def test_benign_trailing_slash_redirect_ok():
     assert len(games) == 2
 
 
+def test_current_season_canonicalised_to_bare_schedule_is_accepted(caplog):
+    """The common case once a season opens: /schedule/2026 302s to the canonical
+    bare /schedule, which IS season 2026. Rejecting on URL shape alone would
+    refuse the very season we asked for and return zero games."""
+    html = """
+        <title>2026 Men's Soccer Schedule - Example Athletics</title>
+        <a href="/sports/mens-soccer/stats/2026/opponent-a/boxscore/1">Box score</a>
+        <a href="/sports/mens-soccer/stats/2026/opponent-b/boxscore/2">Box score</a>
+    """
+
+    with caplog.at_level(logging.ERROR, logger="src.sidearm_discovery"):
+        games = _discover(
+            2026,
+            html,
+            url=f"{BASE_URL}/schedule",
+            history=[MagicMock()],
+        )
+
+    assert len(games) == 2
+    assert all(game.year == 2026 for game in games)
+    assert not caplog.records
+
+
+def test_redirect_to_covid_slug_is_the_same_season():
+    """A 2020 request served at /schedule/2020-21 is season 2020, not a
+    different season — compare on the leading year, not the whole slug."""
+    html = """
+        <a href="/sports/mens-soccer/stats/2020/opponent-a/boxscore/1">Box score</a>
+    """
+
+    games = _discover(
+        2020,
+        html,
+        url=f"{BASE_URL}/schedule/2020-21",
+        history=[MagicMock()],
+    )
+
+    assert len(games) == 1
+
+
+def test_redirect_with_undeterminable_season_still_fails_loudly(caplog):
+    """No year in the final path and none in the title — we cannot prove which
+    season was served, so refuse rather than ingest on an assumption."""
+    html = "<title>Men's Soccer Schedule - Example Athletics</title>"
+
+    with caplog.at_level(logging.ERROR, logger="src.sidearm_discovery"):
+        games = _discover(
+            2026,
+            html,
+            url=f"{BASE_URL}/schedule",
+            history=[MagicMock()],
+        )
+
+    assert games == []
+    assert any("served season unknown" in message for message in caplog.messages)
+
+
 def test_reachable_2020_season_still_succeeds():
     html = """
         <a href="/sports/womens-soccer/stats/2020/opponent-a/boxscore/1">Box score</a>
