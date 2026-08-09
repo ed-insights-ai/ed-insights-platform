@@ -20,6 +20,10 @@ data/
 !packages/pipeline/data/
 packages/pipeline/data/structured/**/*.parquet
 packages/pipeline/data/*.parquet
+# Make target sentinel written by `uv run reparse` to gate `make seed`. Build
+# output like the parquets it stands for; without this it is the one thing left
+# permanently dirty in `git status` after a bootstrap.
+packages/pipeline/data/structured/.reparse-complete
 
 # Raw scraped HTML is a re-fetchable cache, not an artifact. The blanket negation
 # above swept it into git by accident: 2,140 files / 1.1 GB. This rule stops the
