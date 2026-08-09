@@ -168,6 +168,9 @@ def test_reparse_routes_parsers_preserves_urls_and_writes_merges(
         1_202_401: "https://example.test/statcrew",
         9_202_502: "https://example.test/sidearm",
     }
+    for kind in reparse.PARQUET_KINDS:
+        assert (structured / "all" / f"{kind}.parquet").is_file()
+    assert (structured / reparse.COMPLETION_MARKER).read_text() == "games=2\n"
 
 
 def test_reparse_rejects_missing_source_url_before_writing(tmp_path):
@@ -223,3 +226,81 @@ def test_reparse_reports_parser_failure_before_writing(tmp_path, monkeypatch):
         )
 
     assert not (output_root / "data" / "structured").exists()
+
+
+def test_reparse_preserves_existing_output_when_staged_merge_is_incomplete(
+    tmp_path,
+    monkeypatch,
+):
+    raw_html = tmp_path / "raw_html"
+    page = raw_html / "hu" / "2024" / "game_01.html"
+    page.parent.mkdir(parents=True)
+    page.write_text("statcrew", encoding="utf-8")
+    config = tmp_path / "schools.toml"
+    _write_config(config)
+    manifest = tmp_path / "source_urls.csv"
+    manifest.write_text(
+        "game_id,source_url\n1202401,https://example.test/statcrew\n",
+        encoding="utf-8",
+    )
+    output_root = tmp_path / "output"
+    structured = output_root / "data" / "structured"
+    structured.mkdir(parents=True)
+    prior_output = structured / "prior-output"
+    prior_output.write_text("preserved", encoding="utf-8")
+
+    monkeypatch.setattr(
+        reparse,
+        "parse_game",
+        lambda html, game_id, source_url, season_year, school_name="": _parsed_game(
+            game_id,
+            source_url,
+            season_year,
+        ),
+    )
+
+    def write_partial_merge(*, config, structured_root):
+        all_dir = Path(structured_root) / "all"
+        all_dir.mkdir(parents=True)
+        (all_dir / "games.parquet").write_bytes(b"partial")
+        return all_dir
+
+    monkeypatch.setattr(reparse, "merge_all_schools", write_partial_merge)
+
+    with pytest.raises(RuntimeError, match="missing or has empty required outputs"):
+        reparse.reparse_archive(
+            raw_html_dir=raw_html,
+            source_urls_path=manifest,
+            config_path=config,
+            output_root=output_root,
+        )
+
+    assert prior_output.read_text(encoding="utf-8") == "preserved"
+    assert not list((output_root / "data").glob(".structured-staging-*"))
+
+
+def test_publish_staged_output_restores_backup_when_install_fails(
+    tmp_path,
+    monkeypatch,
+):
+    structured = tmp_path / "structured"
+    structured.mkdir()
+    (structured / "version").write_text("prior", encoding="utf-8")
+    staging = tmp_path / ".structured-staging-test"
+    staging.mkdir()
+    (staging / "version").write_text("replacement", encoding="utf-8")
+    original_rename = Path.rename
+
+    def fail_install(path, target):
+        if path == staging and target == structured:
+            raise OSError("install failed")
+        return original_rename(path, target)
+
+    monkeypatch.setattr(Path, "rename", fail_install)
+
+    with pytest.raises(OSError, match="install failed"):
+        reparse._publish_staged_output(staging, structured)
+
+    assert (structured / "version").read_text(encoding="utf-8") == "prior"
+    assert (staging / "version").read_text(encoding="utf-8") == "replacement"
+    assert not list(tmp_path.glob(".structured-backup-*"))

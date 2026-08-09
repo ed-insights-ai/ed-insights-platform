@@ -7,8 +7,9 @@ import csv
 import logging
 import re
 import shutil
+import tempfile
+import uuid
 from collections import defaultdict
-from contextlib import chdir
 from pathlib import Path
 
 from src.config import DEFAULT_CONFIG, SchoolConfig, load_schools
@@ -22,6 +23,8 @@ PIPELINE_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RAW_HTML = PIPELINE_ROOT / "data" / "raw_html"
 DEFAULT_SOURCE_URLS = PIPELINE_ROOT / "data" / "source_urls.csv"
 GAME_FILE_PATTERN = re.compile(r"game_(\d+)\.html")
+PARQUET_KINDS = ("games", "player_stats", "events", "team_stats")
+COMPLETION_MARKER = ".reparse-complete"
 
 
 def _parse_archive_path(path: Path, raw_html_dir: Path) -> tuple[str, int, int]:
@@ -107,6 +110,57 @@ def _parse_cached_game(
     )
 
 
+def _validate_staged_output(
+    structured_dir: Path,
+    seasons: set[tuple[str, int]],
+) -> None:
+    """Require every parquet produced by a complete archive rebuild."""
+    required = [
+        structured_dir / "all" / f"{kind}.parquet" for kind in PARQUET_KINDS
+    ]
+    for school_abbrev in sorted({school for school, _ in seasons}):
+        required.extend(
+            structured_dir / school_abbrev.lower() / "all" / f"{kind}.parquet"
+            for kind in PARQUET_KINDS
+        )
+    for school_abbrev, year in sorted(seasons):
+        required.extend(
+            structured_dir / school_abbrev.lower() / str(year) / f"{kind}.parquet"
+            for kind in PARQUET_KINDS
+        )
+
+    incomplete = [
+        path for path in required if not path.is_file() or path.stat().st_size == 0
+    ]
+    if incomplete:
+        paths = ", ".join(
+            str(path.relative_to(structured_dir)) for path in incomplete[:5]
+        )
+        raise RuntimeError(
+            f"Staged reparse is missing or has empty required outputs: {paths}"
+        )
+
+
+def _publish_staged_output(staging_dir: Path, structured_dir: Path) -> None:
+    """Install a complete staged tree, restoring the prior tree on failure."""
+    backup_dir = structured_dir.parent / (
+        f".{structured_dir.name}-backup-{uuid.uuid4().hex}"
+    )
+    moved_existing = False
+    try:
+        if structured_dir.exists():
+            structured_dir.rename(backup_dir)
+            moved_existing = True
+        staging_dir.rename(structured_dir)
+    except BaseException:
+        if moved_existing and backup_dir.exists() and not structured_dir.exists():
+            backup_dir.rename(structured_dir)
+        raise
+
+    if moved_existing:
+        shutil.rmtree(backup_dir)
+
+
 def reparse_archive(
     *,
     raw_html_dir: str | Path = DEFAULT_RAW_HTML,
@@ -171,17 +225,39 @@ def reparse_archive(
 
     output_root.mkdir(parents=True, exist_ok=True)
     structured_dir = output_root / "data" / "structured"
-    if structured_dir.exists():
-        shutil.rmtree(structured_dir)
-
-    with chdir(output_root):
+    structured_dir.parent.mkdir(parents=True, exist_ok=True)
+    staging_dir = Path(
+        tempfile.mkdtemp(
+            prefix=f".{structured_dir.name}-staging-",
+            dir=structured_dir.parent,
+        )
+    )
+    try:
         school_abbreviations: set[str] = set()
         for (school_abbrev, year), parsed_games in sorted(parsed_by_season.items()):
-            save_season(parsed_games, year, school_abbrev=school_abbrev)
+            save_season(
+                parsed_games,
+                year,
+                school_abbrev=school_abbrev,
+                structured_root=staging_dir,
+            )
             school_abbreviations.add(school_abbrev)
         for school_abbrev in sorted(school_abbreviations):
-            merge_all_seasons(school_abbrev=school_abbrev)
-        merge_all_schools(config=config_path)
+            merge_all_seasons(
+                school_abbrev=school_abbrev,
+                structured_root=staging_dir,
+            )
+        merge_all_schools(config=config_path, structured_root=staging_dir)
+        _validate_staged_output(staging_dir, set(parsed_by_season))
+        (staging_dir / COMPLETION_MARKER).write_text(
+            f"games={len(encountered_game_ids)}\n",
+            encoding="utf-8",
+        )
+        _publish_staged_output(staging_dir, structured_dir)
+    except BaseException:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir)
+        raise
 
     logger.info(
         "Reparsed %d cached games into %s",

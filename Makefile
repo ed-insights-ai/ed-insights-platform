@@ -43,10 +43,10 @@ migrate: ## Run Alembic migrations inside the API container
 data: ## Rebuild parquet data offline from the cached HTML archive
 	cd packages/pipeline && uv run reparse
 
-packages/pipeline/data/structured/all/games.parquet:
+packages/pipeline/data/structured/.reparse-complete:
 	$(MAKE) data
 
-seed: packages/pipeline/data/structured/all/games.parquet ## Load parquet data into Postgres
+seed: packages/pipeline/data/structured/.reparse-complete ## Load parquet data into Postgres
 	cd packages/pipeline && uv run load-db
 
 # ---------------------------------------------------------------------------
