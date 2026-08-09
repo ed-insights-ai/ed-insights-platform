@@ -4,7 +4,7 @@
 
 **[STATUS.md](STATUS.md) is the plain-language version — read that first if you have been away.** This page is the state of the work: what is done, what is actionable, and what is waiting on what.
 
-26/89 tasks complete · **27 actionable now** · 36 blocked · 0 in progress · **18 days** to the season (2026-08-27)
+26/90 tasks complete · **28 actionable now** · 36 blocked · 0 in progress · **18 days** to the season (2026-08-27)
 
 ## Pick up next
 
@@ -26,7 +26,7 @@ Nothing blocks these. Highest priority first.
 | P1 | `tl-65z.8` | Correct seven smaller check defects | Instrument |
 | P1 | `tl-7xj` | bead-land: close the cycle at merge — close the bead, sync, re-emit both lenses | — |
 | P1 | `tl-9ap` | Recover the SideArm red cards stored as yellow (gh-23) ([#23](https://github.com/ed-insights-ai/ed-insights-platform/issues/23)) | S0.5 |
-| | | *…and 13 more* | |
+| | | *…and 14 more* | |
 
 ```bash
 bd ready --exclude-type=epic   # the live version of this table
