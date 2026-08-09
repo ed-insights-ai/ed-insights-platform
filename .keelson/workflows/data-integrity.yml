@@ -69,6 +69,23 @@ nodes:
       printf '{"check":"conference-flag","verdict":"%s","headline":"is_conference_game NULL for %s of %s rows; away_conference NULL for %s","cause":"nothing populates it — conferences.py:55-59 therefore returns an OVERALL record labelled standings"}\n' \
         "$V" "$NULLS" "$TOTAL" "$AWAYC"
 
+  # ── 2b. Independent conference derivation ────────────────────────────────
+  - id: conference-derivation
+    timeout: 120000
+    bash: |
+      set -uo pipefail
+      OUT=$( (cd packages/pipeline && uv run conference-audit) 2>/dev/null ); RC=$?
+      if [ "$RC" -ne 0 ] || [ -z "${OUT:-}" ]; then
+        printf '{"check":"conference-derivation","verdict":"alarm","headline":"CHECK DID NOT RUN — conference-audit exited %s or returned no output, so no rows were measured.","cause":"Run cd packages/pipeline && uv run conference-audit to expose the database, query, or Python error hidden from this read-only workflow node."}\n' "$RC"
+        exit 0
+      fi
+      JSON=$(printf '%s\n' "$OUT" | awk '/^\{/{line=$0} END{print line}')
+      if [ -z "${JSON:-}" ] || [[ "$JSON" != \{* ]] || ! printf '%s' "$JSON" | jq -e 'type == "object" and .check == "conference-derivation" and (.verdict == "ok" or .verdict == "warn" or .verdict == "alarm") and (.headline | type == "string" and length > 0)' >/dev/null 2>&1; then
+        printf '{"check":"conference-derivation","verdict":"alarm","headline":"CHECK DID NOT RUN — conference-audit returned no valid one-line verdict JSON, so no counts can be trusted.","cause":"The CLI must end with one JSON object containing check, verdict, and a non-empty denominator-bearing headline."}\n'
+        exit 0
+      fi
+      printf '%s\n' "$JSON"
+
   # ── 3. Match duplication ────────────────────────────────────────────────
   - id: duplication
     timeout: 60000
