@@ -19,6 +19,7 @@ from src.sidearm_parser import (
 
 FIXTURE = Path("tests/fixtures/sidearm_boxscore_6126.html")
 FIXTURE_2016 = Path("tests/fixtures/sidearm_boxscore_2439_2016.html")
+FIXTURE_DIR = Path("tests/fixtures")
 
 
 @pytest.fixture
@@ -238,14 +239,14 @@ class TestHomeAwayDetection:
     @pytest.mark.parametrize(
         ("filename", "expected_home", "expected_away"),
         [
-            ("game_01.html", "East Central", "Oklahoma Christian"),
-            ("game_02.html", "Rogers State", "East Central"),
+            ("sidearm_ecu_home.html", "East Central", "Oklahoma Christian"),
+            ("sidearm_ecu_away.html", "Rogers State", "East Central"),
         ],
     )
     def test_venue_resolves_ecu_home_and_away(
         self, filename, expected_home, expected_away
     ):
-        html = Path(f"data/raw_html/ecu/2016/{filename}").read_text(encoding="utf-8")
+        html = (FIXTURE_DIR / filename).read_text(encoding="utf-8")
         result = parse_sidearm_game(
             html,
             game_id=320160,

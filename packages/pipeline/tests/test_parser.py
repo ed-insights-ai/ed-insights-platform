@@ -9,6 +9,8 @@ import pytest
 from src.parser import build_team_abbrev_map, parse_game, parse_game_header
 
 CACHED_HTML = Path("data/raw_html/2025/game_01.html")
+STATCREW_HARDING_AWAY_FIXTURE = Path("tests/fixtures/statcrew_harding_away.html")
+STATCREW_HARDING_HOME_FIXTURE = Path("tests/fixtures/statcrew_harding_home.html")
 
 
 @pytest.mark.skipif(not CACHED_HTML.exists(), reason="No cached HTML for 2025 game 01")
@@ -70,7 +72,7 @@ def test_parse_game_header_textual_date_venue_fallback():
 
 
 def test_statcrew_venue_places_harding_away_and_keeps_scores_aligned():
-    html = Path("data/raw_html/hu/2025/game_09.html").read_text(encoding="utf-8")
+    html = STATCREW_HARDING_AWAY_FIXTURE.read_text(encoding="utf-8")
     result = parse_game(
         html,
         game_id=1202509,
@@ -89,7 +91,7 @@ def test_statcrew_venue_places_harding_away_and_keeps_scores_aligned():
 
 
 def test_statcrew_venue_overrides_order_when_harding_is_home():
-    html = Path("data/raw_html/hu/2024/game_18.html").read_text(encoding="utf-8")
+    html = STATCREW_HARDING_HOME_FIXTURE.read_text(encoding="utf-8")
     result = parse_game(
         html,
         game_id=1202418,
