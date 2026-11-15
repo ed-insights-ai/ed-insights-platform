@@ -1,6 +1,6 @@
 # Where we are
 
-*Plain-language status. Updated as things land — last updated 9 August 2026.*
+*Plain-language status. Updated as things land — last updated 15 November 2026.*
 
 This page is the one to read first if you have been away. For the task list see
 [ROADMAP.md](ROADMAP.md); for the pitch — the thesis, the board mockups, the nine open forks
@@ -54,9 +54,15 @@ what *describes* those scores is wrong:
 
 The un-struck figures are **pre-repair baselines, frozen as scraped** — they describe the
 defect, not the current database. The live state of every one of these metrics, with a
-computed verdict, is the **`data-vitals` lens** on the Chamber surface, measured against
-Postgres every half hour. When this file and that lens disagree, the lens is right and
-this file has a bug worth fixing.
+computed verdict, comes from the **`data-integrity` checks**, measured against Postgres
+on demand (`keelson workflow run data-integrity --project ed-insights-platform`). When
+this file and those checks disagree, the checks are right and this file has a bug worth
+fixing. *(The Chamber `data-vitals` lens that used to do this is retired — the Chamber
+rib was uninstalled, and on 15 Nov 2026 we decided not to bring it back.)*
+
+**End-of-season cleanup, 15 Nov 2026.** The red-card backfill was closed **unfinished**
+(`tl-9ap`, with its blocker `tl-5m9`): the parser fix is live, but Postgres still holds 43
+red cards against the 201 target. Reopen both beads together to finish it.
 
 None of it is lost. It is all in the 1.1 GB of web pages already saved on disk — it just
 got labelled wrong on the way in. **No re-scraping is needed.**
@@ -166,7 +172,7 @@ valid row does this throw away?*
   a Keelson `bead-work` run with a human approval gate, a three-lens review, and a
   review-bot pass — and the run itself found a constraint nobody had written down
   (Postgres rejects the raw `Sep. 1, 2016` form, so dates must be normalised before load).
-  The `data-vitals` lens shows the first repair metric at target.
+  The `data-vitals` lens (since retired) showed the first repair metric at target.
 - **The identity canon landed (8 Aug)** — one authoritative answer to "which programme is
   this row about?", committed as `canon.json`
   ([#46](https://github.com/ed-insights-ai/ed-insights-platform/pull/46)): all 221 distinct
@@ -291,11 +297,11 @@ bd memories                    # what we have learned the hard way
 python3 scripts/roadmap.py     # regenerate ROADMAP.md
 ```
 
-There are two live boards in Keelson — open `http://127.0.0.1:7878`, the **Chamber**
-surface: the **`touchline-queue`** lens (the work queue, read directly from beads) and the
-**`data-vitals`** lens (every repair metric measured against Postgres, with a computed
-verdict per row — the *live* values; this file keeps only the frozen pre-repair
-baselines). Both refresh every 30 minutes while pinned.
+The work queue lives in the **Beads** rib in Keelson (`http://127.0.0.1:7878`), and the
+live repair metrics come from the `data-integrity` checks — every metric measured against
+Postgres with a computed verdict, the *live* values; this file keeps only the frozen
+pre-repair baselines. The two Chamber boards that used to show these (`touchline-queue`
+and `data-vitals`) are retired along with the Chamber rib.
 
 Keelson also carries the project's standing constitution in its **project notebook**,
 injected into every agent turn it runs, and a **governed memory**: `bead-work` runs leave
